@@ -1,0 +1,17 @@
+name: highstreets
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - m2r=0.2.1
+  - sphinx=3.4.3
+  - sphinx_rtd_theme=0.5.1
+  - pytest=6.2.1
+  - pytest-runner=5.1
+  - click=7.1.2
+  - black=^19.10b0
+  - coverage=5.0.1
+  - pytest-cov=2.11.1
+  - flake8 >= 3.7.9
+  - flake8-black >= 0.1.1
+  
