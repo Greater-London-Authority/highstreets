@@ -17,7 +17,7 @@ Author: Conor Dempsey
   <a href="#how-to-use">How To Use</a> •
   <a href="#roadmap">Roadmap</a> •
   <a href="#contribute">Contribute</a> •
-  <a href="#contact">Contacticense</a>
+  <a href="#contact">Contact</a>
 </p>
 
 
@@ -52,7 +52,7 @@ A good place to start is notebooks/reports which contains Jupyter notebooks that
 %autoreload 2
 ```
 
-There are currently two data files needed to run these analyses. These should be placed in the data/raw folder and can be obtained from the shared drives (contact Conor for more info).
+There are currently two data files needed to run these analyses. These should be placed in the data/raw subdirectory and can be obtained from the shared drives (contact Conor for more info).
 
 * yoy_highstreets.csv
 * highstreet_profiles_updated.xlsx
