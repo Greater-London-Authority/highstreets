@@ -34,7 +34,7 @@ previous section with the product description.
 
 ## How To Use
 
-To clone and run this application, you'll need [Git](https://git-scm.com) and [conda] (https://docs.conda.io/en/latest/miniconda.html) installed on your computer. Note: this project has been developed on WSL and has not been tested on other platforms. 
+To clone and run this application, you'll need [Git](https://git-scm.com) and [conda](https://docs.conda.io/en/latest/miniconda.html) installed on your computer. Note: this project has been developed on WSL and has not been tested on other platforms. 
 
 [(Back to top)](#demo-preview)
 
@@ -56,6 +56,20 @@ $ pip install .
 Now you will be able to use the modules defined in the package.
 
 A good place to start is notebooks/reports which contains Jupyter notebooks that demonstrate the analyses that have been done so far. 
+
+There are currently two data files needed to run these analyses. These should be placed in the data/raw folder and can be obtained from the shared drives (contact Conor for more info).
+
+* yoy_highstreets.csv
+* highstreet_profiles_updated.xlsx
+
+<!-- ROADMAP -->
+## Roadmap
+
+- [ ] Add pipeline to produce yoy data from raw data
+- [ ] Add scripts to produce figures of all HSs w fits
+- [ ] Add scripts to produce grouped means by year for different groupings
+- [ ] Add script comparing results of different clustering approaches (k-means on full time series, k-means on fit parameters, k-means with DTW, hierarchical clustering)
+  
 
 
 # Contribute
