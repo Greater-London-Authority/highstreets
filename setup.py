@@ -8,10 +8,7 @@ setup(
     description='Analysis and modeling of high street profiles. ',
     author='Conor Dempsey',
     license='MIT',
-    install_requires=[
-            'sphinx'
-        ],
-    
+    install_requires=[],
 )
 
 load_dotenv()
