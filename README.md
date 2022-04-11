@@ -1,8 +1,8 @@
-![Banner](banner.pdf)
+![Banner](<https://raw.githubusercontent.com/Greater-London-Authority/highstreets/main/banner.png?token=GHSAT0AAAAAABSBVYXVCENQELX2NZKUAHRWYSUMEWQ>)
 <!-- See https://github.com/rmariuzzo/github-banner -->
 
 <div align="center">
-<h1> High streets </h1>
+<h1> London High Streets </h1>
 <h4> Analysis and modeling of London high street profiles </h4>
 </div>
 
