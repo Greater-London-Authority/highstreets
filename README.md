@@ -36,14 +36,9 @@ $ git clone https://github.com/Greater-London-Authority/highstreets
 $ cd highstreets
 
 # Install dependencies and create the conda environment for the project
-$ conda env create -f environment.yml
+$ conda env create -f highstreets.yml
 $ conda activate highstreets
-
-# Install the package to your conda env 
-$ conda develop .
 ```
-
-Now you will be able to use the modules defined in the package.
 
 A good place to start is notebooks/reports which contains Jupyter notebooks that demonstrate the analyses that have been done so far. Note: if you are editing the package files and you want these changes to be automatically registered in any Jupyter notebooks then put following command at the top of your notebook:
 

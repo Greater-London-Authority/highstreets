@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from dotenv import load_dotenv, find_dotenv
 import os
 import matplotlib as mpl
+import numpy as np
 
 load_dotenv(find_dotenv())
 
@@ -74,3 +75,40 @@ def plot_all_profiles_full(data,fit_lines):
             ax.grid(b=True, which='minor', color='white', linewidth=0.1)
 
             current_plot = current_plot + 1
+
+
+
+def plot_highstreets_grouped(plot_array, plot_tvec, sort_cols, nb_dates, filename):
+    n_grp = 4
+
+    _, axes = plt.subplots(n_grp, n_grp,figsize=(14,14), sharey=True, sharex=True)
+
+    array_w_sorting_cols = np.concatenate((sort_cols[0][:,None],sort_cols[1],plot_array), axis=1)
+
+    # sort the array by the first sorting column
+    array_sorted_by_col_one = array_w_sorting_cols[array_w_sorting_cols[:,0].argsort()]
+
+    # split the indices into groups by mean
+    array_split_by_col_one = np.array_split(array_sorted_by_col_one,n_grp)
+
+    hs_per_group = int(np.ceil(plot_array.shape[0] / (n_grp*n_grp)))
+    colors = sns.color_palette("BuGn", n_colors = hs_per_group)
+
+    # loop through groups sorting each by slope and splitting by slope
+    axn=[]
+    for i, group in enumerate(array_split_by_col_one):
+        group_sorted_by_col_two = group[group[:,1].argsort()]
+        group_split_by_col_two = np.array_split(group_sorted_by_col_two, n_grp)
+        for j, subgroup in enumerate(group_split_by_col_two):
+            subgroup = subgroup[subgroup[:,1].argsort()]
+            #axes[i][j].set_prop_cycle(color=colors)
+            axes[i][j].plot(plot_tvec, np.transpose(subgroup[:,2:]), '0.7',linewidth=1)
+            axes[i][j].plot((plot_tvec[0],plot_tvec[-1]),(1,1),'0.0')
+            axes[i][j].plot(plot_tvec, subgroup[:,2:].mean(0),'b', linewidth=2)
+            axes[i][j].set_ylim([0,4])
+            axes[i][j].plot([nb_dates, nb_dates],[0, 5],'--k', linewidth=0.5)
+            axes[i][j].set_xticks(pd.to_datetime(['2020-02','2020-04','2020-06','2020-08','2020-10','2020-12']))
+            axes[i][j].set_xticklabels(['Feb 20','Apr 20','Jun 20','Aug 20','Oct 20','Dec 20'], rotation=45)  
+        axes[i][0].set_ylabel('MRLI relative to 2019')
+
+    plt.savefig(PROJECT_ROOT + '/reports/figures/' + filename)
