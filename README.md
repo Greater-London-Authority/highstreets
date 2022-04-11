@@ -1,4 +1,4 @@
-![Banner]('https://github.com/Greater-London-Authority/highstreets/banner.pdf')
+![Banner](banner.pdf)
 <!-- See https://github.com/rmariuzzo/github-banner -->
 
 <div align="center">
