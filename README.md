@@ -1,4 +1,4 @@
-![Banner](<https://raw.githubusercontent.com/Greater-London-Authority/highstreets/main/banner.png?token=GHSAT0AAAAAABSBVYXVCENQELX2NZKUAHRWYSUMEWQ>)
+![Banner](<banner.png>)
 <!-- See https://github.com/rmariuzzo/github-banner -->
 
 <div align="center">
