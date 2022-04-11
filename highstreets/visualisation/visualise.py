@@ -78,7 +78,7 @@ def plot_all_profiles_full(data,fit_lines):
 
 
 
-def plot_highstreets_grouped(plot_array, plot_tvec, sort_cols, nb_dates, filename):
+def plot_highstreets_grouped(plot_array, plot_tvec, sort_cols, nb_dates, filename,xlim=('2020-01-01','2020-12-31')):
     n_grp = 4
 
     _, axes = plt.subplots(n_grp, n_grp,figsize=(14,14), sharey=True, sharex=True)
@@ -109,6 +109,7 @@ def plot_highstreets_grouped(plot_array, plot_tvec, sort_cols, nb_dates, filenam
             axes[i][j].plot([nb_dates, nb_dates],[0, 5],'--k', linewidth=0.5)
             axes[i][j].set_xticks(pd.to_datetime(['2020-02','2020-04','2020-06','2020-08','2020-10','2020-12']))
             axes[i][j].set_xticklabels(['Feb 20','Apr 20','Jun 20','Aug 20','Oct 20','Dec 20'], rotation=45)  
+            axes[i][j].set_xlim(pd.to_datetime(xlim))
         axes[i][0].set_ylabel('MRLI relative to 2019')
 
-    plt.savefig(PROJECT_ROOT + '/reports/figures/' + filename)
+    plt.savefig(PROJECT_ROOT + '/' + filename)
