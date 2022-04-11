@@ -1,4 +1,4 @@
-![Banner]('https://github.com/Greater-London-Authority/highstreets/reports/figures/2020_hs_by_mean_slope.pdf')
+![Banner]('https://github.com/Greater-London-Authority/highstreets/banner.pdf')
 <!-- See https://github.com/rmariuzzo/github-banner -->
 
 <div align="center">
