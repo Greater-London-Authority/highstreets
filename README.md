@@ -26,7 +26,7 @@ Author: Conor Dempsey
 ## How To Use
 [(Back to top)](#demo-preview)
 
-To clone and run you'll need [Git](https://git-scm.com) and [conda](https://docs.conda.io/en/latest/miniconda.html) installed. Note: this project has been developed on WSL and has not been tested on other platforms. 
+To clone and run you'll need [Git](https://git-scm.com) and [conda](https://docs.conda.io/en/latest/miniconda.html) installed (I recommend using the Miniconda distribution of Anaconda). Note: this project has been developed on WSL and has not been tested on other platforms. 
 
 ```bash
 # Clone this repository (you'll need your GlA github login)
@@ -61,10 +61,15 @@ There are currently two data files needed to run these analyses. These should be
 ## Roadmap
 [(Back to top)](#demo-preview)
 
-- [ ] Add pipeline to produce yoy data from raw data
+- [ ] Make ordered profile plots for 2020, 2021, full period, sorted by intial hit and fit slope
+- [ ] Quantify/visualisse/describe relationship between 2020 and 2021 parameters
 - [ ] Add scripts to produce figures of all HSs w fits
-- [ ] Add scripts to produce grouped means by year for different groupings
 - [ ] Add script comparing results of different clustering approaches (k-means on full time series, k-means on fit parameters, k-means with DTW, hierarchical clustering)
+- [ ] Produce figure showing progressive cluster breakdowns using hierarchical clustering
+- [ ] Begin building regression models to see what features can predict differences in recovery profile. 
+- [ ] Produce analyses to understand sources of higher noise in some highstreets and not others. 
+- [ ] Add pipeline to produce yoy data from raw data
+
   
 
 
