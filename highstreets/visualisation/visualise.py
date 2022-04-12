@@ -14,7 +14,14 @@ PROFILE_FILE = os.environ.get("PROFILE_FILE")
 PROJECT_ROOT = os.environ.get("PROJECT_ROOT")
 
 def plot_all_profiles_full(data,fit_lines):
+    """Plots each highstreet's yoy spending along with lines segments
+    fit to the 2020 and 2021 recovery periods
 
+    :param data: A dict with keys '2020','2021','full', where each value is a pandas dataframe with one column per highstreet, each covering the corresponding period (2020, 2021, full period)
+    :type data: Dict of three pandas dataframes
+    :param fit_lines: A dict with keys '2020','2021','full', containing numpy arrays of size T_period x N_highstreets, each column being the values of a line fit to the corresponding period's data for each highstreet.
+    :type fit_lines: Dict of numpy arrays
+    """
     nrows = 6
     ncols = 3
     colors = sns.color_palette()
@@ -78,10 +85,25 @@ def plot_all_profiles_full(data,fit_lines):
 
 
 
-def plot_highstreets_grouped(plot_array, plot_tvec, sort_cols, nb_dates, filename,xlim=('2020-01-01','2020-12-31')):
+def plot_highstreets_grouped(plot_array, plot_tvec, sort_cols, nb_dates, filename,xlim=('2020-01-01','2021-12-31'),figure_title='Highstreet profiles grouped'):
+    """_summary_
+
+    :param plot_array: _description_
+    :type plot_array: _type_
+    :param plot_tvec: _description_
+    :type plot_tvec: _type_
+    :param sort_cols: _description_
+    :type sort_cols: _type_
+    :param nb_dates: _description_
+    :type nb_dates: _type_
+    :param filename: _description_
+    :type filename: _type_
+    :param xlim: _description_, defaults to ('2020-01-01','2020-12-31')
+    :type xlim: tuple, optional
+    """    
     n_grp = 4
 
-    _, axes = plt.subplots(n_grp, n_grp,figsize=(14,14), sharey=True, sharex=True)
+    fig, axes = plt.subplots(n_grp, n_grp,figsize=(14,14), sharey=True, sharex=True)
 
     array_w_sorting_cols = np.concatenate((sort_cols[0][:,None],sort_cols[1],plot_array), axis=1)
 
@@ -91,11 +113,10 @@ def plot_highstreets_grouped(plot_array, plot_tvec, sort_cols, nb_dates, filenam
     # split the indices into groups by mean
     array_split_by_col_one = np.array_split(array_sorted_by_col_one,n_grp)
 
-    hs_per_group = int(np.ceil(plot_array.shape[0] / (n_grp*n_grp)))
-    colors = sns.color_palette("BuGn", n_colors = hs_per_group)
+    xticks = pd.to_datetime(['2020-02','2020-04','2020-06','2020-08','2020-10','2020-12','2021-02','2021-04','2021-06','2021-08'])
+    xticklabels = ['Feb 20','Apr 20','Jun 20','Aug 20','Oct 20','Dec 20','Feb 21','Apr 21','Jun 21','Aug 21']
 
     # loop through groups sorting each by slope and splitting by slope
-    axn=[]
     for i, group in enumerate(array_split_by_col_one):
         group_sorted_by_col_two = group[group[:,1].argsort()]
         group_split_by_col_two = np.array_split(group_sorted_by_col_two, n_grp)
@@ -107,9 +128,11 @@ def plot_highstreets_grouped(plot_array, plot_tvec, sort_cols, nb_dates, filenam
             axes[i][j].plot(plot_tvec, subgroup[:,2:].mean(0),'b', linewidth=2)
             axes[i][j].set_ylim([0,4])
             axes[i][j].plot([nb_dates, nb_dates],[0, 5],'--k', linewidth=0.5)
-            axes[i][j].set_xticks(pd.to_datetime(['2020-02','2020-04','2020-06','2020-08','2020-10','2020-12']))
-            axes[i][j].set_xticklabels(['Feb 20','Apr 20','Jun 20','Aug 20','Oct 20','Dec 20'], rotation=45)  
+            axes[i][j].set_xticks(xticks)
+            axes[i][j].set_xticklabels(xticklabels, rotation=45)  
             axes[i][j].set_xlim(pd.to_datetime(xlim))
         axes[i][0].set_ylabel('MRLI relative to 2019')
 
-    plt.savefig(PROJECT_ROOT + '/' + filename)
+    fig.suptitle(figure_title, fontsize=16, y=0.91)
+
+    plt.savefig(PROJECT_ROOT + '/reports/figures/' + filename)
