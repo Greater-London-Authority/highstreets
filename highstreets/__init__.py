@@ -1,8 +1,8 @@
 """highstreets package"""
 # -*- coding: utf-8 -*-
 
-__author__ = 'Conor Dempsey'
-__email__ = 'conor.dempsey@london.gov.uk'
+__author__ = "Conor Dempsey"
+__email__ = "conor.dempsey@london.gov.uk"
 
 try:
     from importlib.metadata import version, PackageNotFoundError  # type: ignore
