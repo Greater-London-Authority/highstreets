@@ -56,7 +56,7 @@ There are currently two data files needed to run these analyses. These should be
 ## Roadmap
 [(Back to top)](#demo-preview)
 
-- [ ] Make ordered profile plots for 2020, 2021, full period, sorted by intial hit and fit slope
+- [x] Make ordered profile plots for 2020, 2021, full period, sorted by mean and fit slope
 - [ ] Quantify/visualisse/describe relationship between 2020 and 2021 parameters
 - [ ] Add scripts to produce figures of all HSs w fits
 - [ ] Add script comparing results of different clustering approaches (k-means on full time series, k-means on fit parameters, k-means with DTW, hierarchical clustering)
