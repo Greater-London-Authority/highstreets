@@ -1,5 +1,5 @@
-from setuptools import find_packages, setup
 from dotenv import load_dotenv
+from setuptools import find_packages, setup
 
 setup(
     name="highstreets",

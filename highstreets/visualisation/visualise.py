@@ -1,11 +1,14 @@
-from matplotlib.backends.backend_pdf import PdfPages
-import seaborn as sns
-import pandas as pd
-import matplotlib.pyplot as plt
-from dotenv import load_dotenv, find_dotenv
+# standard library
 import os
+
+# third-party packages
+from dotenv import find_dotenv, load_dotenv
 import matplotlib as mpl
+from matplotlib.backends.backend_pdf import PdfPages
+import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
+import seaborn as sns
 
 load_dotenv(find_dotenv())
 
