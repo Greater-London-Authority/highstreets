@@ -27,7 +27,7 @@ Author: Conor Dempsey
 ## How To Use
 [(Back to top)](#demo-preview)
 
-To clone and run you'll need [Git](https://git-scm.com) and [conda](https://docs.conda.io/en/latest/miniconda.html) installed (I recommend using the Miniconda distribution of Anaconda). Note: this project has been developed on WSL and has not been tested on other platforms.
+To clone and run you'll need [Git](https://git-scm.com) and [poetry](https://python-poetry.org/docs/master/#installing-with-the-official-installerl) installed.
 
 ```bash
 # Clone this repository (you'll need your GlA github login)
@@ -36,9 +36,11 @@ $ git clone https://github.com/Greater-London-Authority/highstreets
 # Go into the repository
 $ cd highstreets
 
-# Install dependencies and create the conda environment for the project
-$ conda env create -f highstreets.yml
-$ conda activate highstreets
+# Install dependencies and create the environment for the project
+$ poetry install
+
+# Activate the virtual environment
+$ poetry shell
 ```
 
 A good place to start is notebooks/reports which contains Jupyter notebooks that demonstrate the analyses that have been done so far. Note: if you are editing the package files and you want these changes to be automatically registered in any Jupyter notebooks then put following command at the top of your notebook:

@@ -1,10 +1,11 @@
 # standard library
 import os
 
-# third-party packages
-from dotenv import find_dotenv, load_dotenv
 import numpy as np
 import pandas as pd
+
+# third-party packages
+from dotenv import find_dotenv, load_dotenv
 from sklearn.linear_model import HuberRegressor, LinearRegression
 from sklearn.multioutput import MultiOutputRegressor
 
