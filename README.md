@@ -1,4 +1,4 @@
-![Banner](<banner.png>)
+![Banner](<banner.pdf>)
 <!-- See https://github.com/rmariuzzo/github-banner -->
 
 <div align="center">
@@ -65,6 +65,7 @@ There are currently two data files needed to run these analyses. These should be
 - [ ] Begin building regression models to see what features can predict differences in recovery profile.
 - [ ] Produce analyses to understand sources of higher noise in some highstreets and not others.
 - [ ] Add pipeline to produce yoy data from raw data
+- [ ] Consider and document methods for dealing with missing data
 
 
 

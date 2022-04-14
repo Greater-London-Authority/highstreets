@@ -114,6 +114,7 @@ def plot_highstreets_grouped(
     filename,
     xlim=("2020-01-01", "2021-12-31"),
     figure_title="Highstreet profiles grouped",
+    n_grp=4,
 ):
     """_summary_
 
@@ -130,19 +131,8 @@ def plot_highstreets_grouped(
     :param xlim: _description_, defaults to ('2020-01-01','2020-12-31')
     :type xlim: tuple, optional
     """
-    n_grp = 4
 
     fig, axes = plt.subplots(n_grp, n_grp, figsize=(14, 14), sharey=True, sharex=True)
-
-    array_w_sorting_cols = np.concatenate(
-        (sort_cols[0][:, None], sort_cols[1], plot_array), axis=1
-    )
-
-    # sort the array by the first sorting column
-    array_sorted_by_col_one = array_w_sorting_cols[array_w_sorting_cols[:, 0].argsort()]
-
-    # split the indices into groups by mean
-    array_split_by_col_one = np.array_split(array_sorted_by_col_one, n_grp)
 
     xticks = pd.to_datetime(
         [
@@ -171,7 +161,18 @@ def plot_highstreets_grouped(
         "Aug 21",
     ]
 
-    # loop through groups sorting each by slope and splitting by slope
+    # prepend columns by which highstreets will be sorted and grouped for plotting
+    array_w_sorting_cols = np.concatenate(
+        (sort_cols[0][:, None], sort_cols[1], plot_array), axis=1
+    )
+
+    # sort the array by the first column
+    array_sorted_by_col_one = array_w_sorting_cols[array_w_sorting_cols[:, 0].argsort()]
+
+    # split the indices into groups by the first column
+    array_split_by_col_one = np.array_split(array_sorted_by_col_one, n_grp)
+
+    # loop through groups sorting each by second column and splitting by second column
     for i, group in enumerate(array_split_by_col_one):
         group_sorted_by_col_two = group[group[:, 1].argsort()]
         group_split_by_col_two = np.array_split(group_sorted_by_col_two, n_grp)

@@ -109,17 +109,17 @@ def get_fit_lines(start_date, tvec, array_in, robust=True):
     return reg, reg.predict(X)
 
 
-def append_profile_features(hsp, data_2020_full, data_2021, reg_model):
+def append_profile_features(hsp, data, reg_model):
 
     means_2020 = (
-        data_2020_full.loc["2020-03-14":"2020-11-01", :]
+        data.loc["2020-03-14":"2020-11-01", :]
         .mean()
         .unstack(level=0)
         .rename(columns={"txn_amt": "mean 2020"})
     )
     slopes_2020 = reg_model["2020"].coef_
     means_2021 = (
-        data_2021.loc["2021-03-14":"2021-11-01", :]
+        data.loc["2021-03-14":"2021-11-01", :]
         .mean()
         .unstack(level=0)
         .rename(columns={"txn_amt": "mean 2021"})
