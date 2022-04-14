@@ -75,3 +75,4 @@ data/external
 # IDE settings
 .vscode/
 .idea/
+.editorconfig
