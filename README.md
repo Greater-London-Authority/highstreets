@@ -1,4 +1,4 @@
-![Banner](<banner.pdf>)
+![Banner](<banner.png>)
 <!-- See https://github.com/rmariuzzo/github-banner -->
 
 <div align="center">
