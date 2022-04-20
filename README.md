@@ -30,7 +30,7 @@ Author: Conor Dempsey
 To clone and run you'll need [Git](https://git-scm.com) and [poetry](https://python-poetry.org/docs/master/#installing-with-the-official-installerl) installed.
 
 ```bash
-# Clone this repository (you'll need your GlA github login)
+# Clone this repository (you'll need your GlA github login - your username and a personal access token)
 $ git clone https://github.com/Greater-London-Authority/highstreets
 
 # Go into the repository
