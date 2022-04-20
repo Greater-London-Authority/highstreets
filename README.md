@@ -55,6 +55,27 @@ There are currently two data files needed to run these analyses. These should be
 * yoy_highstreets.csv
 * highstreet_profiles_updated.xlsx
 
+
+# Contribute
+[(Back to top)](#demo-preview)
+
+Contact Conor Dempsey to be added to the repo as a contributor.
+
+If you are contributing to the repo please use pre-commit using the pre-commit-config.yaml included here.
+
+To install pre-commit run:
+```bash
+pip install pre-commit
+```
+
+Then to set up the git hooks specified in the pre-commit-config.yaml file navigate to the repo and run:
+```bash
+pre-commit install
+```
+
+Now when you commit code various linters and other pre-commit checks will be run against your staged changes. All of these tests have to pass sucessfully before the commit will be accepted.
+
+
 <!-- ROADMAP -->
 ## Roadmap
 [(Back to top)](#demo-preview)
@@ -69,13 +90,6 @@ There are currently two data files needed to run these analyses. These should be
 - [ ] Add pipeline to produce yoy data from raw data
 - [ ] Consider and document methods for dealing with missing data
 
-
-
-
-# Contribute
-[(Back to top)](#demo-preview)
-
-Contact Conor Dempsey to be added to the repo as a contributor.
 
 # Contact
 [(Back to top)](#demo-preview)
