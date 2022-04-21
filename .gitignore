@@ -69,8 +69,8 @@ dmypy.json
 data/interim/
 data/processed/
 data/raw/
-data/auxilliary
-data/external
+data/auxilliary/
+data/external/
 
 # IDE settings
 .vscode/
