@@ -6,6 +6,8 @@
 <h4> Analysis and modeling of London high street profiles </h4>
 </div>
 
+<!-- <a href="#top">""</a> -->
+
 ---
 
 Author: Conor Dempsey
@@ -13,7 +15,6 @@ Author: Conor Dempsey
 
 
 <p align="center">
-  <a href="#demo-preview">Preview</a> •
   <a href="#how-to-use">How To Use</a> •
   <a href="#roadmap">Roadmap</a> •
   <a href="#contribute">Contribute</a> •
@@ -25,7 +26,7 @@ Author: Conor Dempsey
 ---
 
 ## How To Use
-[(Back to top)](#demo-preview)
+[(Back to top)](#how-to-use)
 
 To clone and run you'll need [Git](https://git-scm.com) and [poetry](https://python-poetry.org/docs/master/#installing-with-the-official-installerl) installed.
 
@@ -43,21 +44,21 @@ $ poetry install
 $ poetry shell
 ```
 
-A good place to start is notebooks/reports which contains Jupyter notebooks that demonstrate the analyses that have been done so far. Note: if you are editing the package files and you want these changes to be automatically registered in any Jupyter notebooks then put following command at the top of your notebook:
+A good place to start is notebooks/exploratory which contains Jupyter notebooks that demonstrate the analyses that have been done so far. Note: if you are editing the package files and you want these changes to be automatically registered in any Jupyter notebooks then put following command at the top of your notebook:
 
 ```
 %load_ext autoreload
 %autoreload 2
 ```
 
-There are currently two data files needed to run these analyses. These should be placed in the data/raw subdirectory and can be obtained from the shared drives (contact Conor for more info).
+There are currently two data files needed to run these analyses. The paths to these files should be specified in a .env file in the project's root directory and can be obtained from the shared drives (contact Conor for more info).
 
 * yoy_highstreets.csv
 * highstreet_profiles_updated.xlsx
 
 
-# Contribute
-[(Back to top)](#demo-preview)
+## Contribute
+[(Back to top)](#how-to-use)
 
 Contact Conor Dempsey to be added to the repo as a contributor.
 
@@ -78,20 +79,21 @@ Now when you commit code various linters and other pre-commit checks will be run
 
 <!-- ROADMAP -->
 ## Roadmap
-[(Back to top)](#demo-preview)
+[(Back to top)](#how-to-use)
 
 - [x] Make ordered profile plots for 2020, 2021, full period, sorted by mean and fit slope
-- [ ] Quantify/visualisse/describe relationship between 2020 and 2021 parameters
+- [ ] Quantify/visualise/describe relationship between 2020 and 2021 parameters
 - [x] Add scripts to produce figures of all HSs w fits
 - [ ] Add script comparing results of different clustering approaches (k-means on full time series, k-means on fit parameters, k-means with DTW, hierarchical clustering)
-- [ ] Produce figure showing progressive cluster breakdowns using hierarchical clustering
-- [ ] Begin building regression models to see what features can predict differences in recovery profile.
-- [ ] Produce analyses to understand sources of higher noise in some highstreets and not others.
+- [ ] Sample from hierarchical regression models to see what features, if any, can predict differences in recovery profile.
 - [ ] Add pipeline to produce yoy data from raw data
 - [ ] Consider and document methods for dealing with missing data
 
+## Credit
 
-# Contact
-[(Back to top)](#demo-preview)
+A very useful primer on Bayesian hierarchical linear regressions can be found [here](https://docs.pymc.io/en/v3/pymc-examples/examples/case_studies/multilevel_modeling.html).
+
+## Contact
+[(Back to top)](#v)
 
 Conor Dempsey - conor.dempsey@london.gov.uk

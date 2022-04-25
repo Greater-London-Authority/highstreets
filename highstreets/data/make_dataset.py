@@ -55,7 +55,51 @@ def avg_retail_wd_we(df, spend_col_prefix=""):
     for (i, col) in enumerate(aggregation_groups):
         df_minimal.loc[:, col] = df[agg_cols[i]].agg("mean", 1)
 
-    df_minimal = df_minimal.set_index("week_start", drop=False)
+    df_minimal = df_minimal.rename(columns={"week_start": "period_start"})
+    df_minimal = df_minimal.set_index("period_start", drop=False)
+
+    return df_minimal
+
+
+def stack_retail_we_wd(df, spend_col_prefix=""):
+    """Stacks weekend and weekday retail spending on top of each other
+
+    :param df: pandas dataframe produced by loading processed yoy
+    Mastercard data
+    :type df: pandas dataframe
+    :param spend_col_prefix: prefix to the spend columns ('yoy_' for yoy
+    spend files), defaults to ''
+    :type spend_col_prefix: str, optional
+    :return: copy of df with a new column for the averaged spend
+    :rtype: pandas dataframe
+    """
+
+    time_periods = ["we", "wd"]
+    aggregation_groups = ["txn_amt", "txn_cnt"]
+
+    main_cols = ["week_start", "highstreet_id", "highstreet_name"]
+
+    dfs_to_stack = []
+    for tp in time_periods:
+        cols_to_stack = [
+            spend_col_prefix + grp + "_" + tp + "_retail" for grp in aggregation_groups
+        ]
+        df_temp = df[main_cols + cols_to_stack]
+        df_temp = df_temp.rename(columns={"week_start": "period_start"})
+        df_temp = df_temp.rename(columns=dict(zip(cols_to_stack, aggregation_groups)))
+        if "we" in tp:
+            tvec = df_temp["period_start"] + pd.DateOffset(days=5)
+            df_temp.loc[:, "we_wd"] = "we"
+        else:
+            tvec = df_temp["period_start"]
+            df_temp.loc[:, "we_wd"] = "wd"
+
+        df_temp.loc[:, "period_start"] = tvec
+        dfs_to_stack.append(df_temp)
+
+    df_minimal = pd.concat(dfs_to_stack)
+    df_minimal = df_minimal.set_index("period_start", drop=False)
+    df_minimal.sort_index(inplace=True)
 
     return df_minimal
 
@@ -66,7 +110,7 @@ def extract_data_array(hsd_long_format, dates, column):
 
     :param hsd_wide_format: Mastercard data loaded in long format
     :type hsd_wide_format: pandas dataframe
-    :param dates: Date range to extract data fro
+    :param dates: Date range to extract data for
     :type dates: (str, str)
     :param column: column of the dataframe to extract into a
     numpy array
@@ -77,7 +121,7 @@ def extract_data_array(hsd_long_format, dates, column):
     :rtype: (numpy array, pandas series, list[int])
     """
     hsd_wide_format = hsd_long_format.pivot(
-        index=["week_start"],
+        index=["period_start"],
         columns=["highstreet_id", "highstreet_name"],
         values=[column],
     )
