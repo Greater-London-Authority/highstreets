@@ -64,3 +64,12 @@ repos:
 #     hooks:
 #     -   id: python-safety-dependencies-check
 #         files: pyproject.toml
+
+-   repo: local
+    hooks:
+      - id: jupyter-nb-clear-output
+        name: jupyter-nb-clear-output
+        files: \.ipynb$
+        stages: [commit]
+        language: system
+        entry: poetry run jupyter nbconvert --ClearOutputPreprocessor.enabled=True --inplace
