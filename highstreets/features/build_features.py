@@ -48,8 +48,6 @@ def clean_hs_profiles(stats):
     ]
     stats[[x for x in skewed_features]] = np.log(stats[skewed_features])
 
-    drop_cols = drop_cols + skewed_features
-
     stats = stats.drop(columns=drop_cols)
 
     return stats

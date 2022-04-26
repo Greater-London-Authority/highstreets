@@ -140,7 +140,7 @@ def extract_data_array(hsd_long_format, dates, column):
     return hsd_wide_range
 
 
-def get_fit_lines(start_date, tvec, array_in, robust=True):
+def get_fit_lines(start_date, tvec, array_in, robust=False):
     t0 = pd.to_datetime(start_date)
     days_since_reopen = (tvec - t0).days.values
 
@@ -162,13 +162,16 @@ def append_profile_features(hsp, data, reg_model):
         .unstack(level=0)
         .rename(columns={"txn_amt": "mean 2020"})
     )
+
     slopes_2020 = reg_model["2020"].coef_
+
     means_2021 = (
         data.loc["2021-03-14":"2021-11-01", :]
         .mean()
         .unstack(level=0)
         .rename(columns={"txn_amt": "mean 2021"})
     )
+
     slopes_2021 = reg_model["2021"].coef_
 
     stats = means_2020.join(means_2021)
