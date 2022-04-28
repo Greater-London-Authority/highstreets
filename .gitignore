@@ -72,6 +72,7 @@ data/raw/
 data/auxilliary/
 data/external/
 
+
 # IDE settings
 .vscode/
 .idea/

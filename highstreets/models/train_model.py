@@ -22,15 +22,21 @@ def run_experiment(model, X_train, X_test, y_train, y_test):
 def evaluate(model, X, y):
     y_pred = model.predict(X)
     return {
-        "model": model,
         "R2": r2_score(y, y_pred),
         "MAE": mean_absolute_error(y, y_pred),
-        "RMSE": np.sqrt(mean_squared_error(y, y_pred)),
+        "MSE": np.sqrt(mean_squared_error(y, y_pred)),
     }
 
 
 def run_experiment_w_cv(
-    model, tuned_params, X_train, X_test, y_train, y_test, scoring="r2"
+    model,
+    tuned_params,
+    X_train,
+    X_test,
+    y_train,
+    y_test,
+    scoring="r2",
+    verbose=0,
 ):
 
     model = Pipeline(
@@ -40,21 +46,25 @@ def run_experiment_w_cv(
         ]
     )
 
-    model_cv = GridSearchCV(model, tuned_params, scoring=scoring, verbose=4)
+    model_cv = GridSearchCV(model, tuned_params, scoring=scoring, verbose=verbose)
 
     results_pred = run_experiment(model_cv, X_train, X_test, y_train, y_test)
 
     best_model = results_pred["model"].best_estimator_
-    print("Best model params: ", best_model.get_params())
 
-    _, axes = plt.subplots(2, 1, figsize=(15, 10))
+    fig, axes = plt.subplots(2, 1, figsize=(15, 10))
 
-    sns.scatterplot(x=range(y_train.shape[0]), y=y_train, ax=axes[0])
+    ind = y_train.values.argsort()
+    sns.scatterplot(x=range(y_train.shape[0]), y=y_train.iloc[ind], ax=axes[0])
     sns.scatterplot(
-        x=range(y_train.shape[0]), y=best_model.predict(X_train), ax=axes[0]
+        x=range(y_train.shape[0]), y=best_model.predict(X_train)[ind], ax=axes[0]
     )
-    sns.scatterplot(x=range(y_test.shape[0]), y=y_test, ax=axes[1])
-    sns.scatterplot(x=range(y_test.shape[0]), y=best_model.predict(X_test), ax=axes[1])
+
+    ind = y_test.values.argsort()
+    sns.scatterplot(x=range(y_test.shape[0]), y=y_test.iloc[ind], ax=axes[1])
+    sns.scatterplot(
+        x=range(y_test.shape[0]), y=best_model.predict(X_test)[ind], ax=axes[1]
+    )
 
     # axes[0].set_ylim((0.1,1.9))
     # axes[1].set_ylim((0.1,1.9))
@@ -72,6 +82,7 @@ def run_experiment_w_cv(
                 f" +/- {r.importances_std[i]:.3f}"
             )
 
+    print("Best model params: ", best_model.get_params())
     print("Best score: ", results_pred["R2"])
 
-    return results_pred
+    return best_model, fig
