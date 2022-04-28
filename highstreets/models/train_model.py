@@ -29,7 +29,9 @@ def evaluate(model, X, y):
     }
 
 
-def run_experiment_w_cv(model, tuned_params, X_train, X_test, y_train, y_test):
+def run_experiment_w_cv(
+    model, tuned_params, X_train, X_test, y_train, y_test, scoring="r2"
+):
 
     model = Pipeline(
         [
@@ -38,7 +40,7 @@ def run_experiment_w_cv(model, tuned_params, X_train, X_test, y_train, y_test):
         ]
     )
 
-    model_cv = GridSearchCV(model, tuned_params, scoring="r2", verbose=4)
+    model_cv = GridSearchCV(model, tuned_params, scoring=scoring, verbose=4)
 
     results_pred = run_experiment(model_cv, X_train, X_test, y_train, y_test)
 
@@ -69,5 +71,7 @@ def run_experiment_w_cv(model, tuned_params, X_train, X_test, y_train, y_test):
                 f"{r.importances_mean[i]:.3f}"
                 f" +/- {r.importances_std[i]:.3f}"
             )
+
+    print("Best score: ", results_pred["R2"])
 
     return results_pred
