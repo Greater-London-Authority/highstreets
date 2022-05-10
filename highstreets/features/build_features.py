@@ -10,11 +10,14 @@ def clean_hs_profiles(stats):
     append_profile_features
     :type stats: Pandas DataFrame
     """
+
+    # These are the categories assigned by clustering algorithms previously
+    # run.
     stats = stats.drop(
         columns=["pattern_2020", "pattern_2021", "all_pandemic", "RECODE"],
     )
 
-    stats = stats.dropna(axis=0, how="any")
+    # stats = stats.dropna(axis=0, how="any")
 
     stats["pct offices"] = (
         stats["total_number_of_offices"] / stats["total_number_of_addresses"]

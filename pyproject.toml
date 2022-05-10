@@ -29,6 +29,7 @@ openpyxl = "^3.0.9"
 flax = "^0.4.1"
 graphviz = "^0.20"
 mlflow = "^1.25.1"
+missingno = "^0.5.1"
 
 [tool.poetry.dev-dependencies]
 debugpy = "^1.6.0"
