@@ -126,9 +126,11 @@ def extract_data_array(hsd_long_format, dates, column):
         values=[column],
     )
 
-    # Here we drop highstreets that have any missing data, to reproduce what Amanda did
-    # hsd_wide_format = hsd_wide_format.dropna(how="any", axis="columns")
+    # interpolate over missing values
     hsd_wide_format = hsd_wide_format.interpolate()
+
+    # Drop any remaining missing vals
+    hsd_wide_format = hsd_wide_format.dropna(how="any", axis="columns")
 
     hsd_wide_range = hsd_wide_format.loc[dates[0] : dates[1]]
 

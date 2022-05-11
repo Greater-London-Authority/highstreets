@@ -52,12 +52,12 @@ Models we have used to try to predict these fit parameters from high street prof
 
 #### Next steps:
 
-- Try other regularisation schemes.
 - High streets show a lot of variation by mean and slope of recovery. Focusing on 2020 data first, we can try grouping high streets by mean and best fit slope, and then treat these groups labels as targets for  classification.
 - Further, we can check whether conditioning on one parameter (crudely by just partitioning the data by one parameter) allows the other parameter to be predicted. It would be good to understand the structure of such a model - is it equivalent to some probabilistic model?
 - As a more general version of the above: we can try fitting mixture of experts models. The above example would be an MoE with the constraint that the gating function would depend only on a particular parameter that we choose.
 - Decision tree regressors.
-- Ensemble methods.
+- Other ensemble methods.
+- Other data sources that can be included in the high streets profile. An obvious one here would be O2 data - this potentially could be incorporated naturally at a group level given the lack of spatial granularity down to HS level in that data.
 
 ### Bayesian
 

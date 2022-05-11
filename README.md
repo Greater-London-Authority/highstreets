@@ -81,13 +81,20 @@ Now when you commit code various linters and other pre-commit checks will be run
 ## Roadmap
 [(Back to top)](#how-to-use)
 
-- [x] Make ordered profile plots for 2020, 2021, full period, sorted by mean and fit slope
+- [ ] Try classification approaches where the labels are mean/slope groups.
+- [ ] Run MoE models - using a hand-picked gating structure and then using a full MoE setup. Start with mixture of linear models.
+- [ ] Depending on linear MoE results try other more nonlinear approaches - a small NN maybe?
+- [ ] Look at other data that might be included if slope/mean grouping seems difficult to predict. O2 footfall data for example.
+- [ ] Look at models that are less ad-hoc, in the sense that the fit parameters are not treated as a separate set of parameters to be fit and then treated as regression targets.
 - [ ] Quantify/visualise/describe relationship between 2020 and 2021 parameters
-- [x] Add scripts to produce figures of all HSs w fits
-- [ ] Add script comparing results of different clustering approaches (k-means on full time series, k-means on fit parameters, k-means with DTW, hierarchical clustering)
-- [ ] Sample from hierarchical regression models to see what features, if any, can predict differences in recovery profile.
+- [ ] Visualise change of parameters from 2020 to 2021. Cluster highstreets based on the direction and magnitude of this change?
+- [ ] Compare the results of our clustering with Amanda's, at a granular level, to see if the results are reasonably well aligned.
 - [ ] Add pipeline to produce yoy data from raw data
-- [ ] Consider and document methods for dealing with missing data
+- [x] Make ordered profile plots for 2020, 2021, full period, sorted by mean and fit slope
+- [x] Add scripts to produce figures of all HSs w fits
+- [x] Compare results of different clustering approaches (k-means on full time series, k-means on fit parameters, k-means with DTW, hierarchical clustering)
+- [x] Sample from hierarchical regression models to see what features, if any, can predict differences in recovery profile.
+- [x] Consider different methods for dealing with missing data
 
 ## Credit
 
