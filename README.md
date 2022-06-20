@@ -10,7 +10,7 @@
 
 ---
 
-Author: Conor Dempsey
+Author: Conor Dempsey & Tabby Duenger
 
 
 
