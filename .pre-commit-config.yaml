@@ -21,6 +21,7 @@ repos:
     -   id: debug-statements
     -   id: detect-private-key
     -   id: check-added-large-files
+        args: ['--maxkb=1000']
 
 -   repo: https://github.com/psf/black
     rev: 22.3.0

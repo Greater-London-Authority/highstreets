@@ -7,6 +7,7 @@ import pandas as pd
 import seaborn as sns
 from dotenv import find_dotenv, load_dotenv
 from matplotlib.backends.backend_pdf import PdfPages
+from scipy import stats as spstat
 
 load_dotenv(find_dotenv())
 
@@ -113,6 +114,9 @@ def plot_highstreets_grouped(
     xlim=("2020-01-01", "2021-12-31"),
     figure_title="Highstreet profiles grouped",
     n_grp=4,
+    equal_hs_per_bin=True,
+    low_pct=5,
+    high_pct=90,
 ):
     """_summary_
 
@@ -130,7 +134,15 @@ def plot_highstreets_grouped(
     :type xlim: tuple, optional
     """
 
-    fig, axes = plt.subplots(n_grp, n_grp, figsize=(14, 14), sharey=True, sharex=True)
+    sns.set_theme(style="darkgrid")
+
+    fig, axes = plt.subplots(
+        n_grp,
+        n_grp,
+        figsize=(14, 14),
+        sharey=True,
+        sharex=True,
+    )
 
     xticks = pd.to_datetime(
         [
@@ -161,7 +173,7 @@ def plot_highstreets_grouped(
 
     # prepend columns by which highstreets will be sorted and grouped for plotting
     array_w_sorting_cols = np.concatenate(
-        (sort_cols[0][:, None], sort_cols[1], plot_array), axis=1
+        (sort_cols[0], sort_cols[1], plot_array), axis=1
     )
 
     # sort the array by the first column
@@ -170,24 +182,114 @@ def plot_highstreets_grouped(
     # split the indices into groups by the first column
     array_split_by_col_one = np.array_split(array_sorted_by_col_one, n_grp)
 
-    # loop through groups sorting each by second column and splitting by second column
-    for i, group in enumerate(array_split_by_col_one):
-        group_sorted_by_col_two = group[group[:, 1].argsort()]
-        group_split_by_col_two = np.array_split(group_sorted_by_col_two, n_grp)
-        for j, subgroup in enumerate(group_split_by_col_two):
-            subgroup = subgroup[subgroup[:, 1].argsort()]
-            axes[i][j].plot(
-                plot_tvec, np.transpose(subgroup[:, 2:]), "0.7", linewidth=1
-            )
-            axes[i][j].plot((plot_tvec[0], plot_tvec[-1]), (1, 1), "0.0")
-            axes[i][j].plot(plot_tvec, subgroup[:, 2:].mean(0), "b", linewidth=2)
-            axes[i][j].set_ylim([0, 4])
-            axes[i][j].plot([nb_dates, nb_dates], [0, 5], "--k", linewidth=0.5)
-            axes[i][j].set_xticks(xticks)
-            axes[i][j].set_xticklabels(xticklabels, rotation=45)
-            axes[i][j].set_xlim(pd.to_datetime(xlim))
-        axes[i][0].set_ylabel("MRLI relative to 2019")
+    # Here we are either splitting highstreets into bins
+    # with roughly equal numbers of highstreets per bin
+    # (if equal_hs_per_bin is True),
+    # or else we are splitting the range of the two sort cols
+    # into equally spaced bins
+    if equal_hs_per_bin:
+        # loop through groups sorting each by second column
+        # and splitting by second column
+        group_number = 1
+        for i, group in enumerate(array_split_by_col_one):
+            group_sorted_by_col_two = group[group[:, 1].argsort()]
+            group_split_by_col_two = np.array_split(group_sorted_by_col_two, n_grp)
+            for j, subgroup in enumerate(group_split_by_col_two):
+                subgroup = subgroup[subgroup[:, 1].argsort()]
+                axes[i][j].plot(
+                    plot_tvec, np.transpose(subgroup[:, 2:]), "0.7", linewidth=1
+                )
+                axes[i][j].plot((plot_tvec[0], plot_tvec[-1]), (1, 1), "0.0")
+                axes[i][j].plot(plot_tvec, subgroup[:, 2:].mean(0), "b", linewidth=2)
+                axes[i][j].set_ylim([0, 4])
+                axes[i][j].plot([nb_dates, nb_dates], [0, 5], "--k", linewidth=0.5)
+                axes[i][j].set_xticks(xticks)
+                axes[i][j].set_xticklabels(xticklabels, rotation=45)
+                axes[i][j].set_xlim(pd.to_datetime(xlim))
+                axes[i][j].set_title(group_number)
+                group_number += 1
 
+    else:
+        # define bin ends for sorting columns
+
+        plot_tvec = np.transpose(plot_tvec)
+
+        # create bins spanning the percentiles from low_pct to high_pct
+        # of the range of each variable of interest
+        bin_one = np.linspace(
+            np.percentile(sort_cols[0], low_pct),
+            np.percentile(sort_cols[0], high_pct),
+            n_grp + 1,
+        )
+        bin_two = np.linspace(
+            np.percentile(sort_cols[1], low_pct),
+            np.percentile(sort_cols[1], high_pct),
+            n_grp + 1,
+        )
+
+        # create 2d histogram returning an object which includes
+        # the bin numbers for each highstreet
+        ret = spstat.binned_statistic_2d(
+            sort_cols[0].squeeze(),
+            sort_cols[1].squeeze(),
+            None,
+            "count",
+            bins=[bin_one, bin_two],
+            expand_binnumbers=True,
+        )
+
+        group_number = 1
+        for i in range(1, n_grp + 1):
+            for j in range(1, n_grp + 1):
+                plot_subgroup = np.transpose(
+                    array_w_sorting_cols[
+                        np.logical_and(
+                            ret.binnumber[0, :] == i, ret.binnumber[1, :] == j
+                        ),
+                        2:,
+                    ]
+                )
+
+                group_means = np.mean(
+                    array_w_sorting_cols[
+                        np.logical_and(
+                            ret.binnumber[0, :] == i, ret.binnumber[1, :] == j
+                        ),
+                        0:2,
+                    ],
+                    axis=0,
+                )
+
+                axes[i - 1][j - 1].plot(
+                    plot_tvec,
+                    plot_subgroup,
+                    "0.7",
+                    linewidth=1,
+                )
+                axes[i - 1][j - 1].plot((plot_tvec[0], plot_tvec[-1]), (1, 1), "0.0")
+                axes[i - 1][j - 1].plot(
+                    plot_tvec, plot_subgroup.mean(1), "b", linewidth=2
+                )
+                axes[i - 1][j - 1].set_ylim([0, 4])
+                axes[i - 1][j - 1].plot(
+                    [nb_dates, nb_dates], [0, 5], "--k", linewidth=0.5
+                )
+                axes[i - 1][j - 1].set_xticks(xticks)
+                axes[i - 1][j - 1].set_xticklabels(xticklabels, rotation=45)
+                axes[i - 1][j - 1].set_xlim(pd.to_datetime(xlim))
+                axes[i - 1][j - 1].set_title(
+                    f"Group: {group_number: .0f},"
+                    f"#: {ret.statistic[i-1][j-1]},"
+                    f"({group_means[0]: .2f},{group_means[1]: .2f})"
+                )
+                group_number += 1
+
+    axes[0][0].set_ylabel("MRLI relative to 2019")
     fig.suptitle(figure_title, fontsize=16, y=0.91)
 
     plt.savefig(PROJECT_ROOT + "/reports/figures/" + filename)
+
+    if equal_hs_per_bin:
+        return None
+    else:
+        return ret

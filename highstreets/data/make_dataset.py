@@ -1,19 +1,16 @@
 # standard library
 import os
 
-import numpy as np
 import pandas as pd
-
-# third-party packages
 from dotenv import find_dotenv, load_dotenv
-from sklearn.linear_model import HuberRegressor, LinearRegression
-from sklearn.multioutput import MultiOutputRegressor
 
 load_dotenv(find_dotenv())
 
 DATA_PATH = os.environ.get("DATA_PATH")
 YOY_FILE = os.environ.get("YOY_FILE")
 PROFILE_FILE = os.environ.get("PROFILE_FILE")
+TC_LOOKUP = os.environ.get("TC_LOOKUP")
+PROJECT_ROOT = os.environ.get("PROJECT_ROOT")
 
 
 def main():
@@ -143,52 +140,7 @@ def extract_data_array(hsd_long_format, dates, column):
     return hsd_wide_range
 
 
-def get_fit_lines(start_date, tvec, array_in, robust=False):
-    t0 = pd.to_datetime(start_date)
-    days_since_reopen = (tvec - t0).days.values
-
-    X = days_since_reopen.reshape(-1, 1)
-    y = np.transpose(array_in)
-    if robust:
-        reg = MultiOutputRegressor(HuberRegressor(epsilon=1.05)).fit(X, y)
-    else:
-        reg = LinearRegression().fit(X, y)
-
-    return reg, reg.predict(X)
-
-
-def append_profile_features(hsp, data, reg_model):
-
-    means_2020 = (
-        data.loc["2020-03-14":"2020-11-01", :]
-        .mean()
-        .unstack(level=0)
-        .rename(columns={"txn_amt": "mean 2020"})
-    )
-
-    slopes_2020 = reg_model["2020"].coef_
-
-    means_2021 = (
-        data.loc["2021-03-14":"2021-11-01", :]
-        .mean()
-        .unstack(level=0)
-        .rename(columns={"txn_amt": "mean 2021"})
-    )
-
-    slopes_2021 = reg_model["2021"].coef_
-
-    stats = means_2020.join(means_2021)
-
-    stats["slope 2020"] = [x[0] for x in slopes_2020]
-    stats["slope 2021"] = [x[0] for x in slopes_2021]
-
-    return stats.join(hsp.set_index(["highstreet_id", "highstreet_name"]), how="left")
-
-
 if __name__ == "__main__":
-
-    # find .env automagically by walking up directories until it's found, then
-    # load up the .env entries as environment variables
 
     print("Running make_dataset as main!")
 

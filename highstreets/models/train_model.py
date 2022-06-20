@@ -19,13 +19,15 @@ def run_experiment(model, X_train, X_test, y_train, y_test):
     }
 
 
-def evaluate(model, X, y):
+def evaluate(model, X, y, rvsc="r"):
     y_pred = model.predict(X)
-    return {
-        "R2": r2_score(y, y_pred),
-        "MAE": mean_absolute_error(y, y_pred),
-        "MSE": np.sqrt(mean_squared_error(y, y_pred)),
-    }
+
+    if rvsc == "r":
+        return {
+            "R2": r2_score(y, y_pred),
+            "MAE": mean_absolute_error(y, y_pred),
+            "MSE": np.sqrt(mean_squared_error(y, y_pred)),
+        }
 
 
 def run_experiment_w_cv(
@@ -54,16 +56,24 @@ def run_experiment_w_cv(
 
     fig, axes = plt.subplots(2, 1, figsize=(15, 10))
 
-    ind = y_train.values.argsort()
-    sns.scatterplot(x=range(y_train.shape[0]), y=y_train.iloc[ind], ax=axes[0])
+    ind = y_train.values.flatten().argsort()
     sns.scatterplot(
-        x=range(y_train.shape[0]), y=best_model.predict(X_train)[ind], ax=axes[0]
+        x=range(y_train.shape[0]), y=y_train.iloc[ind].values.flatten(), ax=axes[0]
+    )
+    sns.scatterplot(
+        x=range(y_train.shape[0]),
+        y=best_model.predict(X_train)[ind].flatten(),
+        ax=axes[0],
     )
 
-    ind = y_test.values.argsort()
-    sns.scatterplot(x=range(y_test.shape[0]), y=y_test.iloc[ind], ax=axes[1])
+    ind = y_test.values.flatten().argsort()
     sns.scatterplot(
-        x=range(y_test.shape[0]), y=best_model.predict(X_test)[ind], ax=axes[1]
+        x=range(y_test.shape[0]), y=y_test.iloc[ind].values.flatten(), ax=axes[1]
+    )
+    sns.scatterplot(
+        x=range(y_test.shape[0]),
+        y=best_model.predict(X_test)[ind].flatten(),
+        ax=axes[1],
     )
 
     # axes[0].set_ylim((0.1,1.9))
@@ -71,8 +81,8 @@ def run_experiment_w_cv(
 
     _, ax = plt.subplots(1, 1, figsize=(6, 4))
     sns.regplot(x=y_test, y=best_model.predict(X_test))
-    ax.set_xlim([-0.2, 2.2])
-    ax.set_ylim([-0.2, 2.2])
+    # ax.set_xlim([-0.2, 2.2])
+    # ax.set_ylim([-0.2, 2.2])
 
     r = permutation_importance(best_model, X_test, y_test, n_repeats=30, random_state=0)
 
@@ -87,4 +97,4 @@ def run_experiment_w_cv(
     print("Best model params: ", best_model.get_params())
     print("Best score: ", results_pred["R2"])
 
-    return best_model, fig, ax
+    return best_model, fig

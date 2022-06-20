@@ -81,6 +81,7 @@ Now when you commit code various linters and other pre-commit checks will be run
 ## Roadmap
 [(Back to top)](#how-to-use)
 
+- [ ] Sense check the lack of correlation between mean/slope and size of highstreet - compare to data Paul shared.
 - [ ] Try classification approaches where the labels are mean/slope groups.
 - [ ] Run MoE models - using a hand-picked gating structure and then using a full MoE setup. Start with mixture of linear models.
 - [ ] Depending on linear MoE results try other more nonlinear approaches - a small NN maybe?
