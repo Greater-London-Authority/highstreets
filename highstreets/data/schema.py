@@ -1,3 +1,46 @@
+"""
+Defines column schemas for the different types of files in the BT footfall data.
+
+Full information about the data can be found in the schema provided by BT:
+https://greaterlondonauthority.sharepoint.com/:x:/s/SAC_Intel_HighStreetsAtlas/Ee7N-IL3U1ZHgDfoKnAlPp4B9aR7fro-sQU6IiWQWLKf0A?e=8vWBsT
+
+The column schemas for each file type are as follows:
+    - base: all files have these columns
+        - file_date: date the file was received
+        - file_name: name of the file
+        - scaled_volume: estimated footfall volume for the place, date, hour
+            (estimated by BT)
+        - loyalty_percentage: percentage of people with repeat visits
+        - dwell_time: average time spent at the place (only includes visitors)
+    - hex_daily: TFL hex daily files have these additional columns
+        - hex_grid_id: ID of the hex grid cell (as per TfL hex_grid)
+        - time_indicator: time of the day (0-21) - divided into 8 3-hour bands
+        - date: date of the data (YYYY-MM-DD)
+    - hex_monthly: TFL hex monthly files have these additional columns
+        - hex_grid_id: ID of the hex grid cell (as per TfL hex_grid)
+        - month: month of the data (YYYY-MM-01)
+        - day_name: day of the week (Monday, Tuesday, etc.)
+        - time_indicator: time of the day (0-21) - divided into 8 3-hour bands
+    - lsoa_daily: LSOA daily files have these additional columns
+        - lsoa_id: LSOA code (as per ONS)
+        - time_indicator: time of day (Morning, Noon, Evening, Night)
+        - date: date of the data (YYYY-MM-DD)
+        - worker_population_percentage: percentage indicating the proportion
+            of the estimated footfall volume that is accounted for by workers
+        - resident_population_percentage: percentage indicating the proportion
+            of the estimated footfall volume that is accounted for by residents
+    - lsoa_monthly: LSOA monthly files have these additional columns
+        - lsoa_id: LSOA code (as per ONS)
+        - month: month of the data (YYYY-MM-01)
+        - day_name: day of the week (Monday, Tuesday, etc.)
+        - time_indicator: time of day (Morning, Noon, Evening, Night)
+        - worker_population_percentage: percentage indicating the proportion
+            of the estimated footfall volume that is accounted for by workers
+        - resident_population_percentage: percentage indicating the proportion
+            of the estimated footfall volume that is accounted for by residents
+    - msoa_daily: similar to lsoa_daily but with MSOA codes instead of LSOA
+    - msoa_monthly: similar to lsoa_monthly but with MSOA codes instead of LSOA
+"""
 import numpy as np
 import pandas as pd
 import pandera as pa

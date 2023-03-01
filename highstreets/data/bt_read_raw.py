@@ -1,3 +1,16 @@
+"""
+This script reads the raw data from the BT data folder and adds it to the database.
+Each file type is checked against a schema to ensure the data is valid.
+Schemas for each file type are defined in highstreets/data/schema.py
+One database table is created for each file type if it does not already exist.
+The file types are those we receive from BT:
+    - LSOA daily
+    - LSOA monthly
+    - MSOA daily
+    - MSOA monthly
+    - TFL hex daily
+    - TFL hex monthly
+"""
 import os
 
 import pandas as pd
