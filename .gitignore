@@ -72,8 +72,7 @@ data/processed/
 data/raw/
 data/auxilliary/
 data/external/
-data/
-
+*.csv
 
 # IDE settings
 .vscode/
