@@ -1,4 +1,3 @@
-# %%
 import os
 
 import pandas as pd
@@ -70,10 +69,11 @@ db_tables_exist = {
     table: inspect(engine).has_table(table)
     for _, (table, _) in db_prefixes_tables.items()
 }
+# print whether each table exists
+print("Tables in database:")
+for table, exists in db_tables_exist.items():
+    print(f"{table}: {exists}")
 
-print(db_tables_exist)
-
-# %%
 
 # loop over the folders for each month
 # each file for each month is processed in turn
