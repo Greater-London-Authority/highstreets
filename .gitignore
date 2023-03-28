@@ -5,6 +5,7 @@ __pycache__/
 
 # pickles (usually from saving models)
 *.pkl
+*.pickle
 
 # Distribution / packaging
 .Python
@@ -71,7 +72,7 @@ data/processed/
 data/raw/
 data/auxilliary/
 data/external/
-
+*.csv
 
 # IDE settings
 .vscode/
