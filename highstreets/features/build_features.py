@@ -253,6 +253,7 @@ def group_highstreets(
         zip(
             data.columns.get_level_values(1),
             data.columns.get_level_values(2),
+            strict=True,
         )
     )
 

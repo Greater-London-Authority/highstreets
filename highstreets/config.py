@@ -21,6 +21,8 @@ YOY_FILE = os.getenv("YOY_FILE")
 
 # ================ BT CONFIG ==================================================
 BT_DIR = os.getenv("BT_DIR")
+CONSUMER_KEY = os.getenv("CONSUMER_KEY")
+CONSUMER_SECRET = os.getenv("CONSUMER_SECRET")
 BT_LSOA_DAILY_PREFIX = "lsoa_daily_agg"
 BT_MSOA_DAILY_PREFIX = "msoa_daily_agg"
 BT_LSOA_MONTHLY_PREFIX = "lsoa_monthly_agg"

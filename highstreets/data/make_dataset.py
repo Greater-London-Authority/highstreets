@@ -83,7 +83,9 @@ def stack_retail_we_wd(df, spend_col_prefix=""):
         ]
         df_temp = df[main_cols + cols_to_stack]
         df_temp = df_temp.rename(columns={"week_start": "period_start"})
-        df_temp = df_temp.rename(columns=dict(zip(cols_to_stack, aggregation_groups)))
+        df_temp = df_temp.rename(
+            columns=dict(zip(cols_to_stack, aggregation_groups, strict=True))
+        )
         if "we" in tp:
             tvec = df_temp["period_start"] + pd.DateOffset(days=5)
             df_temp.loc[:, "we_wd"] = "we"
