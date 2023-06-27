@@ -37,7 +37,7 @@ pipeline {
                     def end_date = params.END_DATE
 
                     withEnv(["CONSUMER_KEY=${CONSUMER_KEY}", "CONSUMER_SECRET=${CONSUMER_SECRET}"]) {
-                        sh '''
+                        sh """
                             poetry run python -c "
                             import os
                             from highstreets.api.clientbase import APIClient
@@ -50,7 +50,7 @@ pipeline {
 
                             print(hex_data)
                             "
-                        '''
+                        """
                     }
                 }
             }
