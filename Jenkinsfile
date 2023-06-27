@@ -40,7 +40,7 @@ pipeline {
                     def end_date = params.END_DATE
 
                     // Retrieve hex data
-                    def hex_data = sh(script: """
+                    sh '''
                         poetry run python -c "
                         import os
                         from highstreets.api.clientbase import APIClient
@@ -62,38 +62,9 @@ pipeline {
                         # Print the hex data
                         print(hex_data)
                         "
-                    """, returnStdout: true).trim()
-
-                    // Pass hex data as an environment variable to the next stage
-                    env.HEX_DATA = hex_data
+                    '''
                 }
             }
         }
-
-    stage('fetch Data') {
-      steps {
-        dir('highstreets/data_source_sink') {
-          script {
-            sh 'export CONSUMER_KEY=$CONSUMER_KEY'
-            sh 'export CONSUMER_SECRET=$CONSUMER_SECRET'
-
-            // Run the python script to load data
-            withEnv(["PATH+POETRY=${env.WORKSPACE}/.poetry/bin"]) {
-              sh 'python dataloader.py ${START_DATE} ${END_DATE}'
-            }
-          }
-        }
-      }
-    }
-
-    stage('Transform Data') {
-      steps {
-        dir('highstreets/data_transformation') {
-          sh 'export CONSUMER_KEY=$CONSUMER_KEY'
-          sh 'export CONSUMER_SECRET=$CONSUMER_SECRET'
-          sh 'python hextransform.py'
-        }
-      }
-    }
   }
 }
