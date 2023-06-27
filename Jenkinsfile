@@ -1,8 +1,5 @@
 pipeline {
   agent any
-  tools {
-    python 'Python3.10'
-  }
 
   parameters {
         string(defaultValue: '', description: 'Start Date (YYYY-MM-DD)', name: 'START_DATE')
@@ -24,12 +21,13 @@ pipeline {
 
       stage('Install Dependencies') {
             steps {
+              script {
                 // Install Poetry
-                sh 'curl -sSL https://install.python-poetry.org | python3 -'
-                sh 'source $HOME/.poetry/env'
+                sh 'pip install poetry'
 
-                // Install project dependencies using Poetry
+                //Install project dependencies
                 sh 'poetry install'
+              }
             }
         }
 
