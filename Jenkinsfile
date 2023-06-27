@@ -37,7 +37,7 @@ pipeline {
                     def end_date = params.END_DATE
 
                     withEnv(["CONSUMER_KEY=${CONSUMER_KEY}", "CONSUMER_SECRET=${CONSUMER_SECRET}"]) {
-                        sh 'cd hsdsprocess'
+                        sh 'cd highstreets/hsdsprocess'
                         sh 'bt_hex.py'
                     }
                 }
