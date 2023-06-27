@@ -1,5 +1,8 @@
 pipeline {
   agent any
+  tools {
+    python 'Python3.10'
+  }
 
   parameters {
         string(defaultValue: '', description: 'Start Date (YYYY-MM-DD)', name: 'START_DATE')
