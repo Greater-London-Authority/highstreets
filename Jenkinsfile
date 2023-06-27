@@ -25,11 +25,8 @@ pipeline {
                 // Install Poetry
                 sh 'pip install poetry'
 
-                // Activate Poetry virtual environment
-                withPythonEnv('poetry') {
-                  // Install project dependencies
-                  sh 'poetry install'
-                }
+                // Activate Poetry virtual env and install project dependencies
+                sh 'poetry install'
 
               }
             }
@@ -80,7 +77,7 @@ pipeline {
             sh 'export CONSUMER_SECRET=$CONSUMER_SECRET'
 
             // Run the python script to load data
-            withPythonEnv('poetry') {
+            withEnv(["PATH+POETRY=${env.WORKSPACE}/.poetry/bin"]) {
               sh 'python dataloader.py ${START_DATE} ${END_DATE}'
             }
           }
