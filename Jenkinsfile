@@ -37,20 +37,8 @@ pipeline {
                     def end_date = params.END_DATE
 
                     withEnv(["CONSUMER_KEY=${CONSUMER_KEY}", "CONSUMER_SECRET=${CONSUMER_SECRET}"]) {
-                        sh """
-                            poetry run python -c "
-                            import os
-                            from highstreets.api.clientbase import APIClient
-                            from highstreets.data_source_sink.dataloader import DataLoader
-
-                            api_endpoint = 'https://api.business.bt.com/v1/footfall/reports/hex-grid/tfl?agg=time_indicator'
-
-                            data_loader = DataLoader(api_endpoint)
-                            hex_data = data_loader.get_hex_data('${start_date}', '${end_date}')
-
-                            print(hex_data)
-                            "
-                        """
+                        sh 'cd hsdhsdsprocess'
+                        sh 'bt_hex.py'
                     }
                 }
             }
