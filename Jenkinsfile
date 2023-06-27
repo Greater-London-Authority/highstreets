@@ -43,7 +43,8 @@ pipeline {
                     def hex_data = sh(script: """
                         poetry run python -c "
                         import os
-                        from data_loader import DataLoader, DataLoaderException
+                        from highstreets.api.clientbase import APIClient
+                        from highstreets.data_source_sink.dataloader import DataLoader
 
                         # Set environment variables
                         os.environ['CONSUMER_KEY'] = '${CONSUMER_KEY}'
