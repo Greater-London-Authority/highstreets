@@ -78,7 +78,6 @@ pipeline {
 
             // Run the python script to load data
             withEnv(["PATH+POETRY=${env.WORKSPACE}/.poetry/bin"]) {
-              sh 'cd highstreets'
               sh 'python dataloader.py ${START_DATE} ${END_DATE}'
             }
           }
