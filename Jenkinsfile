@@ -38,7 +38,7 @@ pipeline {
 
                     withEnv(["CONSUMER_KEY=${CONSUMER_KEY}", "CONSUMER_SECRET=${CONSUMER_SECRET}"]) {
                         sh 'cd highstreets/hsdsprocess'
-                        sh 'python3 bt_hex.py'
+                        sh 'python bt_hex.py'
                     }
                 }
             }
