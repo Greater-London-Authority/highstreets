@@ -26,6 +26,7 @@ sqlalchemy = "^2.0.4"
 psycopg2-binary = "^2.9.5"
 pandera = "^0.13.4"
 tqdm = "^4.64.1"
+requests = "^2.27.1"
 
 [tool.poetry.dev-dependencies]
 debugpy = "^1.6.0"
