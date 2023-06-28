@@ -12,7 +12,7 @@ start_date = os.environ.get("START_DATE")
 end_date = os.environ.get("END_DATE")
 
 print(start_date)
-data = data_loader.get_hex_data(start_date, end_date)
+data = data_loader.get_hex_data(str(start_date), str(end_date))
 hex_transform = HexTransform()
 transformed_data = hex_transform.transform_data(data)
 print(transformed_data)
