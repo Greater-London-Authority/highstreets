@@ -15,7 +15,7 @@ engine = create_engine(
     f"postgresql+psycopg2://{username}:{password}@" f"{host}:{port}/{database}"
 )
 # bid
-query = "select * from " "hsds_bid_hs_tc_look"
+query = "select * from hsds_bid_hs_tc_look"
 hsds_bid_hs_tc_look_backup = gpd.GeoDataFrame.from_postgis(
     text(query), engine.connect(), geom_col="geom"
 )
@@ -25,7 +25,7 @@ hsds_bid_hs_tc_look_backup.to_postgis(
     con=engine.connect(),
     if_exists="replace",
     index=False,
-    schema="gisapdata",
+    schema="gisapdata"
 )
 
 data_writer = DataWriter()
