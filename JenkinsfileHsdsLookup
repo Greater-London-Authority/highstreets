@@ -21,7 +21,7 @@ pipeline {
         stage('Build') {
             steps {
                 script {
-                    sh "poetry run python highstreets/hsdsprocess/bt_hex.py --${ENV_FILE}"
+                    sh "poetry run python highstreets/hsdsprocess/hsds_bid_hs_tc_lookup.py --${ENV_FILE}"
                 }
             }
         }
