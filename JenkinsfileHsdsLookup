@@ -2,11 +2,7 @@ pipeline {
     agent any
 
     environment {
-        PG_DATABASE = credentials('database') // Use Jenkins credentials to securely store the database for PostgresSQL
-        PG_USER = credentials('username') // Use Jenkins credentials to securely store the username for PostgresSQL
-        PG_PASSWORD = credentials('password') // Use Jenkins credentials to securely store the password for PostgresSQL
-        PG_HOST = credentials('host') // Use Jenkins credentials to securely store the host for PostgresSQL
-        PG_PORT = credentials('port') // Use Jenkins credentials to securely store the port for PostgresSQL
+        ENV_FILE = credentials('hsds-data') // Use Jenkins credentials to securely store the database for PostgresSQL
     }
 
     stages {
@@ -27,10 +23,7 @@ pipeline {
         stage('Build') {
             steps {
                 script {
-
-                    withEnv(["CONSUMER_KEY=${CONSUMER_KEY}", "CONSUMER_SECRET=${CONSUMER_SECRET}"]) {
-                        sh 'poetry run python highstreets/hsdsprocess/bt_hex.py'
-                    }
+                    sh "poetry run python highstreets/hsdsprocess/bt_hex.py --${ENV_FILE}"
                 }
             }
         }
