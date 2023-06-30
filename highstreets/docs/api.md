@@ -1,5 +1,6 @@
 # User Guide for APIClient
 
+Author: Anupam Bose
 This user guide provides an overview of how to use the `APIClient` code to generate an access token for API authentication.
 
 ## Prerequisites

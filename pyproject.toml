@@ -27,6 +27,8 @@ psycopg2-binary = "^2.9.5"
 pandera = "^0.13.4"
 tqdm = "^4.64.1"
 requests = "^2.27.1"
+geopandas = "^0.13.2"
+geoalchemy2 = "^0.13.3"
 
 [tool.poetry.dev-dependencies]
 debugpy = "^1.6.0"

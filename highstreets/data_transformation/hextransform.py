@@ -3,8 +3,10 @@ import logging
 import numpy as np
 import pandas as pd
 
+from highstreets.data_source_sink.dataloader import DataLoader
 
-class HexTransform:
+
+class HexTransform(DataLoader):
     def __init__(self):
         """
         Transform class for performing data transformation on data.
@@ -119,6 +121,8 @@ class HexTransform:
                 "resident",
                 "worker",
                 "visitor",
+                "loyalty_percentage",
+                "dwell_time",
             ]
         ]
 
