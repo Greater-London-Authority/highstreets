@@ -30,7 +30,7 @@ pipeline {
             }
         }
 
-        stage('Data Loading') {
+        stage('Build') {
             steps {
                 script {
                     def start_date = params.START_DATE
