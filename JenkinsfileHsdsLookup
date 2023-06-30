@@ -1,0 +1,38 @@
+pipeline {
+    agent any
+
+    environment {
+        PG_DATABASE = credentials('database') // Use Jenkins credentials to securely store the database for PostgresSQL
+        PG_USER = credentials('username') // Use Jenkins credentials to securely store the username for PostgresSQL
+        PG_PASSWORD = credentials('password') // Use Jenkins credentials to securely store the password for PostgresSQL
+        PG_HOST = credentials('host') // Use Jenkins credentials to securely store the host for PostgresSQL
+        PG_PORT = credentials('port') // Use Jenkins credentials to securely store the port for PostgresSQL
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Install Dependencies') {
+            steps {
+                sh 'pip install poetry'
+                sh 'poetry install'
+            }
+        }
+
+
+        stage('Build') {
+            steps {
+                script {
+
+                    withEnv(["CONSUMER_KEY=${CONSUMER_KEY}", "CONSUMER_SECRET=${CONSUMER_SECRET}"]) {
+                        sh 'poetry run python highstreets/hsdsprocess/bt_hex.py'
+                    }
+                }
+            }
+        }
+    }
+}
