@@ -21,7 +21,9 @@ pipeline {
         stage('Build') {
             steps {
                 script {
-                    sh "poetry run python highstreets/hsdsprocess/hsds_bid_hs_tc_lookup.py --${ENV_FILE}"
+                    withEnv(["CONSUMER_KEY=${ENV_FILE}"]) {
+                        sh 'poetry run python highstreets/hsdsprocess/hsds_bid_hs_tc_lookup.py'
+                    }
                 }
             }
         }

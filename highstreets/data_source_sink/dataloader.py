@@ -2,8 +2,8 @@ import logging
 import os
 
 import geopandas as gpd
-import psycopg2
 from dotenv import find_dotenv, load_dotenv
+from sqlalchemy import create_engine, text
 
 from highstreets.api.clientbase import APIClient, APIClientException
 
@@ -22,6 +22,11 @@ class DataLoader:
         )
         self.api_client = APIClient()
         self.logger = logging.getLogger(__name__)
+        self.database = os.getenv("PG_DATABASE")
+        self.username = os.getenv("PG_USER")
+        self.password = os.getenv("PG_PASSWORD")
+        self.host = os.getenv("PG_HOST")
+        self.port = os.getenv("PG_PORT")
 
     def get_hex_data(self, date_from, date_to):
         params = {"date_from": date_from, "date_to": date_to}
@@ -36,12 +41,10 @@ class DataLoader:
             raise DataLoaderException("An unexpected error occurred.") from None
 
     def get_hex_lookup(self, lookup_type):
-        connection = psycopg2.connect(
-            database=os.getenv("PG_DATABASE"),
-            user=os.getenv("PG_USER"),
-            password=os.getenv("PG_PASSWORD"),
-            host=os.getenv("PG_HOST"),
-            port=os.getenv("PG_PORT"),
+        # Create a database connection
+        engine = create_engine(
+            f"postgresql+psycopg2://{self.username}:{self.password}@"
+            f"{self.host}:{self.port}/{self.database}"
         )
 
         # Load the .shp file using GeoPandas
@@ -56,7 +59,7 @@ class DataLoader:
                 "from regen_high_streets_proposed_2"
             )
             highstreet = gpd.GeoDataFrame.from_postgis(
-                query, connection, geom_col="geom"
+                text(query), engine.connect(), geom_col="geom"
             )
             # Spatially join the two GeoDataFrames based on the geometry intersection
             join_result = gpd.sjoin(
@@ -70,7 +73,9 @@ class DataLoader:
             return lookup_table
         elif lookup_type == "towncentre":
             query = "select tc_id, tc_name, geom from planning_town_centre_all_2020"
-            tc = gpd.GeoDataFrame.from_postgis(query, connection, geom_col="geom")
+            tc = gpd.GeoDataFrame.from_postgis(
+                text(query), engine.connect(), geom_col="geom"
+            )
             # Spatially join the two GeoDataFrames based on the geometry intersection
             join_result = gpd.sjoin(hex350_grid_GLA, tc, how="left", op="intersects")
             lookup_table = join_result[["hex_id", "tc_id", "tc_name"]]
@@ -82,7 +87,7 @@ class DataLoader:
                 "geometry from econ_busyness_bespoke_focus_areas_2"
             )
             bespoke = gpd.GeoDataFrame.from_postgis(
-                query, connection, geom_col="geometry"
+                text(query), engine.connect(), geom_col="geometry"
             )
             # Spatially join the two GeoDataFrames based on the geometry intersection
             join_result = gpd.sjoin(
@@ -98,7 +103,9 @@ class DataLoader:
                 "select bid_id, bid_name, geom "
                 "from regen_business_improvement_districts_27700"
             )
-            bid = gpd.GeoDataFrame.from_postgis(query, connection, geom_col="geom")
+            bid = gpd.GeoDataFrame.from_postgis(
+                text(query), engine.connect(), geom_col="geom"
+            )
             # Spatially join the two GeoDataFrames based on the geometry intersection
             join_result = gpd.sjoin(hex350_grid_GLA, bid, how="left", op="intersects")
             lookup_table = join_result[["hex_id", "bid_id", "bid_name"]]

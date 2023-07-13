@@ -4,6 +4,7 @@ import os
 import geopandas as gpd
 import pandas as pd
 from dotenv import find_dotenv, load_dotenv
+from glapy.database.utils import fast_write
 from sqlalchemy import create_engine, text
 
 load_dotenv(find_dotenv())
@@ -16,6 +17,12 @@ class DataWriter:
         self.password = os.getenv("PG_PASSWORD")
         self.host = os.getenv("PG_HOST")
         self.port = os.getenv("PG_PORT")
+        # Create a database connection
+        self.engine = create_engine(
+            f"postgresql+psycopg2://{self.username}:{self.password}@"
+            f"{self.host}:{self.port}/{self.database}"
+        )
+        self.hs_file_path = "/mnt/q/Projects/2019-20/Covid-19 Busyness/data/BT/test/"
 
     def load_data_to_csv(self, data, file_path):
         try:
@@ -24,26 +31,58 @@ class DataWriter:
         except Exception as e:
             logging.error(f"Error while loading data to CSV: {e}")
 
-    def load_data_to_postgres(self, data, db_connection_string, table_name):
+    def append_data_to_postgres(self, data, table_name):
+        # Check if the table exists in the database
+        if self.engine.dialect.has_table(self.engine.connect(), table_name):
+            try:
+                # Get the max date in the table
+                max_date = pd.read_sql_query(
+                    text(f"SELECT MAX(date) FROM {table_name}"),  # noqa: S608
+                    self.engine.connect(),
+                )["max"][0]
+
+                max_date = pd.to_datetime(max_date)
+                # Convert date column to Date object
+                data["date"] = pd.to_datetime(data["date"])
+
+                # Filter the DataFrame to include only rows after the max date
+                df_to_append = data[data["date"] > max_date]
+
+                # Check if there are rows to append
+                if len(df_to_append) > 0:
+                    # Write the filtered data to the existing table
+                    df_to_append.to_sql(
+                        name=table_name,
+                        con=self.engine,
+                        if_exists="append",
+                        index=False,
+                        schema="gisapdata",
+                    )
+                    print("Data appended successfully.")
+                    logging.info("Data successfully loaded to PostgreSQL")
+                else:
+                    print("No new data to append.")
+            except Exception as e:
+                print("Error occurred while appending data:", str(e))
+                logging.error(f"Error while loading data to PostgreSQL: {e}")
+        else:
+            logging.info("The table does not exist")
+
+        # Disconnect from the database
         try:
-            # Code to load data to PostgreSQL goes here
-            logging.info("Data successfully loaded to PostgreSQL")
+            self.engine.dispose()
+            print("Disconnected from the database.")
         except Exception as e:
-            logging.error(f"Error while loading data to PostgreSQL: {e}")
+            print("Error occurred while disconnecting from the database:", str(e))
 
     def load_hsds_lookup_to_postgres(self):
-        # Create a database connection
-        engine = create_engine(
-            f"postgresql+psycopg2://{self.username}:{self.password}@"
-            f"{self.host}:{self.port}/{self.database}"
-        )
         # bid
         query = (
             "select bid_id, bid_name, geom from "
             "regen_business_improvement_districts_27700_backup"
         )
         bid = gpd.GeoDataFrame.from_postgis(
-            text(query), engine.connect(), geom_col="geom"
+            text(query), self.engine.connect(), geom_col="geom"
         )
 
         # highstreet
@@ -52,13 +91,13 @@ class DataWriter:
             "from regen_high_streets_proposed_2"
         )
         highstreet = gpd.GeoDataFrame.from_postgis(
-            text(query), engine.connect(), geom_col="geom"
+            text(query), self.engine.connect(), geom_col="geom"
         )
 
         # towncentre
         query = "select tc_id, tc_name, geom from planning_town_centre_all_2020"
         tc = gpd.GeoDataFrame.from_postgis(
-            text(query), engine.connect(), geom_col="geom"
+            text(query), self.engine.connect(), geom_col="geom"
         )
 
         # Add a 'layer' column to each table to differentiate the data
@@ -78,29 +117,24 @@ class DataWriter:
         tc = tc[["id", "name", "layer", "geom"]]
 
         # Merge the dataframes into a single dataframe
-        merged_df = gpd.GeoDataFrame(
-            pd.concat([highstreet, tc, bid], ignore_index=True)
-        )
+        frames = [highstreet, tc, bid]
+        merged_df = pd.concat(frames)
+        merged_df.info()
+        merged_df = merged_df.replace("\n", "", regex=True)
 
-        merged_df.to_postgis(
-            name="temp_hsds_bid_hs_tc",
-            con=engine.connect(),
-            if_exists="replace",
-            index=False,
-            schema="gisapdata",
-        )
+        fast_write(merged_df, "hsds_bid_hs_tc", if_exists="truncate")
 
-    def write_hex_to_csv(self, data):
+    def write_threehourly_hs_to_csv(self, data):
         try:
-            start_date = data["date"].min().strftime("%Y-%m-%d")
-            end_date = data["date"].max().strftime("%Y-%m-%d")
+            start_date = data["count_date"].min().strftime("%Y-%m-%d")
+            end_date = data["count_date"].max().strftime("%Y-%m-%d")
 
             # Create the filename
-            filename = f"hex_3hourly_counts_{start_date}_{end_date}.csv"
+            filename = f"highstreets_3hourly_counts_{start_date}_{end_date}.csv"
 
             # Write dataframe to CSV with the custom filename
-            file_path = self.hex_file_path + filename
-            data.to_csv(file_path, index=False)
+            file_path = self.hs_file_path + filename
+            pd.DataFrame(data).to_csv(file_path, index=False)
             logging.info(f"Data successfully written to CSV: {file_path}")
         except Exception as e:
             logging.error(f"Error while writing data to CSV: {e}")

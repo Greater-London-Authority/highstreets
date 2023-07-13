@@ -1,6 +1,7 @@
 import os
 
 from highstreets.data_source_sink.dataloader import DataLoader
+from highstreets.data_source_sink.datawriter import DataWriter
 from highstreets.data_transformation.hextransform import HexTransform
 
 data_loader = DataLoader()
@@ -13,3 +14,7 @@ data = data_loader.get_hex_data(str(start_date), str(end_date))
 hex_transform = HexTransform()
 transformed_data = hex_transform.transform_data(data)
 print(transformed_data)
+data_writer = DataWriter()
+data_writer.append_data_to_postgres(
+    transformed_data, "temp_bt_footfall_tfl_hex_3hourly"
+)
