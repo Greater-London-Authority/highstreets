@@ -18,11 +18,11 @@ pipeline {
         stage('Build') {
             steps {
                 withCredentials([
-                    file(credentialsId: 'hsds-data', variable: 'PG_DATABASE', binding: 'PG_DATABASE'),
-                    file(credentialsId: 'hsds-data', variable: 'PG_USER', binding: 'PG_USER'),
-                    file(credentialsId: 'hsds-data', variable: 'PG_PASSWORD', binding: 'PG_PASSWORD'),
-                    file(credentialsId: 'hsds-data', variable: 'PG_HOST', binding: 'PG_HOST'),
-                    file(credentialsId: 'hsds-data', variable: 'PG_PORT', binding: 'PG_PORT')
+                    file(credentialsId: 'hsds-data', variable: 'PG_DATABASE'),
+                    file(credentialsId: 'hsds-data', variable: 'PG_USER'),
+                    file(credentialsId: 'hsds-data', variable: 'PG_PASSWORD'),
+                    file(credentialsId: 'hsds-data', variable: 'PG_HOST'),
+                    file(credentialsId: 'hsds-data', variable: 'PG_PORT')
                 ]) {
                     script {
                         sh 'poetry run python highstreets/hsdsprocess/hsds_bid_hs_tc_lookup.py'
