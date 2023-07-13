@@ -22,7 +22,7 @@ class DataWriter:
             f"postgresql+psycopg2://{self.username}:{self.password}@"
             f"{self.host}:{self.port}/{self.database}"
         )
-        self.hs_file_path = "/mnt/q/Projects/2019-20/Covid-19 Busyness/data/BT/test/"
+        self.hs_file_path = "Q:/Projects/2019-20/Covid-19 Busyness/data/BT/test/"
 
     def load_data_to_csv(self, data, file_path):
         try:
@@ -37,16 +37,16 @@ class DataWriter:
             try:
                 # Get the max date in the table
                 max_date = pd.read_sql_query(
-                    text(f"SELECT MAX(date) FROM {table_name}"),  # noqa: S608
+                    text(f"SELECT MAX(count_date) FROM {table_name}"),  # noqa: S608
                     self.engine.connect(),
                 )["max"][0]
 
                 max_date = pd.to_datetime(max_date)
                 # Convert date column to Date object
-                data["date"] = pd.to_datetime(data["date"])
+                data["count_date"] = pd.to_datetime(data["count_date"])
 
                 # Filter the DataFrame to include only rows after the max date
-                df_to_append = data[data["date"] > max_date]
+                df_to_append = data[data["count_date"] > max_date]
 
                 # Check if there are rows to append
                 if len(df_to_append) > 0:
@@ -128,10 +128,16 @@ class DataWriter:
         try:
             start_date = data["count_date"].min().strftime("%Y-%m-%d")
             end_date = data["count_date"].max().strftime("%Y-%m-%d")
-
             # Create the filename
-            filename = f"highstreets_3hourly_counts_{start_date}_{end_date}.csv"
-
+            # name the file based on the id column name of data
+            if data.columns[0] == "highstreet_id":
+                filename = f"highstreets_3hourly_counts_{start_date}_{end_date}.csv"
+            elif data.columns[0] == "tc_id":
+                filename = f"towncentres_3hourly_counts_{start_date}_{end_date}.csv"
+            elif data.columns[0] == "bespoke_area_id":
+                filename = f"bespokes_3hourly_counts_{start_date}_{end_date}.csv"
+            elif data.columns[0] == "bid_id":
+                filename = f"bids_3hourly_counts_{start_date}_{end_date}.csv"
             # Write dataframe to CSV with the custom filename
             file_path = self.hs_file_path + filename
             pd.DataFrame(data).to_csv(file_path, index=False)

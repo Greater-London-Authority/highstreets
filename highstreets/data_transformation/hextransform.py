@@ -109,13 +109,14 @@ class HexTransform(DataLoader):
             transformed_data["date"].dt.strftime("%a").astype("category")
         )
         transformed_data = transformed_data.rename(columns={"poi_id": "hex_id"})
+        transformed_data = transformed_data.rename(columns={"date": "count_date"})
         transformed_data["hex_id"] = transformed_data["hex_id"].astype(int)
 
         # Select specific columns
         transformed_data = transformed_data[
             [
                 "hex_id",
-                "date",
+                "count_date",
                 "day",
                 "time_indicator",
                 "resident",
@@ -162,7 +163,7 @@ class HexTransform(DataLoader):
                 "hex_id",
                 "highstreet_id",
                 "highstreet_name",
-                "date",
+                "count_date",
                 "day",
                 "time_indicator",
                 "loyalty_percentage",
@@ -182,7 +183,7 @@ class HexTransform(DataLoader):
                     "highstreet_id",
                     "highstreet_name",
                     "count_type",
-                    "date",
+                    "count_date",
                     "time_indicator",
                 ]
             )
@@ -201,7 +202,7 @@ class HexTransform(DataLoader):
             index=[
                 "highstreet_id",
                 "highstreet_name",
-                "date",
+                "count_date",
                 "time_indicator",
                 "ave_loyalty_percentage",
                 "ave_dwell_time",
@@ -221,7 +222,7 @@ class HexTransform(DataLoader):
             [
                 "highstreet_id",
                 "highstreet_name",
-                "date",
+                "count_date",
                 "time_indicator",
                 "x",
                 "y",
@@ -245,9 +246,8 @@ class HexTransform(DataLoader):
         }
         # Convert columns to specified data types
         transformed_data = transformed_data.astype(column_types)
-        transformed_data = transformed_data.rename(
-            columns={"date": "count_date", "time_indicator": "hours"}
-        )
+        transformed_data = transformed_data.rename(columns={"time_indicator": "hours"})
+        return transformed_data
 
     def towncentre_threehourly_transform(self, transformed_data):
         TownCentres_quad_lookup = pd.read_csv(
@@ -267,7 +267,7 @@ class HexTransform(DataLoader):
                 "hex_id",
                 "tc_id",
                 "tc_name",
-                "date",
+                "count_date",
                 "day",
                 "time_indicator",
                 "loyalty_percentage",
@@ -283,7 +283,7 @@ class HexTransform(DataLoader):
 
         transformed_data = (
             transformed_data.groupby(
-                ["tc_id", "tc_name", "count_type", "date", "time_indicator"]
+                ["tc_id", "tc_name", "count_type", "count_date", "time_indicator"]
             )
             .aggregate(
                 volume=("volume", lambda x: round(x.sum(), 2)),
@@ -300,7 +300,7 @@ class HexTransform(DataLoader):
             index=[
                 "tc_id",
                 "tc_name",
-                "date",
+                "count_date",
                 "time_indicator",
                 "ave_loyalty_percentage",
                 "ave_dwell_time",
@@ -320,7 +320,7 @@ class HexTransform(DataLoader):
             [
                 "tc_id",
                 "tc_name",
-                "date",
+                "count_date",
                 "time_indicator",
                 "x",
                 "y",
@@ -344,9 +344,8 @@ class HexTransform(DataLoader):
         }
         # Convert columns to specified data types
         transformed_data = transformed_data.astype(column_types)
-        transformed_data = transformed_data.rename(
-            columns={"date": "count_date", "time_indicator": "hours"}
-        )
+        transformed_data = transformed_data.rename(columns={"time_indicator": "hours"})
+        return transformed_data
 
     def bid_threehourly_transform(self, transformed_data):
         BIDS_quad_lookup = pd.read_csv(
@@ -366,7 +365,7 @@ class HexTransform(DataLoader):
                 "hex_id",
                 "bid_id",
                 "bid_name",
-                "date",
+                "count_date",
                 "day",
                 "time_indicator",
                 "loyalty_percentage",
@@ -382,7 +381,7 @@ class HexTransform(DataLoader):
 
         transformed_data = (
             transformed_data.groupby(
-                ["bid_id", "bid_name", "count_type", "date", "time_indicator"]
+                ["bid_id", "bid_name", "count_type", "count_date", "time_indicator"]
             )
             .aggregate(
                 volume=("volume", lambda x: round(x.sum(), 2)),
@@ -399,7 +398,7 @@ class HexTransform(DataLoader):
             index=[
                 "bid_id",
                 "bid_name",
-                "date",
+                "count_date",
                 "time_indicator",
                 "ave_loyalty_percentage",
                 "ave_dwell_time",
@@ -417,7 +416,7 @@ class HexTransform(DataLoader):
             [
                 "bid_id",
                 "bid_name",
-                "date",
+                "count_date",
                 "time_indicator",
                 "resident",
                 "visitor",
@@ -437,9 +436,8 @@ class HexTransform(DataLoader):
         }
         # Convert columns to specified data types
         transformed_data = transformed_data.astype(column_types)
-        transformed_data = transformed_data.rename(
-            columns={"date": "count_date", "time_indicator": "hours"}
-        )
+        transformed_data = transformed_data.rename(columns={"time_indicator": "hours"})
+        return transformed_data
 
     def bespoke_threehourly_transform(self, transformed_data):
         bespoke_quad_lookup = pd.read_csv(
@@ -459,7 +457,7 @@ class HexTransform(DataLoader):
                 "hex_id",
                 "bespoke_area_id",
                 "name",
-                "date",
+                "count_date",
                 "day",
                 "time_indicator",
                 "loyalty_percentage",
@@ -475,7 +473,13 @@ class HexTransform(DataLoader):
 
         transformed_data = (
             transformed_data.groupby(
-                ["bespoke_area_id", "name", "count_type", "date", "time_indicator"]
+                [
+                    "bespoke_area_id",
+                    "name",
+                    "count_type",
+                    "count_date",
+                    "time_indicator",
+                ]
             )
             .aggregate(
                 volume=("volume", lambda x: round(x.sum(), 2)),
@@ -492,7 +496,7 @@ class HexTransform(DataLoader):
             index=[
                 "bespoke_area_id",
                 "name",
-                "date",
+                "count_date",
                 "time_indicator",
                 "ave_loyalty_percentage",
                 "ave_dwell_time",
@@ -512,7 +516,7 @@ class HexTransform(DataLoader):
             [
                 "bespoke_area_id",
                 "name",
-                "date",
+                "count_date",
                 "time_indicator",
                 "resident",
                 "visitor",
@@ -532,6 +536,5 @@ class HexTransform(DataLoader):
         }
         # Convert columns to specified data types
         transformed_data = transformed_data.astype(column_types)
-        transformed_data = transformed_data.rename(
-            columns={"date": "count_date", "time_indicator": "hours"}
-        )
+        transformed_data = transformed_data.rename(columns={"time_indicator": "hours"})
+        return transformed_data

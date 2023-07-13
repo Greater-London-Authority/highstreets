@@ -40,7 +40,7 @@ pipeline {
                     env.START_DATE = start_date
                     env.END_DATE = end_date
 
-                    withEnv(["CONSUMER_KEY=${CONSUMER_KEY}", "CONSUMER_SECRET=${CONSUMER_SECRET}"]) {
+                    withEnv(["CONSUMER_KEY=${CONSUMER_KEY}", "CONSUMER_SECRET=${CONSUMER_SECRET}", "PG_DATABASE=${PG_DATABASE}", "PG_USER=${PG_USER}", "PG_PASSWORD=${PG_PASSWORD}", "PG_HOST=${PG_HOST}", "PG_PORT=${PG_PORT}"]) {
                         sh 'poetry run python highstreets/hsdsprocess/bt_hex.py'
                     }
                 }
