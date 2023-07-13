@@ -1,6 +1,14 @@
 pipeline {
     agent any
 
+    environment {
+        PG_DATABASE = credentials('pg-database')
+        PG_USER = credentials('pg-user')
+        PG_PASSWORD = credentials('pg-password')
+        PG_HOST = credentials('pg-host')
+        PG_PORT = credentials('pg-port')
+    }
+
     stages {
         stage('Checkout') {
             steps {
@@ -17,15 +25,10 @@ pipeline {
 
         stage('Build') {
             steps {
-                withCredentials([
-                    file(credentialsId: 'hsds-data', variable: 'PG_DATABASE'),
-                    file(credentialsId: 'hsds-data', variable: 'PG_USER'),
-                    file(credentialsId: 'hsds-data', variable: 'PG_PASSWORD'),
-                    file(credentialsId: 'hsds-data', variable: 'PG_HOST'),
-                    file(credentialsId: 'hsds-data', variable: 'PG_PORT')
-                ]) {
-                    script {
+                script {
+                    withEnv(["PG_DATABASE=${PG_DATABASE}", "PG_USER=${PG_USER}", "PG_PASSWORD=${PG_PASSWORD}", "PG_HOST=${PG_HOST}", "PG_PORT=${PG_PORT}"]) {
                         sh 'poetry run python highstreets/hsdsprocess/hsds_bid_hs_tc_lookup.py'
+                        }
                     }
                 }
             }
