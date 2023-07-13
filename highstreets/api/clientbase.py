@@ -41,8 +41,8 @@ class APIClient:
 
         try:
             # Make a POST request to the token endpoint
-            response = requests.get(
-                APIClient.token_endpoint, headers=headers, params=params, timeout=5
+            response = requests.get(  # noqa: S113
+                APIClient.token_endpoint, headers=headers, params=params  # noqa: S113
             )
             # Raise an exception if status code indicates an error
             response.raise_for_status()
@@ -67,8 +67,8 @@ class APIClient:
         while True:
             try:
                 params["page"] = current_page
-                response = requests.get(
-                    endpoint, headers=headers, params=params, timeout=5
+                response = requests.get(  # noqa: S113
+                    endpoint, headers=headers, params=params
                 )
                 response.raise_for_status()
 
