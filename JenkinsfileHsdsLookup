@@ -18,10 +18,17 @@ pipeline {
                 sh 'poetry install'
             }
         }
+
         stage('Build') {
             steps {
-                script {
-                    withEnv(["PG_DATABASE=${ENV_FILE.PG_DATABASE}", "PG_USER=${ENV_FILE.PG_USER}", "PG_PASSWORD=${ENV_FILE.PG_PASSWORD}", "PG_HOST=${ENV_FILE.PG_HOST}", "PG_PORT=${ENV_FILE.PG_PORT}"]) {
+                withCredentials([
+                    string(credentialsId: 'hsds-data', variable: 'PG_DATABASE'),
+                    string(credentialsId: 'hsds-data', variable: 'PG_USER'),
+                    string(credentialsId: 'hsds-data', variable: 'PG_PASSWORD'),
+                    string(credentialsId: 'hsds-data', variable: 'PG_HOST'),
+                    string(credentialsId: 'hsds-data', variable: 'PG_PORT')
+                ]) {
+                    script {
                         sh 'poetry run python highstreets/hsdsprocess/hsds_bid_hs_tc_lookup.py'
                     }
                 }
