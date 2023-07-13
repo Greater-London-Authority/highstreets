@@ -9,6 +9,11 @@ pipeline {
     environment {
         CONSUMER_KEY = credentials('consumer-key') // Use Jenkins credentials to securely store the consumer key
         CONSUMER_SECRET = credentials('consumer-secret') // Use Jenkins credentials to securely store the consumer secret
+        PG_DATABASE = credentials('pg-database')
+        PG_USER = credentials('pg-user')
+        PG_PASSWORD = credentials('pg-password')
+        PG_HOST = credentials('pg-host')
+        PG_PORT = credentials('pg-port')
     }
 
     stages {
