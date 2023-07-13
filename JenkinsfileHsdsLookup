@@ -18,31 +18,11 @@ pipeline {
         stage('Build') {
             steps {
                 withCredentials([
-                    [
-                        $class: 'org.jenkinsci.plugins.plaincredentials.StringCredentials',
-                        credentialsId: 'hsds-data',
-                        variable: 'PG_DATABASE'
-                    ],
-                    [
-                        $class: 'org.jenkinsci.plugins.plaincredentials.StringCredentials',
-                        credentialsId: 'hsds-data',
-                        variable: 'PG_USER'
-                    ],
-                    [
-                        $class: 'org.jenkinsci.plugins.plaincredentials.StringCredentials',
-                        credentialsId: 'hsds-data',
-                        variable: 'PG_PASSWORD'
-                    ],
-                    [
-                        $class: 'org.jenkinsci.plugins.plaincredentials.StringCredentials',
-                        credentialsId: 'hsds-data',
-                        variable: 'PG_HOST'
-                    ],
-                    [
-                        $class: 'org.jenkinsci.plugins.plaincredentials.StringCredentials',
-                        credentialsId: 'hsds-data',
-                        variable: 'PG_PORT'
-                    ]
+                    string(credentialsId: 'hsds-data', variable: 'PG_DATABASE', binding: 'PG_DATABASE'),
+                    string(credentialsId: 'hsds-data', variable: 'PG_USER', binding: 'PG_USER'),
+                    string(credentialsId: 'hsds-data', variable: 'PG_PASSWORD', binding: 'PG_PASSWORD'),
+                    string(credentialsId: 'hsds-data', variable: 'PG_HOST', binding: 'PG_HOST'),
+                    string(credentialsId: 'hsds-data', variable: 'PG_PORT', binding: 'PG_PORT')
                 ]) {
                     script {
                         sh 'poetry run python highstreets/hsdsprocess/hsds_bid_hs_tc_lookup.py'
