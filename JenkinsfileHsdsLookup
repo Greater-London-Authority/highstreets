@@ -1,10 +1,6 @@
 pipeline {
     agent any
 
-    environment {
-        ENV_FILE = credentials('hsds-data') // Use Jenkins credentials to securely store the database for PostgresSQL
-    }
-
     stages {
         stage('Checkout') {
             steps {
@@ -22,11 +18,31 @@ pipeline {
         stage('Build') {
             steps {
                 withCredentials([
-                    string(credentialsId: 'hsds-data', variable: 'PG_DATABASE'),
-                    string(credentialsId: 'hsds-data', variable: 'PG_USER'),
-                    string(credentialsId: 'hsds-data', variable: 'PG_PASSWORD'),
-                    string(credentialsId: 'hsds-data', variable: 'PG_HOST'),
-                    string(credentialsId: 'hsds-data', variable: 'PG_PORT')
+                    [
+                        $class: 'org.jenkinsci.plugins.plaincredentials.StringCredentials',
+                        credentialsId: 'hsds-data',
+                        variable: 'PG_DATABASE'
+                    ],
+                    [
+                        $class: 'org.jenkinsci.plugins.plaincredentials.StringCredentials',
+                        credentialsId: 'hsds-data',
+                        variable: 'PG_USER'
+                    ],
+                    [
+                        $class: 'org.jenkinsci.plugins.plaincredentials.StringCredentials',
+                        credentialsId: 'hsds-data',
+                        variable: 'PG_PASSWORD'
+                    ],
+                    [
+                        $class: 'org.jenkinsci.plugins.plaincredentials.StringCredentials',
+                        credentialsId: 'hsds-data',
+                        variable: 'PG_HOST'
+                    ],
+                    [
+                        $class: 'org.jenkinsci.plugins.plaincredentials.StringCredentials',
+                        credentialsId: 'hsds-data',
+                        variable: 'PG_PORT'
+                    ]
                 ]) {
                     script {
                         sh 'poetry run python highstreets/hsdsprocess/hsds_bid_hs_tc_lookup.py'
