@@ -21,7 +21,7 @@ pipeline {
         stage('Build') {
             steps {
                 script {
-                    withEnv(["CONSUMER_KEY=${ENV_FILE}"]) {
+                    withEnv(["PG_DATABASE=${ENV_FILE.PG_DATABASE}", "PG_USER=${ENV_FILE.PG_USER}", "PG_PASSWORD=${ENV_FILE.PG_PASSWORD}", "PG_HOST=${ENV_FILE.PG_HOST}", "PG_PORT=${ENV_FILE.PG_PORT}"]) {
                         sh 'poetry run python highstreets/hsdsprocess/hsds_bid_hs_tc_lookup.py'
                     }
                 }
