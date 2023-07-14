@@ -17,9 +17,9 @@ hex_transform = HexTransform()
 transformed_data = hex_transform.transform_data(data)
 print(transformed_data)
 data_writer = DataWriter()
-data_writer.append_data_to_postgres(
-    transformed_data, "temp_bt_footfall_tfl_hex_3hourly"
-)
+# data_writer.append_data_to_postgres(
+#     transformed_data, "temp_bt_footfall_tfl_hex_3hourly"
+# )
 
 hs = hex_transform.highstreet_threehourly_transform(transformed_data)
 tc = hex_transform.towncentre_threehourly_transform(transformed_data)

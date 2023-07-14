@@ -23,15 +23,16 @@ pipeline {
             }
         }
 
-        stage('Install Poetry') {
-            steps {
-                sh 'pip install poetry'
-            }
-        }
-
         stage('Install Dependencies') {
             steps {
+                sh 'pip install poetry'
                 sh 'poetry install'
+            }
+        }
+        stage('Map Network Drive') {
+            steps {
+                // Map network drive using 'net use' command
+                bat 'net use Q: \\\\DC1-FILE01\\Intelligence$ /persistent:yes'
             }
         }
 
