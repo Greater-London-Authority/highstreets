@@ -32,7 +32,7 @@ pipeline {
         stage('Map Network Drive') {
             steps {
                 // Map network drive using 'net use' command with /Y flag
-                bat 'echo Y | net use Q: \\\\DC1-FILE01\\Intelligence$ /persistent:yes'
+                bat 'net use Q: \\\\DC1-FILE01\\Intelligence$ /Y /persistent:yes'
             }
         }
 
