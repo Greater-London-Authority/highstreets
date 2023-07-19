@@ -147,11 +147,11 @@ class HexTransform(DataLoader):
 
     def highstreet_threehourly_transform(self, transformed_data):
         Highstreets_quad_lookup = pd.read_csv(
-            "Q:/Projects/2019-20/Covid-19 Busyness/"
+            "//DC1-FILE01/Intelligence$/Projects/2019-20/Covid-19 Busyness/"
             "data/mastercard/Highstreets_quad_lookup.csv"
         )
         hex_highstreet_lookup = pd.read_csv(
-            "Q:/Projects/2019-20/Covid-19 Busyness/data/reference_data/"
+            "//DC1-FILE01/Intelligence$/Projects/2019-20/Covid-19 Busyness/data/reference_data/"
             "hex_highstreet_lookup.csv"
         )
         transformed_data = hex_highstreet_lookup.merge(
