@@ -29,13 +29,7 @@ pipeline {
                 sh 'poetry install'
             }
         }
-        stage('Map Network Drive') {
-            steps {
-                // Map network drive using 'net use' command with /Y flag
-                bat 'net use Q: \\\\DC1-FILE01\\Intelligence$ /Y /persistent:yes'
-            }
-        }
-
+        
         stage('Build') {
             steps {
                 script {
