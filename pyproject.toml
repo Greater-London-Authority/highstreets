@@ -33,6 +33,7 @@ geoalchemy2 = "^0.13.3"
 psycopg2 = "^2.8.6"
 glapy = {git = "https://github.com/Greater-London-Authority/glapy"}
 shapely = "1.8.5"
+pygeos = "^0.14"
 
 [tool.poetry.dev-dependencies]
 debugpy = "^1.6.0"

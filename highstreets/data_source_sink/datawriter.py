@@ -22,7 +22,7 @@ class DataWriter:
             f"postgresql+psycopg2://{self.username}:{self.password}@"
             f"{self.host}:{self.port}/{self.database}"
         )
-        self.hs_file_path = "Q:/Projects/2019-20/Covid-19 Busyness/data/BT/test/"
+        self.hs_file_path = "/mnt/q/Projects/2019-20/Covid-19 Busyness/data/BT/test/"
 
     def load_data_to_csv(self, data, file_path):
         try:
@@ -31,9 +31,12 @@ class DataWriter:
         except Exception as e:
             logging.error(f"Error while loading data to CSV: {e}")
 
+    def table_exists(self, table_name):
+        return self.engine.dialect.has_table(self.engine.connect(), table_name)
+
     def append_data_to_postgres(self, data, table_name):
         # Check if the table exists in the database
-        if self.engine.dialect.has_table(self.engine.connect(), table_name):
+        if self.table_exists(table_name):
             try:
                 # Get the max date in the table
                 max_date = pd.read_sql_query(
@@ -75,11 +78,54 @@ class DataWriter:
         except Exception as e:
             print("Error occurred while disconnecting from the database:", str(e))
 
+    def append_data_without_check(self, data, table_name):
+        # Check if there are rows to append
+        if len(data) > 0:
+            # Write the filtered data to the existing table
+            data.to_sql(
+                name=table_name,
+                con=self.engine,
+                if_exists="append",
+                index=False,
+                schema="gisapdata",
+            )
+            print("New Data appended successfully.")
+            logging.info("Data successfully loaded to PostgreSQL")
+        else:
+            logging.info("No new data to append")
+
+    def append_data_with_id_check(self, data, ids, id_col, table_name):
+        if self.table_exists(table_name):
+            try:
+                if ids.size:
+                    existing_ids_query = text(
+                        f"SELECT DISTINCT {id_col} FROM {table_name} "  # noqa: S608
+                        f"WHERE {id_col} IN ({', '.join(map(str, ids))})"
+                    )
+                    existing_ids = (
+                        self.engine.connect().execute(existing_ids_query).fetchall()
+                    )
+                    if existing_ids:
+                        for row in existing_ids:
+                            logging.error("IDs already exist in the table: ", row[0])
+                            print("Error: IDs already exist in the table.")
+                        return False
+                    else:
+                        logging.info("Appending data to postgres")
+                        self.append_data_without_check(data, table_name)
+                        return True
+            except Exception as e:
+                error_msg = f"Error occurred while checking IDs: {str(e)}"
+                logging.error(error_msg)
+
+        else:
+            logging.info("The table does not exist")
+
     def load_hsds_lookup_to_postgres(self):
         # bid
         query = (
             "select bid_id, bid_name, geom from "
-            "regen_business_improvement_districts_27700_backup"
+            "regen_business_improvement_districts_27700_live"
         )
         bid = gpd.GeoDataFrame.from_postgis(
             text(query), self.engine.connect(), geom_col="geom"
@@ -123,6 +169,17 @@ class DataWriter:
         merged_df = merged_df.replace("\n", "", regex=True)
 
         fast_write(merged_df, "hsds_bid_hs_tc", if_exists="truncate")
+
+    def write_hex_to_csv_by_year(self, data, output_dir):
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+
+        data["count_date"] = pd.to_datetime(data["count_date"])
+
+        for year, group in data.groupby(data["count_date"].dt.year):
+            file_name = os.path.join(output_dir, f"hex_3hourly_counts_{year}.csv")
+            group.to_csv(file_name, index=False)
+            logging.info(f"Saved {file_name}")
 
     def write_threehourly_hs_to_csv(self, data):
         try:
