@@ -1,4 +1,4 @@
-# End-to-End Data Flow Documentation
+# End-to-End BT-Data Flow Documentation
 
 Welcome to the comprehensive documentation for the end-to-end BT data flow in the provided Python code. This guide provides an in-depth understanding of the workflow involved in fetching, transforming, processing, and storing data.
 
@@ -9,12 +9,12 @@ Welcome to the comprehensive documentation for the end-to-end BT data flow in th
 3. [Fetching and Transforming Data](#fetching-and-transforming-data)
 4. [Data Storage - PostgreSQL](#storing-transformed-data)
 5. [Processing Data Changes](#processing-data-changes)
-6. [Data Layer Separation](#data-layer-separation)
-7. [Aggregating Data](#aggregating-data)
-8. [Appending Data to PostgreSQL](#appending-data-to-postgresql)
-9. [Retrieving Full Range Data](#retrieving-full-range-data)
-10. [Writing Full Range Data to CSV](#writing-full-range-data-to-csv)
-11. [Concatenating Latest Data](#concatenating-latest-data)
+6. [Data Layer Separation and Data Merging](#data-layer-separation)
+7. [3-hourly Aggregates Transformation](#aggregating-data)
+8. [Conditional Transformations and Data Appending](#appending-data-to-postgresql)
+9. [Data Appending with ID Check](#id-check)
+10. [Data Concatenation and Final Append](#data-concat-final-append)
+11. [CSV Data Export](#csv-data-export)
 12. [Conclusion](#conclusion)
 
 ## Introduction
@@ -60,14 +60,14 @@ data_writer.append_data_to_postgres(
     transformed_data, "bt_footfall_tfl_hex_3hourly"
 )
 ```
-## New Boundary Data Processing - Hex ID Changes
+## Processing Data Changes
 The DataProcessor class is employed to manage changes in hex IDs. This is relevant when there are updates, additions, or deletions to hex IDs representing different types of layers. The process_changes() method effectively handles these changes.
 
 ```python
 data_processor = DataProcessor()
 data_processor.process_changes()
 ```
-## Hex ID Separation and Data Merging
+## Data Layer Separation and Data Merging
 Hex IDs are categorized into distinct types (highstreets, town centres, bids, bespoke areas) using the DataProcessor class. The separated hex IDs are then merged with the full range BT hex data obtained from the PostgreSQL database.
 
 ```python
