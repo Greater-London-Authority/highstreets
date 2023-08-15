@@ -7,7 +7,7 @@ Welcome to the comprehensive documentation for the end-to-end BT data flow in th
 1. [Introduction](#introduction)
 2. [Initialization](#initialization)
 3. [Fetching and Transforming Data](#fetching-and-transforming-data)
-4. [Data Storage - PostgreSQL](#storing-transformed-data)
+4. [Data Storage - PostgreSQL](#Data-storage-postgresql)
 5. [Processing Data Changes](#processing-data-changes)
 6. [Data Layer Separation and Data Merging](#data-layer-separation)
 7. [3-hourly Aggregates Transformation](#aggregating-data)
