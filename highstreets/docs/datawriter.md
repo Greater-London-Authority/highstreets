@@ -2,7 +2,7 @@
 
 ## Introduction
 
-This comprehensive document provides detailed insights into the functionalities and features of the `DataWriter` class. This class is designed to handle data writing tasks, including loading data to CSV files, appending data to PostgreSQL databases, and generating CSV files based on certain conditions.
+The `DataWriter` class serves as a crucial component in our data engineering toolkit, playing a pivotal role in managing the storage, organization, and dissemination of data across various stages of our data pipeline. Its main objective is to facilitate efficient data storage, both in CSV files and in our PostgreSQL database, while ensuring data integrity and optimizing storage workflows.
 
 ## DataWriter Class
 
@@ -25,7 +25,7 @@ self.hs_file_path = "/mnt/q/Projects/2019-20/Covid-19 Busyness/data/BT/"
 ```
 ## Loading Data to CSV
 
-The `load_data_to_csv` method allows data to be loaded into CSV files. It takes data and a file path as input, writes the data to the specified file path, and logs the outcome.
+The `load_data_to_csv` method addresses the need to store data in CSV files. It accepts a Pandas DataFrame and a file path as inputs. The method efficiently writes the DataFrame to the specified file path as a CSV, capturing the data in a portable format that can be easily shared or transferred. This feature is valuable for generating data snapshots and intermediate outputs.
 
 ```python
 def load_data_to_csv(self, data, file_path):
@@ -36,14 +36,16 @@ def load_data_to_csv(self, data, file_path):
         logging.error(f"Error while loading data to CSV: {e}")
 ```
 ## Checking Table Existence
-The `table_exists` method checks whether a given table exists in the PostgreSQL database. It returns `True` if the table exists, and `False` otherwise.
+The `table_exists` method checks whether a given table exists in the PostgreSQL database. It returns `True` if the table exists, and `False` otherwise. It acts as an interface to check the existence of a table within the PostgreSQL database. This verification is crucial before attempting data appending operations, preventing potential errors or data loss due to mismatches between table names and existing data structures.
 
 ```python
 def table_exists(self, table_name):
     return self.engine.dialect.has_table(self.engine.connect(), table_name)
 ```
 ## Appending Data to PostgreSQL
-The `append_data_to_postgres` method appends data to an existing table in the PostgreSQL database. It performs several key steps, including filtering data based on the max date in the table and executing the appending process.
+The heart of the class lies in the `append_data_to_postgres` method. It systematically handles the appending of data to existing PostgreSQL tables. It begins by verifying the existence of the target table. If the table exists, it retrieves the maximum date from the table to establish a starting point for new data. The method then filters incoming data to include only rows with dates later than the maximum date in the table. This intelligent filtering prevents redundant data storage.
+
+If new data exists after filtering, the method appends the filtered data to the PostgreSQL table. This append operation ensures data continuity while maintaining the integrity of existing records. The method is designed to seamlessly integrate with different data categories, making it versatile and adaptable to our evolving data needs.
 
 ```python
 def append_data_to_postgres(self, data, table_name):
@@ -57,7 +59,7 @@ def append_data_without_check(self, data, table_name):
     # ...
 ```
 ## Appending Data With ID Check
-The append_data_with_id_check method appends data to a table with a check for existing IDs. If the IDs already exist in the table, it logs an error message and does not append the data. Otherwise, it appends the data to the table.
+To further enhance data quality, the `append_data_with_id_check` method allows for data appending with an ID check. This is particularly relevant when dealing with unique identifiers, such as IDs for highstreets, town centres, bids, and bespoke areas. Before appending, the method checks if the incoming data contains IDs that already exist in the target table. If any conflict arises, the method logs an error, preventing duplicate or conflicting data from being inserted.
 
 ```python
 def append_data_with_id_check(self, data, ids, id_col, table_name):
@@ -71,20 +73,19 @@ def load_hsds_lookup_to_postgres(self):
     # ...
 ```
 ## Writing Hex Data to CSV by Year
-The `write_hex_to_csv_by_year` method generates and saves CSV files for hex data grouped by year. It takes a dataframe and an output directory as input, and creates separate CSV files for each year within the specified dataframe.
+For data archival and analysis purposes, the `write_hex_to_csv_by_year` method facilitates the organization of data into CSV files based on the count date's year. This systematic storage allows for efficient data retrieval and analysis, contributing to the maintainability of our data repository.
 ```python
 def write_hex_to_csv_by_year(self, data, output_dir):
     # ...
 ```
 ## Writing Three-Hourly HS Data to CSV
-The write_threehourly_hs_to_csv method writes three-hourly data for highstreets, town centres, bids, and bespoke areas to CSV files. The file name is dynamically generated based on the data being processed.
+The `write_threehourly_hs_to_csv` method handles the generation of CSV files specifically tailored to three-hourly data. It employs a dynamic approach, naming files based on the data category (e.g., highstreets, town centres) and the date range. This organized storage promotes accessibility and simplifies the data browsing experience.
 ```python
 def write_threehourly_hs_to_csv(self, data):
     # ...
 ```
 ## Summary
-The `DataWriter` class offers a comprehensive set of data writing functionalities. It covers loading data to CSV files, appending data to PostgreSQL databases, and generating CSV files based on specific conditions. This documentation serves as a valuable resource for effectively utilizing the data writing capabilities of the `DataWriter` class in a variety of scenarios.
-
+In summary, the `DataWriter` class significantly enhances the efficiency, reliability, and organization of our data management processes. By facilitating seamless data storage, integrating with our PostgreSQL database, and providing features like ID checks and checkpointing, it empowers data engineers to confidently manage data at various stages of our pipeline. The class is adaptable and extensible, designed to accommodate diverse data categories and evolving requirements. Its well-defined methods and modular structure ensure a consistent approach to data storage, while its integration with environment variables enhances security and configurability. Overall, the DataWriter class contributes to a robust and effective data infrastructure, enabling our team to maintain the integrity and availability of our data assets.
 
 
 
