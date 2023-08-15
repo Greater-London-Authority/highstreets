@@ -83,5 +83,4 @@ This method effectively combines geographical and tabular data, producing a GeoD
 
 This comprehensive documentation provides an extensive understanding of the `DataLoader` class, its methods, and the `get_hex_lookup` method for geo data lookup. It covers the initialization process, data fetching capabilities, and data retrieval from PostgreSQL. Furthermore, it offers insights into spatial joins for associating hex grid data with various geographical boundaries. This documentation serves as a valuable resource for leveraging the data loading and geo data lookup functionalities in a sophisticated manner.
 
-1. Import the required libraries and modules:
 
