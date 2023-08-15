@@ -40,6 +40,14 @@ The `APIClient` code includes basic logging and error handling. The log messages
 
 To adjust the log level or configure log handlers, modify the logging configuration in the code according to your requirements.
 
+## Exception Handling
+
+The code includes robust exception handling for API interactions:
+
+- `APIClientException`: Base exception class for the API client.
+- `requests.exceptions.RequestException`: Raised for network-related errors during API requests.
+
+
 ## Troubleshooting
 
 If you encounter any issues or errors while using the `APIClient` code, consider the following troubleshooting steps:
