@@ -1,5 +1,5 @@
 # BT hex footfall data transformations Documentation
-The `HexTransform` class is a pivotal component of our data engineering framework, tailored to handle the transformation of input data containing High Street Data Store (HSDS) information. It specializes in converting raw data, such as hex IDs, dates, total volume, worker population percentages, and resident population percentages, into a more structured and meaningful output format. The transformation process is vital for downstream analysis, reporting, and decision-making.
+The `HexTransform` class is a pivotal component of our data engineering framework, tailored to handle the transformation of input data containing High Street Data Service (HSDS) information. It specializes in converting raw data, such as hex IDs, dates, total volume, worker population percentages, and resident population percentages, into a more structured and meaningful output format. The transformation process is vital for downstream analysis, reporting, and decision-making.
 
 ## Initialization and Logging:
 Upon instantiation, the class establishes a logger to facilitate effective tracking and communication of the transformation process. The logger is configured to provide informative messages, making it easier to monitor the execution of data transformation steps.
