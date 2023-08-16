@@ -252,6 +252,7 @@ class HexTransform(DataLoader):
     def towncentre_threehourly_transform(self, transformed_data):
         TownCentres_quad_lookup = pd.read_csv(
             "//DC1-FILE01/Intelligence$/Projects/2019-20/Covid-19 Busyness/"
+            "//DC1-FILE01/Intelligence$/Projects/2019-20/Covid-19 Busyness/"
             "data/mastercard/TownCentres_quad_lookup.csv"
         )
         hex_towncentre_lookup = pd.read_csv(
@@ -353,8 +354,8 @@ class HexTransform(DataLoader):
             "data/mastercard/BIDS_quad_lookup.csv"
         )
         hex_bid_lookup = pd.read_csv(
-            "//DC1-FILE01/Intelligence$/Projects/2019-20/Covid-19 Busyness/data/"
-            "reference_data/hex_bid_lookup.csv"
+            "/mnt/q/Projects/2019-20/Covid-19 Busyness/data/reference_data/"
+            "hex_bid_lookup.csv"
         )
         transformed_data = hex_bid_lookup.merge(
             transformed_data, left_on="hex_id", right_on="hex_id", how="right"
@@ -445,8 +446,8 @@ class HexTransform(DataLoader):
             "data/mastercard/bespoke_quad_lookup.csv"
         )
         hex_bespoke_lookup = pd.read_csv(
-            "//DC1-FILE01/Intelligence$/Projects/2019-20/Covid-19 Busyness/data/"
-            "reference_data/hex_bespoke_lookup.csv"
+            "/mnt/q/Projects/2019-20/Covid-19 Busyness/data/reference_data/"
+            "hex_bespoke_lookup.csv"
         )
         transformed_data = hex_bespoke_lookup.merge(
             transformed_data, left_on="hex_id", right_on="hex_id", how="right"
