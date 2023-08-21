@@ -22,7 +22,8 @@ class DataWriter:
             f"postgresql+psycopg2://{self.username}:{self.password}@"
             f"{self.host}:{self.port}/{self.database}"
         )
-        self.hs_file_path = "/mnt/q/Projects/2019-20/Covid-19 Busyness/data/BT/test/"
+        self.hs_file_path = "//DC1-FILE01/Intelligence$/Projects/2019-20/"
+        "Covid-19 Busyness/data/BT/Processed/"
 
     def load_data_to_csv(self, data, file_path):
         try:
@@ -189,15 +190,62 @@ class DataWriter:
             # name the file based on the id column name of data
             if data.columns[0] == "highstreet_id":
                 filename = f"highstreets_3hourly_counts_{start_date}_{end_date}.csv"
+                file_path = self.hs_file_path + "highstreet" + os.sep + filename
             elif data.columns[0] == "tc_id":
                 filename = f"towncentres_3hourly_counts_{start_date}_{end_date}.csv"
+                file_path = self.hs_file_path + "towncentre" + os.sep + filename
             elif data.columns[0] == "bespoke_area_id":
                 filename = f"bespokes_3hourly_counts_{start_date}_{end_date}.csv"
+                file_path = self.hs_file_path + "bespoke" + os.sep + filename
             elif data.columns[0] == "bid_id":
                 filename = f"bids_3hourly_counts_{start_date}_{end_date}.csv"
+                file_path = self.hs_file_path + "bid" + os.sep + filename
             # Write dataframe to CSV with the custom filename
-            file_path = self.hs_file_path + filename
+            # file_path = self.hs_file_path + filename
             pd.DataFrame(data).to_csv(file_path, index=False)
             logging.info(f"Data successfully written to CSV: {file_path}")
         except Exception as e:
             logging.error(f"Error while writing data to CSV: {e}")
+
+    def truncate_and_load_to_postgres(
+        self, dataframe, table_name, schema="public", if_exists="replace", index=False
+    ):
+        """
+        Truncate and load data from a DataFrame into a PostgreSQL table.
+
+        Args:
+            dataframe (pd.DataFrame): The DataFrame containing the data to be loaded.
+            table_name (str): The name of the PostgreSQL table.
+            schema (str, optional): The schema where the table resides.
+                                    Default is 'public'.
+            if_exists (str, optional): Action to take if the table already exists (
+                'fail', 'replace', or 'append').
+                Default is 'replace'.
+            index (bool, optional): Whether to include the DataFrame index as a
+                                    column in the table. Default is False.
+            engine (sqlalchemy.engine.Engine, optional): An existing SQLAlchemy engine.
+                                    If None, a new engine will be created.
+
+        Returns:
+            None
+        """
+        try:
+            # Truncate the existing table
+            with self.engine.connect() as connection:
+                connection.execute(f"TRUNCATE TABLE {schema}.{table_name}")
+
+            # Load the data from the DataFrame to the PostgreSQL table
+            dataframe.to_sql(
+                table_name,
+                con=self.engine,
+                if_exists=if_exists,
+                schema=schema,
+                index=index,
+            )
+            logging.info(f"Data loaded successfully into {schema}.{table_name}")
+
+        except Exception as e:
+            logging.error(
+                f"An error occurred while loading data into {schema}.{table_name}:"
+                f" {str(e)}"
+            )

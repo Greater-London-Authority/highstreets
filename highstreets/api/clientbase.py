@@ -50,7 +50,7 @@ class APIClient:
             # Parse the response and extract the token
             token = response.json().get("accessToken")
 
-            logger.info("Access token obtained successfully.")
+            # logger.info("Access token obtained successfully.")
             return token
         except requests.exceptions.RequestException as e:
             logger.error("Failed to obtain access token: %s", str(e))

@@ -1,5 +1,7 @@
 import logging
 import os
+import re
+from datetime import datetime
 
 import geopandas as gpd
 import pandas as pd
@@ -12,6 +14,14 @@ load_dotenv(find_dotenv())
 
 
 class DataLoaderException(Exception):
+    pass
+
+
+class SchemaMismatchError(Exception):
+    pass
+
+
+class DateRangeError(Exception):
     pass
 
 
@@ -143,3 +153,88 @@ class DataLoader:
             lookup_table = join_result[["hex_id", "bid_id", "bid_name"]]
             lookup_table["bid_id"] = lookup_table["bid_id"].astype("Int64")
             return lookup_table
+
+    def mcard_3hourly_latest_data_read(self, mcard_source_path):
+        mcard_source_path = (
+            "/mnt/q/Projects/2019-20/Covid-19 Busyness/data/"
+            "mastercard/sharefile_3hr_timeslot"
+        )
+        try:
+            latest_date_range = None
+            latest_filename = None
+
+            for filename in os.listdir(mcard_source_path):
+                if filename.endswith(".csv"):
+                    date_match = re.search(r"(\d{8})_(\d{8})", filename)
+                    if date_match:
+                        (start_date_str, end_date_str) = (
+                            date_match.group(1),
+                            date_match.group(2),
+                        )
+                        start_date = datetime.strptime(start_date_str, "%Y%m%d")
+                        end_date = datetime.strptime(end_date_str, "%Y%m%d")
+
+                        if not latest_date_range or end_date > latest_date_range[1]:
+                            latest_date_range = (start_date, end_date)
+                            latest_filename = filename
+
+            if not latest_date_range:
+                raise DateRangeError("No valid date range found in filenames")
+
+            self.logger.info(
+                f"Latest date range: {latest_date_range[0]} - {latest_date_range[1]}"
+                f" from {latest_filename}"
+            )
+
+            filepath = os.path.join(mcard_source_path, latest_filename)
+
+            # Load CSV data and validate schema
+            df = pd.read_csv(filepath, sep="|")
+            expected_columns = [
+                "yr",
+                "txn_date",
+                "time_slot",
+                "industry",
+                "segment",
+                "geo_type",
+                "geo_name",
+                "quad_id",
+                "central_latitude",
+                "central_longitude",
+                "bounding_box",
+                "txn_amt",
+                "txn_cnt",
+                "acct_cnt",
+                "avg_ticket",
+                "avg_freq",
+                "avg_spend_amt",
+                "yoy_txn_amt",
+                "yoy_txn_cnt",
+            ]
+
+            if list(df.columns) != expected_columns:
+                raise SchemaMismatchError("CSV schema does not match expected columns")
+
+            # Convert 'txn_date' column to datetime and validate date range
+            df["txn_date"] = pd.to_datetime(df["txn_date"])
+            date_mask = (df["txn_date"] < latest_date_range[0]) | (
+                df["txn_date"] > latest_date_range[1]
+            )
+            if date_mask.any():
+                raise DateRangeError(
+                    "CSV data contains dates outside the specified range"
+                )
+
+            return df
+
+        except SchemaMismatchError as sme:
+            self.logger.error(f"Schema Mismatch: {sme}")
+            raise sme
+
+        except DateRangeError as dre:
+            self.logger.error(f"Date Range Error: {dre}")
+            raise dre
+
+        except Exception as e:
+            self.logger.error(f"An error occurred: {e}")
+            raise e
