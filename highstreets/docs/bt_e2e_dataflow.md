@@ -73,7 +73,7 @@ Follow these steps to run the Jenkins job with parameters:
    - Log in to your Jenkins instance.
 
 2. **Locate the Job**:
-   - Find the Jenkins job associated with this project.
+   - Find the Jenkins job associated with this project named `HSDS-BT-E2E-DATAFLOW`.
 
 3. **Start a New Build**:
    - Click on the job name and select "Build with Parameters" from the menu.

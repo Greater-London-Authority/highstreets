@@ -156,6 +156,52 @@ bespoke = bespoke[
     ~bespoke["bespoke_area_id"].isin(bespoke_hex_insert["bespoke_area_id"].unique())
 ]
 
+# Append latest transformed BT data of different layers to
+# respective tables in PostgreSQL
+data_writer.append_data_to_postgres(hs, "econ_busyness_bt_highstreets_3hourly_counts")
+# (similar operations for tc, bid, bespoke)
+data_writer.append_data_to_postgres(tc, "econ_busyness_bt_towncentres_3hourly_counts")
+data_writer.append_data_to_postgres(bid, "econ_busyness_bt_bids_3hourly_counts")
+data_writer.append_data_to_postgres(bespoke, "econ_busyness_bt_bespokes_3hourly_counts")
+
+
+# Concatenate latest data from different layers
+econ_busyness_bt_3hourly_counts = pd.concat(
+    [
+        hs.assign(layer="highstreets").rename(
+            columns={"highstreet_id": "id", "highstreet_name": "name"}
+        ),
+        tc.assign(layer="towncentres").rename(
+            columns={"tc_id": "id", "tc_name": "name"}
+        ),
+        bid.assign(layer="bids").rename(columns={"bid_id": "id", "bid_name": "name"}),
+        bespoke.assign(layer="bespoke").rename(
+            columns={"bespoke_area_id": "id", "bespoke_name": "name"}
+        ),
+    ]
+)
+
+# Select columns for appending to PostgreSQL
+econ_busyness_bt_3hourly_counts = econ_busyness_bt_3hourly_counts[
+    [
+        "count_date",
+        "hours",
+        "id",
+        "name",
+        "layer",
+        "resident",
+        "visitor",
+        "worker",
+        "ave_loyalty_percentage",
+        "ave_dwell_time",
+    ]
+].sort_values("count_date")
+
+# Append concatenated data to PostgreSQL
+data_writer.append_data_to_postgres(
+    econ_busyness_bt_3hourly_counts, "econ_busyness_bt_3hourly_counts"
+)
+
 # Append new boundary data to PostgreSQL if not already present
 data_sources = [
     (
@@ -206,14 +252,6 @@ for data, hex_insert, id_column, table_name in data_sources:
         data_writer.append_data_without_check(data, "econ_busyness_bt_3hourly_counts")
 
 
-# Append latest transformed BT data of different layers to
-# respective tables in PostgreSQL
-data_writer.append_data_to_postgres(hs, "econ_busyness_bt_highstreets_3hourly_counts")
-# (similar operations for tc, bid, bespoke)
-data_writer.append_data_to_postgres(tc, "econ_busyness_bt_towncentres_3hourly_counts")
-data_writer.append_data_to_postgres(bid, "econ_busyness_bt_bids_3hourly_counts")
-data_writer.append_data_to_postgres(bespoke, "econ_busyness_bt_bespokes_3hourly_counts")
-
 # Retrieve full range data from PostgreSQL
 hs_full_range = data_loader.get_full_data("econ_busyness_bt_highstreets_3hourly_counts")
 tc_full_range = data_loader.get_full_data("econ_busyness_bt_towncentres_3hourly_counts")
@@ -223,44 +261,7 @@ bespoke_full_range = data_loader.get_full_data(
 )
 
 # Write full range data to CSVs
-data_writer.write_threehourly_hs_to_csv(hs_full_range)
-data_writer.write_threehourly_hs_to_csv(tc_full_range)
-data_writer.write_threehourly_hs_to_csv(bid_full_range)
-data_writer.write_threehourly_hs_to_csv(bespoke_full_range)
-
-# Concatenate latest data from different layers
-econ_busyness_bt_3hourly_counts = pd.concat(
-    [
-        hs.assign(layer="highstreets").rename(
-            columns={"highstreet_id": "id", "highstreet_name": "name"}
-        ),
-        tc.assign(layer="towncentres").rename(
-            columns={"tc_id": "id", "tc_name": "name"}
-        ),
-        bid.assign(layer="bids").rename(columns={"bid_id": "id", "bid_name": "name"}),
-        bespoke.assign(layer="bespoke").rename(
-            columns={"bespoke_area_id": "id", "bespoke_name": "name"}
-        ),
-    ]
-)
-
-# Select columns for appending to PostgreSQL
-econ_busyness_bt_3hourly_counts = econ_busyness_bt_3hourly_counts[
-    [
-        "count_date",
-        "hours",
-        "id",
-        "name",
-        "layer",
-        "resident",
-        "visitor",
-        "worker",
-        "ave_loyalty_percentage",
-        "ave_dwell_time",
-    ]
-].sort_values("count_date")
-
-# Append concatenated data to PostgreSQL
-data_writer.append_data_to_postgres(
-    econ_busyness_bt_3hourly_counts, "econ_busyness_bt_3hourly_counts"
-)
+data_writer.write_threehourly_hs_to_csv(hs_full_range, "bt")
+data_writer.write_threehourly_hs_to_csv(tc_full_range, "bt")
+data_writer.write_threehourly_hs_to_csv(bid_full_range, "bt")
+data_writer.write_threehourly_hs_to_csv(bespoke_full_range, "bt")

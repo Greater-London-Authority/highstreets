@@ -22,8 +22,12 @@ class DataWriter:
             f"postgresql+psycopg2://{self.username}:{self.password}@"
             f"{self.host}:{self.port}/{self.database}"
         )
-        self.hs_file_path = "//DC1-FILE01/Intelligence$/Projects/2019-20/"
-        "Covid-19 Busyness/data/BT/Processed/"
+        self.hs_file_path = {
+            "mastercard": "/mnt/q/Projects/2019-20/"
+            "Covid-19 Busyness/data/mastercard/Processed/",
+            "bt": "//DC1-FILE01/Intelligence$/Projects/2019-20/"
+            "Covid-19 Busyness/data/BT/Processed/",
+        }
 
     def load_data_to_csv(self, data, file_path):
         try:
@@ -182,28 +186,56 @@ class DataWriter:
             group.to_csv(file_name, index=False)
             logging.info(f"Saved {file_name}")
 
-    def write_threehourly_hs_to_csv(self, data):
+    def write_threehourly_hs_to_csv(self, data, data_source):
+        """
+        Writes a DataFrame to a CSV file based on the first column's name and data type.
+
+        Args:
+            data (pandas.DataFrame): The DataFrame to be exported.
+            data_source (str): The type of data ("mastercard" or "bt").
+
+        Raises:
+            FileNotFoundError: If the specified file or directory is not found.
+            PermissionError: If there's a permission issue when writing the file.
+            Exception: For any other unexpected errors during the export process.
+        """
         try:
-            start_date = data["count_date"].min().strftime("%Y-%m-%d")
-            end_date = data["count_date"].max().strftime("%Y-%m-%d")
-            # Create the filename
-            # name the file based on the id column name of data
-            if data.columns[0] == "highstreet_id":
-                filename = f"highstreets_3hourly_counts_{start_date}_{end_date}.csv"
-                file_path = self.hs_file_path + "highstreet" + os.sep + filename
-            elif data.columns[0] == "tc_id":
-                filename = f"towncentres_3hourly_counts_{start_date}_{end_date}.csv"
-                file_path = self.hs_file_path + "towncentre" + os.sep + filename
-            elif data.columns[0] == "bespoke_area_id":
-                filename = f"bespokes_3hourly_counts_{start_date}_{end_date}.csv"
-                file_path = self.hs_file_path + "bespoke" + os.sep + filename
-            elif data.columns[0] == "bid_id":
-                filename = f"bids_3hourly_counts_{start_date}_{end_date}.csv"
-                file_path = self.hs_file_path + "bid" + os.sep + filename
-            # Write dataframe to CSV with the custom filename
-            # file_path = self.hs_file_path + filename
-            pd.DataFrame(data).to_csv(file_path, index=False)
-            logging.info(f"Data successfully written to CSV: {file_path}")
+            if data_source in self.hs_file_path:
+                first_column_name = data.columns[0]
+                if first_column_name in [
+                    "highstreet_id",
+                    "tc_id",
+                    "bespoke_area_id",
+                    "bid_id",
+                ]:
+                    directory_name = {
+                        "highstreet_id": "highstreet",
+                        "tc_id": "towncentre",
+                        "bespoke_area_id": "bespoke",
+                        "bid_id": "bid",
+                    }[first_column_name]
+                    start_date = data["count_date"].min().strftime("%Y-%m-%d")
+                    end_date = data["count_date"].max().strftime("%Y-%m-%d")
+                    filename = (
+                        f"{directory_name}_3hourly_counts_"
+                        f"{start_date}_{end_date}.csv"
+                    )
+                    file_path = os.path.join(
+                        self.hs_file_path[data_source], directory_name, filename
+                    )
+                    pd.DataFrame(data).to_csv(file_path, index=False)
+                    logging.info(f"Data successfully written to CSV: {file_path}")
+                else:
+                    logging.error(f"Invalid column name: {first_column_name}")
+            else:
+                raise ValueError(
+                    "Invalid data_source. Supported values are 'mastercard' and 'bt'."
+                )
+
+        except FileNotFoundError as e:
+            logging.error(f"File not found: {e}")
+        except PermissionError as e:
+            logging.error(f"Permission error: {e}")
         except Exception as e:
             logging.error(f"Error while writing data to CSV: {e}")
 
@@ -232,7 +264,7 @@ class DataWriter:
         try:
             # Truncate the existing table
             with self.engine.connect() as connection:
-                connection.execute(f"TRUNCATE TABLE {schema}.{table_name}")
+                connection.execute(text(f"TRUNCATE TABLE {schema}.{table_name}"))
 
             # Load the data from the DataFrame to the PostgreSQL table
             dataframe.to_sql(
