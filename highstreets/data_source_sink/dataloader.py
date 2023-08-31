@@ -156,7 +156,7 @@ class DataLoader:
 
     def mcard_3hourly_latest_data_read(self, mcard_source_path):
         mcard_source_path = (
-            "/mnt/q/Projects/2019-20/Covid-19 Busyness/data/"
+            "//DC1-FILE01/Intelligence$/Projects/2019-20/Covid-19 Busyness/data/"
             "mastercard/sharefile_3hr_timeslot"
         )
         try:

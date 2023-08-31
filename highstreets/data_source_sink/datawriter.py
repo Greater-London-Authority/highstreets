@@ -23,7 +23,7 @@ class DataWriter:
             f"{self.host}:{self.port}/{self.database}"
         )
         self.hs_file_path = {
-            "mastercard": "/mnt/q/Projects/2019-20/"
+            "mastercard": "//DC1-FILE01/Intelligence$/Projects/2019-20/"
             "Covid-19 Busyness/data/mastercard/Processed/",
             "bt": "//DC1-FILE01/Intelligence$/Projects/2019-20/"
             "Covid-19 Busyness/data/BT/Processed/",

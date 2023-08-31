@@ -100,6 +100,6 @@ econ_busyness_mcard_3hourly_txn = econ_busyness_mcard_3hourly_txn[
 
 data_writer.truncate_and_load_to_postgres(
     econ_busyness_mcard_3hourly_txn,
-    table_name="temp_econ_busyness_mcard_3hourly_txn",
+    table_name="econ_busyness_mcard_3hourly_txn",
     schema="gisapdata",
 )

@@ -1,6 +1,7 @@
 import logging
 import re
 
+import numpy as np
 import pandas as pd
 
 
@@ -61,7 +62,7 @@ class McardTransform:
 
     def mcard_highstreet_threehourly_transform(self, data):
         Highstreets_quad_lookup = pd.read_csv(
-            "/mnt/q/Projects/2019-20/Covid-19 Busyness/"
+            "//DC1-FILE01/Intelligence$/Projects/2019-20/Covid-19 Busyness/"
             "data/mastercard/Highstreets_quad_lookup.csv"
         )
         data = (
@@ -88,7 +89,7 @@ class McardTransform:
 
     def mcard_towncentre_threehourly_transform(self, data):
         TownCentres_quad_lookup = pd.read_csv(
-            "/mnt/q/Projects/2019-20/Covid-19 Busyness/"
+            "//DC1-FILE01/Intelligence$/Projects/2019-20/Covid-19 Busyness/"
             "data/mastercard/TownCentres_quad_lookup.csv"
         )
         data = (
@@ -105,7 +106,7 @@ class McardTransform:
 
     def mcard_bid_threehourly_transform(self, data):
         BIDS_quad_lookup = pd.read_csv(
-            "/mnt/q/Projects/2019-20/Covid-19 Busyness/"
+            "//DC1-FILE01/Intelligence$/Projects/2019-20/Covid-19 Busyness/"
             "data/mastercard/BIDS_quad_lookup.csv"
         )
         data = (
@@ -122,7 +123,7 @@ class McardTransform:
 
     def mcard_bespoke_threehourly_transform(self, data):
         bespoke_quad_lookup = pd.read_csv(
-            "/mnt/q/Projects/2019-20/Covid-19 Busyness/"
+            "//DC1-FILE01/Intelligence$/Projects/2019-20/Covid-19 Busyness/"
             "data/mastercard/bespoke_quad_lookup.csv"
         )
         data = (
@@ -137,3 +138,50 @@ class McardTransform:
         data["bespoke_area_id"] = data["bespoke_area_id"].astype(int)
 
         return data
+
+    def calculate_yoy_growth(self, df, col, new_col):
+        """
+        Calculate Year-over-Year (YOY) growth for a specified column in a DataFrame.
+
+        This method calculates YOY growth for a given column by comparing values with the
+        previous year based on matching 'wk' and 'id' columns. It ensures that 'id' is
+        treated as an integer, sorts the DataFrame by 'id', 'yr', and 'wk' for proper
+        calculation, and handles cases where division by zero results in infinite values
+        by replacing them with NaN. Finally, it sorts the DataFrame by 'yr', 'wk', and
+        'id' to arrange years in ascending order and resets the index before returning
+        the updated DataFrame.
+
+        Parameters:
+            df (pandas.DataFrame): The DataFrame containing the data.
+            col (str): The name of the column for which YOY growth will be calculated.
+            new_col (str): The name of the new column to store the YOY growth values.
+
+        Returns:
+            pandas.DataFrame: The DataFrame with YOY growth values added in the 'new_col'
+            column and the index reset.
+        """
+        try:
+            df["id"] = df["id"].astype(int)  # Ensure 'id' column is treated as integer
+
+            # Sort the DataFrame by 'id', 'yr', and 'wk' to ensure proper calculation
+            df.sort_values(by=["id", "yr", "wk"], inplace=True)
+
+            # Calculate YOY growth based on matching 'wk' and 'id' with the previous year
+            df[new_col] = df.groupby(["id", "wk"])[col].shift(0) / df.groupby(
+                ["id", "wk"]
+            )[col].shift(1)
+
+            # Set YOY growth to NaN for the first entry of each 'id' and 'wk'
+            df.loc[df.groupby(["id", "wk"]).head(1).index, new_col] = None
+
+            # Handle division by zero by replacing resulting infinite values with NaN
+            df[new_col].replace([np.inf, -np.inf], np.nan, inplace=True)
+
+            # Sort the DataFrame by 'id', 'yr', and 'wk' to arrange years in ascending
+            # order
+            df.sort_values(by=["yr", "wk", "id"], inplace=True)
+
+            # Reset the index and return the updated DataFrame
+            return df.reset_index(drop=True)
+        except Exception as e:
+            self.logger.error(f"An error occurred: {str(e)}")
