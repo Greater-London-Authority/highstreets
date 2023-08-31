@@ -7,6 +7,8 @@ pipeline {
         PG_PASSWORD = credentials('pg-password')
         PG_HOST = credentials('pg-host')
         PG_PORT = credentials('pg-port')
+        CONSUMER_KEY = credentials('consumer-key') // Use Jenkins credentials to securely store the consumer key
+        CONSUMER_SECRET = credentials('consumer-secret') // Use Jenkins credentials to securely store the consumer secret
     }
 
     stages {
@@ -26,7 +28,7 @@ pipeline {
         stage('Build') {
             steps {
                 script {
-                    withEnv(["PG_DATABASE=${PG_DATABASE}", "PG_USER=${PG_USER}", "PG_PASSWORD=${PG_PASSWORD}", "PG_HOST=${PG_HOST}", "PG_PORT=${PG_PORT}"]) {
+                    withEnv(["CONSUMER_KEY=${CONSUMER_KEY}", "CONSUMER_SECRET=${CONSUMER_SECRET}", "PG_DATABASE=${PG_DATABASE}", "PG_USER=${PG_USER}", "PG_PASSWORD=${PG_PASSWORD}", "PG_HOST=${PG_HOST}", "PG_PORT=${PG_PORT}"]) {
                         sh 'poetry run python highstreets/hsdsprocess/mcard_threehourly.py'
                         }
                     }
