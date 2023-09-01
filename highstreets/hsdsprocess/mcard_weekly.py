@@ -144,8 +144,15 @@ for txn_type, cols in column_mapping.items():
         )
 
 
-# Select and print the specified output columns
+# Select and print the specified output columns - hs/tc/bid/bespoke/caz
 output_columns = ["yr", "wk", "week_start", "id", "name", "layer"] + [
+    f"annual_change_{col}_{txn_type}"
+    for txn_type, cols in column_mapping.items()
+    for col in cols
+]
+
+# Select and print the specified output columns - London
+output_columns_london = ["yr", "wk", "week_start", "id", "name", "layer"] + [
     f"annual_change_{col}_{txn_type}"
     for txn_type, cols in column_mapping.items()
     for col in cols
@@ -159,7 +166,7 @@ data_writer.truncate_and_load_to_postgres(
 )
 
 data_writer.truncate_and_load_to_postgres(
-    df_processed_yoy_growth_london[output_columns],
+    df_processed_yoy_growth_london[output_columns_london],
     "econ_busyness_mcard_london_annual_change",
     schema="gisapdata",
 )
