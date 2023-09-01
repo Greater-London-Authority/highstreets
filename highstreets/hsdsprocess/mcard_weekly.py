@@ -69,7 +69,9 @@ column_mapping = {
 
 
 # Create a DataFrame from the data with correct data types
-df_london = pd.DataFrame(mcard_london_txn, columns=columns).astype(dtypes)
+df_london = (
+    pd.DataFrame(mcard_london_txn, columns=columns).astype(dtypes).assign(area="London")
+)
 
 df_caz = (
     pd.DataFrame(mcard_caz_txn, columns=columns)
