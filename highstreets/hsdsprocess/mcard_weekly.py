@@ -152,7 +152,7 @@ output_columns = ["yr", "wk", "week_start", "id", "name", "layer"] + [
 ]
 
 # Select and print the specified output columns - London
-output_columns_london = ["yr", "wk", "week_start", "id", "name", "layer"] + [
+output_columns_london = ["yr", "wk", "week_start", "name", "layer"] + [
     f"annual_change_{col}_{txn_type}"
     for txn_type, cols in column_mapping.items()
     for col in cols
