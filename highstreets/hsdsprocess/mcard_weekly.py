@@ -135,6 +135,13 @@ for txn_type, cols in column_mapping.items():
             ],
             ignore_index=True,
         )
+# london
+for txn_type, cols in column_mapping.items():
+    for col in cols:
+        annual_change_col = f"annual_change_{col}_{txn_type}"
+        df_processed_yoy_growth_london = mcard_transform.calculate_yoy_growth(
+            df_london, f"{col}_{txn_type}", annual_change_col
+        )
 
 
 # Select and print the specified output columns
@@ -148,5 +155,11 @@ output_columns = ["yr", "wk", "week_start", "id", "name", "layer"] + [
 data_writer.truncate_and_load_to_postgres(
     df_processed_yoy_growth[output_columns],
     "econ_busyness_mcard_annual_change",
+    schema="gisapdata",
+)
+
+data_writer.truncate_and_load_to_postgres(
+    df_processed_yoy_growth_london[output_columns],
+    "econ_busyness_mcard_london_annual_change",
     schema="gisapdata",
 )

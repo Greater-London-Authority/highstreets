@@ -144,12 +144,10 @@ class McardTransform:
         Calculate Year-over-Year (YOY) growth for a specified column in a DataFrame.
 
         This method calculates YOY growth for a given column by comparing values with the
-        previous year based on matching 'wk' and 'id' columns. It ensures that 'id' is
-        treated as an integer, sorts the DataFrame by 'id', 'yr', and 'wk' for proper
-        calculation, and handles cases where division by zero results in infinite values
-        by replacing them with NaN. Finally, it sorts the DataFrame by 'yr', 'wk', and
-        'id' to arrange years in ascending order and resets the index before returning
-        the updated DataFrame.
+        previous year based on matching 'wk' and 'id' columns if 'id' is present.
+        It ensures proper sorting of the DataFrame and handles cases where division by
+        zero results in infinite values by replacing them with NaN. Finally, it resets
+        the index before returning the updated DataFrame.
 
         Parameters:
             df (pandas.DataFrame): The DataFrame containing the data.
@@ -161,27 +159,48 @@ class McardTransform:
             column and the index reset.
         """
         try:
-            df["id"] = df["id"].astype(int)  # Ensure 'id' column is treated as integer
+            if "id" in df.columns:
+                # Ensure 'id' column is treated as an integer
+                df["id"] = df["id"].astype(int)
+                # Sort the DataFrame by 'id', 'yr', and 'wk' to ensure proper calculation
+                df.sort_values(by=["id", "yr", "wk"], inplace=True)
 
-            # Sort the DataFrame by 'id', 'yr', and 'wk' to ensure proper calculation
-            df.sort_values(by=["id", "yr", "wk"], inplace=True)
+                # Calculate YOY growth based on matching 'wk' and 'id' with
+                # the previous year
+                df[new_col] = df.groupby(["id", "wk"])[col].shift(0) / df.groupby(
+                    ["id", "wk"]
+                )[col].shift(1)
 
-            # Calculate YOY growth based on matching 'wk' and 'id' with the previous year
-            df[new_col] = df.groupby(["id", "wk"])[col].shift(0) / df.groupby(
-                ["id", "wk"]
-            )[col].shift(1)
+                # Set YOY growth to NaN for the first entry of each 'id' and 'wk'
+                df.loc[df.groupby(["id", "wk"]).head(1).index, new_col] = None
 
-            # Set YOY growth to NaN for the first entry of each 'id' and 'wk'
-            df.loc[df.groupby(["id", "wk"]).head(1).index, new_col] = None
+                # Handle division by zero by replacing resulting infinite values with NaN
+                df[new_col].replace([np.inf, -np.inf], np.nan, inplace=True)
 
-            # Handle division by zero by replacing resulting infinite values with NaN
-            df[new_col].replace([np.inf, -np.inf], np.nan, inplace=True)
+                # Sort the DataFrame by 'id', 'yr', and 'wk' to arrange years
+                #  in ascending order
+                df.sort_values(by=["yr", "wk", "id"], inplace=True)
+            else:
+                # Sort the DataFrame by 'yr' and 'wk' to ensure proper calculation
+                df.sort_values(by=["yr", "wk"], inplace=True)
 
-            # Sort the DataFrame by 'id', 'yr', and 'wk' to arrange years in ascending
-            # order
-            df.sort_values(by=["yr", "wk", "id"], inplace=True)
+                # Calculate YOY growth based on matching 'wk' with the previous year
+                df[new_col] = df.groupby(["wk"])[col].shift(0) / df.groupby(["wk"])[
+                    col
+                ].shift(1)
+
+                # Set YOY growth to NaN for the first entry of each 'wk'
+                df.loc[df.groupby(["wk"]).head(1).index, new_col] = None
+
+                # Handle division by zero by replacing resulting infinite values with NaN
+                df[new_col].replace([np.inf, -np.inf], np.nan, inplace=True)
+
+                # Sort the DataFrame by 'yr', and 'wk' to arrange years
+                #  in ascending order
+                df.sort_values(by=["yr", "wk"], inplace=True)
 
             # Reset the index and return the updated DataFrame
             return df.reset_index(drop=True)
         except Exception as e:
+            # Handle any exceptions here
             self.logger.error(f"An error occurred: {str(e)}")

@@ -1,0 +1,38 @@
+pipeline {
+    agent any
+
+    environment {
+        PG_DATABASE = credentials('pg-database')
+        PG_USER = credentials('pg-user')
+        PG_PASSWORD = credentials('pg-password')
+        PG_HOST = credentials('pg-host')
+        PG_PORT = credentials('pg-port')
+        CONSUMER_KEY = credentials('consumer-key') // Use Jenkins credentials to securely store the consumer key
+        CONSUMER_SECRET = credentials('consumer-secret') // Use Jenkins credentials to securely store the consumer secret
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Install Dependencies') {
+            steps {
+                sh 'pip install poetry'
+                sh 'poetry install'
+            }
+        }
+
+        stage('Build') {
+            steps {
+                script {
+                    withEnv(["CONSUMER_KEY=${CONSUMER_KEY}", "CONSUMER_SECRET=${CONSUMER_SECRET}", "PG_DATABASE=${PG_DATABASE}", "PG_USER=${PG_USER}", "PG_PASSWORD=${PG_PASSWORD}", "PG_HOST=${PG_HOST}", "PG_PORT=${PG_PORT}"]) {
+                        sh 'poetry run python highstreets/hsdsprocess/mcard_weekly.py'
+                        }
+                    }
+                }
+            }
+        }
+    }
