@@ -145,6 +145,18 @@ for txn_type, cols in column_mapping.items():
             df_london, f"{col}_{txn_type}", annual_change_col
         )
 
+# Round columns to two decimal places
+for txn_type, cols in column_mapping.items():
+    for col in cols:
+        annual_change_col = f"annual_change_{col}_{txn_type}"
+        decimal_places = 2  # You can adjust this as needed
+        columns_to_round = [annual_change_col]  # Add more columns if needed
+        df_processed_yoy_growth[columns_to_round] = df_processed_yoy_growth[
+            columns_to_round
+        ].round(decimal_places)
+        df_processed_yoy_growth_london[
+            columns_to_round
+        ] = df_processed_yoy_growth_london[columns_to_round].round(decimal_places)
 
 # Select and print the specified output columns - hs/tc/bid/bespoke/caz
 output_columns = ["yr", "wk", "week_start", "id", "name", "layer"] + [
