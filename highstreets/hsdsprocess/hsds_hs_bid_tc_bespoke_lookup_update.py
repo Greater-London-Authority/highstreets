@@ -65,7 +65,7 @@ lookup_table["highstreet_id"] = lookup_table["highstreet_id"].astype("Int64")
 # Save the lookup table as a CSV file
 lookup_table.to_csv(
     "//DC1-FILE01/Intelligence$/Projects/2019-20/Covid-19 Busyness/data/reference_data/"
-    "test/hex_highstreet_lookup.csv",
+    "hex_highstreet_lookup.csv",
     index=False,
 )
 
@@ -79,8 +79,8 @@ lookup_table["tc_id"] = lookup_table["tc_id"].astype("Int64")
 
 # Save the lookup table as a CSV file
 lookup_table.to_csv(
-    "//DC1-FILE01/Intelligence$/Projects/2019-20/Covid-19 Busyness/data/reference_data"
-    "/test/hex_towncentre_lookup.csv",
+    "//DC1-FILE01/Intelligence$/Projects/2019-20/Covid-19 Busyness/data/reference_data/"
+    "hex_towncentre_lookup.csv",
     index=False,
 )
 
@@ -95,7 +95,7 @@ lookup_table["bid_id"] = lookup_table["bid_id"].astype("Int64")
 # Save the lookup table as a CSV file
 lookup_table.to_csv(
     "//DC1-FILE01/Intelligence$/Projects/2019-20/Covid-19 Busyness/data/reference_data/"
-    "test/hex_bid_lookup.csv",
+    "hex_bid_lookup.csv",
     index=False,
 )
 
@@ -110,6 +110,6 @@ lookup_table["bespoke_area_id"] = lookup_table["bespoke_area_id"].astype("Int64"
 # Save the lookup table as a CSV file
 lookup_table.to_csv(
     "//DC1-FILE01/Intelligence$/Projects/2019-20/Covid-19 Busyness/data/reference_data/"
-    "test/hex_bespoke_lookup.csv",
+    "hex_bespoke_lookup.csv",
     index=False,
 )
