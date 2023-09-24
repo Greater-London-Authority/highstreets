@@ -1,0 +1,36 @@
+pipeline {
+    agent any
+
+    environment {
+        PG_DATABASE = credentials('pg-database')
+        PG_USER = credentials('pg-user')
+        PG_PASSWORD = credentials('pg-password')
+        PG_HOST = credentials('pg-host')
+        PG_PORT = credentials('pg-port')
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Install Dependencies') {
+            steps {
+                sh 'pip install poetry'
+                sh 'poetry install'
+            }
+        }
+
+        stage('Build') {
+            steps {
+                script {
+                    withEnv(["PG_DATABASE=${PG_DATABASE}", "PG_USER=${PG_USER}", "PG_PASSWORD=${PG_PASSWORD}", "PG_HOST=${PG_HOST}", "PG_PORT=${PG_PORT}"]) {
+                        sh 'poetry run python highstreets/hsdsprocess/hsds_hs_bid_tc_bespoke_lookup_update.py'
+                        }
+                    }
+                }
+            }
+        }
+    }
