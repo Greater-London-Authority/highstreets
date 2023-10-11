@@ -54,11 +54,28 @@ data_writer.truncate_and_load_to_postgres(
     schema="gisapdata",
 )
 
+
 data_writer.write_threehourly_hs_to_csv(mrli_bespoke_full_range, "mastercard")
 data_writer.write_threehourly_hs_to_csv(mrli_hs_full_range, "mastercard")
 data_writer.write_threehourly_hs_to_csv(mrli_tc_full_range, "mastercard")
 data_writer.write_threehourly_hs_to_csv(mrli_bid_full_range, "mastercard")
 data_writer.write_threehourly_hs_to_csv(mrli_bespoke_full_range, "mastercard")
+
+# sub-licensing agreement for colliers
+# process HSDS data for the HOLBA sites
+# select ids cooresponding to HOLBA sites
+holba_ids = [112, 113, 114, 115, 116, 117, 118, 197]
+
+# filtering all holba site footfall data and writing it to csv
+mrli_bespoke_full_range[
+    mrli_bespoke_full_range["bespoke_area_id"].isin(holba_ids)
+].to_csv(
+    "//DC1-FILE01/Intelligence$/Projects/2019-20/Covid-19 Busyness"
+    "/data/mastercard/Processed/bespoke/"
+    "Colliers agreement - Holba sites/"
+    "colliers_hsds_mcard_3hourly_txn.csv",
+    index=False,
+)
 
 # Concatenate latest data from different layers
 econ_busyness_mcard_3hourly_txn = pd.concat(

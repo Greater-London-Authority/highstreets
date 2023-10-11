@@ -36,7 +36,8 @@ tfl_hex_full_range = data_loader.get_full_data("bt_footfall_tfl_hex_3hourly")
 # Retrieve full range BT hex data from PostgreSQL and write to CSV
 data_writer.write_hex_to_csv_by_year(
     tfl_hex_full_range,
-    "//DC1-FILE01/Intelligence$/Projects/2019-20/Covid-19 Busyness/data/BT/test/test3",
+    "//DC1-FILE01/Intelligence$/Projects/2019-20/Covid-19 Busyness/data/BT/"
+    "Processed/hex_grid",
 )
 
 # Initialize DataProcessor to obtain new hex IDs from tracking table
@@ -265,3 +266,16 @@ data_writer.write_threehourly_hs_to_csv(hs_full_range, "bt")
 data_writer.write_threehourly_hs_to_csv(tc_full_range, "bt")
 data_writer.write_threehourly_hs_to_csv(bid_full_range, "bt")
 data_writer.write_threehourly_hs_to_csv(bespoke_full_range, "bt")
+
+# sub-licensing agreement for colliers
+# process HSDS data for the HOLBA sites
+# select ids cooresponding to HOLBA sites
+holba_ids = [112, 113, 114, 115, 116, 117, 118, 197]
+
+# filtering all holba site footfall data and writing it to csv
+bespoke_full_range[bespoke_full_range["bespoke_area_id"].isin(holba_ids)].to_csv(
+    "//DC1-FILE01/Intelligence$/Projects/2019-20/Covid-19 Busyness/"
+    "data/BT/Processed/bespoke/Colliers agreement - Holba sites/"
+    "colliers_hsds_bt_footfall_3hourly_counts.csv",
+    index=False,
+)
