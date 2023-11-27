@@ -184,3 +184,35 @@ data_writer.truncate_and_load_to_postgres(
     "econ_busyness_mcard_london_annual_change",
     schema="gisapdata",
 )
+
+# below few lines of code is reading mastercard weekly txn bespoke data
+# And filtering the data for various users
+
+# reading full range txn_bespoke data from mastercard directory
+mcard_weekly = pd.read_csv(
+    "//DC1-FILE01/Intelligence$/Projects/2019-20/"
+    "Covid-19 Busyness/data/mastercard/txn_bespoke.csv"
+)
+
+# sub-licensing agreement for colliers
+# process HSDS data for the HOLBA sites
+# select ids cooresponding to HOLBA sites
+holba_ids = [112, 113, 114, 115, 116, 117, 118, 197]
+
+# filtering all holba site weekly transaction data and writing it to csv
+mcard_weekly[mcard_weekly["bespoke_area_id"].isin(holba_ids)].to_csv(
+    "//DC1-FILE01/Intelligence$/Projects/"
+    "2019-20/Covid-19 Busyness/data/mastercard/Processed/bespoke/"
+    "Colliers agreement - Holba sites/colliers_hsds_mcard_weekly_txn.csv",
+    index=False,
+)
+
+# Andrew Scott Project
+ltn_ids = [220, 221, 222, 223, 224, 225, 226, 227, 228]
+# filtering ltn weekly transaction data and writing it to csv
+mcard_weekly[mcard_weekly["bespoke_area_id"].isin(ltn_ids)].to_csv(
+    "//DC1-FILE01/Intelligence$/Projects/"
+    "2019-20/Covid-19 Busyness/data/mastercard/Processed/bespoke/"
+    "LTN/ltn_hsds_mcard_weekly_txn.csv",
+    index=False,
+)
