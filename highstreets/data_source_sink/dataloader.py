@@ -27,9 +27,13 @@ class DateRangeError(Exception):
 
 class DataLoader:
     def __init__(self):
-        self.api_endpoint = (
+        self.hex_api_endpoint = (
             "https://api.business.bt.com/v1/footfall/reports/"
             "hex-grid/tfl?agg=time_indicator"
+        )
+        self.msoa_api_endpoint = (
+            "https://api.business.bt.com/v1/footfall/reports/"
+            "hourly-aggregate/msoa?agg=hour"
         )
         self.api_client = APIClient()
         self.logger = logging.getLogger(__name__)
@@ -48,7 +52,23 @@ class DataLoader:
         params = {"date_from": date_from, "date_to": date_to}
 
         try:
-            return self.api_client.get_data_request(self.api_endpoint, params=params)
+            return self.api_client.get_data_request(
+                self.hex_api_endpoint, params=params
+            )
+        except APIClientException as e:
+            self.logger.error(str(e))
+            raise DataLoaderException("Failed to fetch data.") from None
+        except Exception as e:
+            self.logger.error(f"An unexpected error occurred: {str(e)}")
+            raise DataLoaderException("An unexpected error occurred.") from None
+
+    def get_msoa_data(self, date_from, date_to):
+        params = {"date_from": date_from, "date_to": date_to}
+
+        try:
+            return self.api_client.get_data_request(
+                self.msoa_api_endpoint, params=params
+            )  # noqa: E501
         except APIClientException as e:
             self.logger.error(str(e))
             raise DataLoaderException("Failed to fetch data.") from None

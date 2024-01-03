@@ -25,8 +25,7 @@ class DataWriter:
         self.hs_file_path = {
             "mastercard": "//DC1-FILE01/Intelligence$/Projects/2019-20/"
             "Covid-19 Busyness/data/mastercard/Processed/",
-            "bt": "//DC1-FILE01/Intelligence$/Projects/2019-20/"
-            "Covid-19 Busyness/data/BT/Processed/",
+            "bt": "/mnt/q/Projects/2019-20/" "Covid-19 Busyness/data/BT/Processed/",
         }
 
     def load_data_to_csv(self, data, file_path):
@@ -207,19 +206,27 @@ class DataWriter:
                     "tc_id",
                     "bespoke_area_id",
                     "bid_id",
+                    "msoa_id",
                 ]:
                     directory_name = {
                         "highstreet_id": "highstreet",
                         "tc_id": "towncentre",
                         "bespoke_area_id": "bespoke",
                         "bid_id": "bid",
+                        "msoa_id": "msoa",
                     }[first_column_name]
                     start_date = data["count_date"].min().strftime("%Y-%m-%d")
                     end_date = data["count_date"].max().strftime("%Y-%m-%d")
-                    filename = (
-                        f"{directory_name}_3hourly_counts_"
-                        f"{start_date}_{end_date}.csv"
-                    )
+                    if first_column_name == "msoa_id":
+                        filename = (
+                            f"{directory_name}_hourly_counts_"
+                            f"{start_date}_{end_date}.csv"
+                        )
+                    else:
+                        filename = (
+                            f"{directory_name}_3hourly_counts_"
+                            f"{start_date}_{end_date}.csv"
+                        )
                     file_path = os.path.join(
                         self.hs_file_path[data_source], directory_name, filename
                     )
