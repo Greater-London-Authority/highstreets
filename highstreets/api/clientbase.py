@@ -73,6 +73,11 @@ class APIClient:
                 response.raise_for_status()
 
                 data = response.json().get("data")
+
+                if not data:  # check if data is empty
+                    logger.error("No data available.")
+                    break
+
                 all_data.extend(data)
 
                 pagination_metadata = response.json().get("pagination_metadata")
