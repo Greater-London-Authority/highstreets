@@ -12,7 +12,7 @@ class MsoaTransform(DataLoader):
         MSOA Transform class for performing data transformation on data.
 
         This class provides methods to transform input data containing HSDS information,
-        such as hex_id, date, total_volume, worker_population_percentage,
+        such as msoa_id, date, total_volume, worker_population_percentage,
         and resident_population_percentage, into a desired output format.
 
         Attributes:
@@ -23,6 +23,43 @@ class MsoaTransform(DataLoader):
         self.logger.addHandler(logging.StreamHandler())
 
     def raw_msoa_transform_data(self, data):
+        """
+        Transform raw MSOA (Middle Layer Super Output Area) data.
+
+        Parameters:
+        - data (list or dict): Raw MSOA data in JSON format. It should contain
+                               information such as POI (Point of Interest) ID,
+                               POI name, date, total volume,
+                               worker population percentage, and resident
+                               population percentage.
+
+        Returns:
+        - pd.DataFrame: Transformed MSOA data in a pandas DataFrame format. The DataFrame
+                        includes columns such as MSOA ID, MSOA name, count date, day,
+                        hour, resident population, worker population, visitor count,
+                        loyalty percentage, and dwell time.
+
+        Raises:
+        - ValueError: If the input data is not in a valid JSON format or if it is missing
+                      required columns.
+
+        Notes:
+        - The transformation involves cleaning and processing the raw data to derive
+          additional information such as worker, resident, and visitor counts.
+        - 'IDE' values (suppressed by BT) in the dataset are replaced with NaN.
+        - Date is converted to a datetime format.
+        - Worker and resident counts are calculated based on population percentages.
+        - Visitor count is derived from the total volume, worker, and resident counts.
+        - Columns are selected and renamed to match the desired output format.
+        - The resulting DataFrame is logged, and the transformed data is returned.
+
+        Example:
+        ```python
+        data = [...]  # Replace with actual raw MSOA data
+        transformed_data = raw_msoa_transform_data(data)
+        ```
+
+        """
         self.logger.info("Starting data transformation...")
         # Validate input data
         # Convert JSON data to DataFrame

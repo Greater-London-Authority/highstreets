@@ -14,7 +14,7 @@ end_date = os.environ.get("END_DATE")
 # Retrieve BT MSOA footfall data using API within the specified date range
 data = data_loader.get_msoa_data(str(start_date), str(end_date))
 
-# Initialize HexTransform for data transformation
+# Instantiate MSOATransform class for data transformation
 msoa_transform = MsoaTransform()
 
 # Transform the received data
@@ -29,5 +29,5 @@ data_writer.append_data_to_postgres(transformed_data, "bt_footfall_msoa_hourly")
 # Retrieve full range data from PostgreSQL
 msoa_full_range = data_loader.get_full_data("bt_footfall_msoa_hourly")
 
-# Write full range data to CSVs
+# Write full range data to CSVs: writes to Q drive
 data_writer.write_threehourly_hs_to_csv(msoa_full_range, "bt")
