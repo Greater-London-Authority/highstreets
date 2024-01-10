@@ -31,3 +31,13 @@ msoa_full_range = data_loader.get_full_data("bt_footfall_msoa_hourly")
 
 # Write full range data to CSVs: writes to Q drive
 data_writer.write_threehourly_hs_to_csv(msoa_full_range, "bt")
+
+# update data in London Datastore along with start and end dates
+data_writer.upload_data_to_lds(
+    slug="footfall-bt-people-counts-hsds",
+    resource_title="msoa_hourly_counts.csv.csv",
+    source="BT",
+    poi_type="msoa",
+    df=msoa_full_range,
+    file_name="msoa_hourly_counts",
+)

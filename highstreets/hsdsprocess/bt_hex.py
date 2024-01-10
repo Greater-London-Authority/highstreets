@@ -267,6 +267,40 @@ data_writer.write_threehourly_hs_to_csv(tc_full_range, "bt")
 data_writer.write_threehourly_hs_to_csv(bid_full_range, "bt")
 data_writer.write_threehourly_hs_to_csv(bespoke_full_range, "bt")
 
+# update data in London Datastore along with start and end dates
+data_writer.upload_data_to_lds(
+    slug="footfall-bt-people-counts-hsds",
+    resource_title="highstreets_3hourly_counts.csv",
+    source="BT",
+    poi_type="highstreet",
+    df=hs_full_range,
+    file_name="highstreet_3hourly_counts",
+)
+data_writer.upload_data_to_lds(
+    slug="footfall-bt-people-counts-hsds",
+    resource_title="towncentres_3hourly_counts.csv",
+    source="BT",
+    poi_type="towncentre",
+    df=tc_full_range,
+    file_name="towncentre_3hourly_counts",
+)
+data_writer.upload_data_to_lds(
+    slug="footfall-bt-people-counts-hsds",
+    resource_title="bids_3hourly_counts.csv",
+    source="BT",
+    poi_type="bid",
+    df=bid_full_range,
+    file_name="bid_3hourly_counts",
+)
+data_writer.upload_data_to_lds(
+    slug="footfall-bt-people-counts-hsds",
+    resource_title="bespokes_3hourly_counts.csv",
+    source="BT",
+    poi_type="bespoke",
+    df=bespoke_full_range,
+    file_name="bespoke_3hourly_counts",
+)
+
 # sub-licensing agreement for colliers
 # process HSDS data for the HOLBA sites
 # select ids cooresponding to HOLBA sites

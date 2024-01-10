@@ -8,6 +8,7 @@ import pandas as pd
 from dotenv import find_dotenv, load_dotenv
 from sqlalchemy import create_engine, text
 
+from highstreets import config
 from highstreets.api.clientbase import APIClient, APIClientException
 
 load_dotenv(find_dotenv())
@@ -27,14 +28,8 @@ class DateRangeError(Exception):
 
 class DataLoader:
     def __init__(self):
-        self.hex_api_endpoint = (
-            "https://api.business.bt.com/v1/footfall/reports/"
-            "hex-grid/tfl?agg=time_indicator"
-        )
-        self.msoa_api_endpoint = (
-            "https://api.business.bt.com/v1/footfall/reports/"
-            "hourly-aggregate/msoa?agg=hour"
-        )
+        self.hex_api_endpoint = config.BT_HEX_API_ENDPOINT
+        self.msoa_api_endpoint = config.BT_MSOA_API_ENDPOINT
         self.api_client = APIClient()
         self.logger = logging.getLogger(__name__)
         self.database = os.getenv("PG_DATABASE")

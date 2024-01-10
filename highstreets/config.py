@@ -30,3 +30,9 @@ BT_MSOA_MONTHLY_PREFIX = "msoa_monthly_agg"
 BT_TFL_HEX_DAILY_PREFIX = "tfl_hex_daily_agg"
 BT_TFL_HEX_MONTHLY_PREFIX = "tfl_hex_monthly_agg"
 BT_MSOA_FOOTFALL_HIST_PREFIX = "msoa_footfall_hist"
+BT_HEX_API_ENDPOINT = (
+    "https://api.business.bt.com/v1/footfall/reports/hex-grid/" "tfl?agg=time_indicator"
+)
+BT_MSOA_API_ENDPOINT = (
+    "https://api.business.bt.com/v1/footfall/reports/" "hourly-aggregate/msoa?agg=hour"
+)

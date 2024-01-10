@@ -14,6 +14,7 @@ pipeline {
         PG_PASSWORD = credentials('pg-password')
         PG_HOST = credentials('pg-host')
         PG_PORT = credentials('pg-port')
+        LDS_API_KEY = credentials('lds-api-key')
     }
 
     stages {
@@ -40,7 +41,7 @@ pipeline {
                     env.START_DATE = start_date
                     env.END_DATE = end_date
 
-                    withEnv(["CONSUMER_KEY=${CONSUMER_KEY}", "CONSUMER_SECRET=${CONSUMER_SECRET}", "PG_DATABASE=${PG_DATABASE}", "PG_USER=${PG_USER}", "PG_PASSWORD=${PG_PASSWORD}", "PG_HOST=${PG_HOST}", "PG_PORT=${PG_PORT}"]) {
+                    withEnv(["CONSUMER_KEY=${CONSUMER_KEY}", "CONSUMER_SECRET=${CONSUMER_SECRET}", "PG_DATABASE=${PG_DATABASE}", "PG_USER=${PG_USER}", "PG_PASSWORD=${PG_PASSWORD}", "PG_HOST=${PG_HOST}", "PG_PORT=${PG_PORT}", "LDS_API_KEY=${LDS_API_KEY}"]) {
                         sh 'poetry run python highstreets/hsdsprocess/bt_hex.py'
                     }
                 }
@@ -57,7 +58,7 @@ pipeline {
                     env.START_DATE = start_date
                     env.END_DATE = end_date
 
-                    withEnv(["CONSUMER_KEY=${CONSUMER_KEY}", "CONSUMER_SECRET=${CONSUMER_SECRET}", "PG_DATABASE=${PG_DATABASE}", "PG_USER=${PG_USER}", "PG_PASSWORD=${PG_PASSWORD}", "PG_HOST=${PG_HOST}", "PG_PORT=${PG_PORT}"]) {
+                    withEnv(["CONSUMER_KEY=${CONSUMER_KEY}", "CONSUMER_SECRET=${CONSUMER_SECRET}", "PG_DATABASE=${PG_DATABASE}", "PG_USER=${PG_USER}", "PG_PASSWORD=${PG_PASSWORD}", "PG_HOST=${PG_HOST}", "PG_PORT=${PG_PORT}", "LDS_API_KEY=${LDS_API_KEY}"]) {
                         sh 'poetry run python highstreets/hsdsprocess/bt_msoa.py'
                     }
                 }

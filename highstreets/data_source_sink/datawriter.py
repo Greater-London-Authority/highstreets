@@ -4,6 +4,7 @@ import os
 import geopandas as gpd
 import pandas as pd
 from dotenv import find_dotenv, load_dotenv
+from glapy import lds
 from glapy.database.utils import fast_write
 from sqlalchemy import create_engine, text
 
@@ -17,15 +18,18 @@ class DataWriter:
         self.password = os.getenv("PG_PASSWORD")
         self.host = os.getenv("PG_HOST")
         self.port = os.getenv("PG_PORT")
+        self.lds_api_key = os.getenv("LDS_API_KEY")
+        self.base_path = (
+            "//DC1-FILE01/Intelligence$/Projects/2019-20/" "Covid-19 Busyness/data/"
+        )
         # Create a database connection
         self.engine = create_engine(
             f"postgresql+psycopg2://{self.username}:{self.password}@"
             f"{self.host}:{self.port}/{self.database}"
         )
         self.hs_file_path = {
-            "mastercard": "//DC1-FILE01/Intelligence$/Projects/2019-20/"
-            "Covid-19 Busyness/data/mastercard/Processed/",
-            "bt": "/mnt/q/Projects/2019-20/" "Covid-19 Busyness/data/BT/Processed/",
+            "mastercard": f"{self.base_path}mastercard/Processed/",
+            "bt": f"{self.base_path}BT/Processed/",
         }
 
     def load_data_to_csv(self, data, file_path):
@@ -287,4 +291,106 @@ class DataWriter:
             logging.error(
                 f"An error occurred while loading data into {schema}.{table_name}:"
                 f" {str(e)}"
+            )
+
+    def upload_data_to_lds(
+        self,
+        slug,
+        resource_title,
+        source=None,
+        poi_type=None,
+        df=None,
+        file_path=None,
+        file_name=None,
+    ):
+        """
+        Upload data to the Linked Data Service (LDS) for a given resource.
+
+        Parameters:
+        - slug (str): The slug identifier for the dataset.
+        - resource_title (str): The title of the resource to be uploaded.
+        - source (str, optional): The data source identifier. Default is None.
+        - poi_type (str, optional): The point of interest type.
+          highstreet/bid/towncentre/bespoke/msoa
+          Default is None.
+        - df (pd.DataFrame, optional): The DataFrame containing the data to be uploaded.
+          Default is None.
+        - file_path (str, optional): The path to the file if not using a DataFrame.
+          Default is None.
+        - file_name (str, optional): The name of the file to be uploaded.
+          Default is None.
+
+        Raises:
+        - ValueError: If neither DataFrame nor file path is provided, or if the
+          'count_date' column is not found in the DataFrame.
+
+        Note:
+        - If a DataFrame is provided, it calculates 'temporal_coverage_from' and
+          'temporal_coverage_to'.
+        - If 'file_path' is not provided, a default path is constructed based on the
+          provided parameters.
+        - It uses the Linked Data Service (LDS) API to replace the resource.
+        - Logs successful or failed data upload attempts with appropriate messages.
+
+        Example:
+        ```
+        lds_instance.upload_data_to_lds(slug='dataset_slug', resource_title='Resource1',
+                                        source='BT', poi_type='bid', df=data_frame)
+        ```
+
+        """
+        if df is None and file_path is None:
+            raise ValueError("Either a DataFrame or a file path must be provided.")
+
+        if df is not None:
+            # If DataFrame is provided, calculate temporal_coverage_from
+            # and temporal_coverage_to
+            if "count_date" not in df.columns:
+                raise ValueError("Date column not found in the DataFrame.")
+
+            temporal_coverage_from = str(df["count_date"].min())
+            temporal_coverage_to = str(df["count_date"].max())
+
+        # Construct default file path if not provided
+        if file_path is None:
+            file_path = (
+                f"{self.base_path}{source}/Processed/{poi_type}/"
+                f"{file_name}_{temporal_coverage_from}"
+                f"_{temporal_coverage_to}.csv"
+            )
+        try:
+            # Replace resource using lds.replace_resource
+            df_metadata = lds.meta_dataset(slug, self.lds_api_key)[
+                ["resource_id", "resource_title"]
+            ]
+            resource_id = df_metadata.loc[
+                df_metadata["resource_title"] == resource_title, "resource_id"
+            ].values[0]
+            if df is not None:
+                lds.replace_resource(
+                    file_path=file_path,
+                    slug=slug,
+                    api_key=self.lds_api_key,
+                    res_id=resource_id,
+                    temporal_coverage_from=pd.to_datetime(temporal_coverage_from),
+                    temporal_coverage_to=pd.to_datetime(temporal_coverage_to),
+                )
+                logging.info(
+                    f"Data uploaded successfully to LDS for resource {resource_title}"
+                    f"from {temporal_coverage_from} to {temporal_coverage_to}"
+                )
+            else:
+                lds.replace_resource(
+                    file_path=file_path,
+                    slug=slug,
+                    api_key=self.lds_api_key,
+                    res_id=resource_id,
+                )
+                logging.info(
+                    f"Data uploaded successfully to LDS for resource {resource_title}"
+                )
+        except Exception as e:
+            logging.error(
+                f"Failed to upload data to LDS for resource '"
+                f"{resource_title}: {str(e)}"
             )
