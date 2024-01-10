@@ -80,6 +80,15 @@ class HexTransform(DataLoader):
 
         # Perform data transformation operations
         transformed_data["date"] = pd.to_datetime(transformed_data["date"])
+        transformed_data["worker_population_percentage"] = pd.to_numeric(
+            transformed_data["worker_population_percentage"], errors="coerce"
+        )
+        transformed_data["resident_population_percentage"] = pd.to_numeric(
+            transformed_data["resident_population_percentage"], errors="coerce"
+        )
+        transformed_data["total_volume"] = pd.to_numeric(
+            transformed_data["total_volume"], errors="coerce"
+        )
         transformed_data["worker"] = np.round(
             pd.to_numeric(
                 transformed_data["worker_population_percentage"]
