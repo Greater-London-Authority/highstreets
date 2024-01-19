@@ -178,14 +178,17 @@ class DataWriter:
 
         fast_write(merged_df, "hsds_bid_hs_tc", if_exists="truncate")
 
-    def write_hex_to_csv_by_year(self, data, output_dir):
+    def write_hex_to_csv_by_year(self, data, output_dir, custom_file_name=None):
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
         data["count_date"] = pd.to_datetime(data["count_date"])
 
         for year, group in data.groupby(data["count_date"].dt.year):
-            file_name = os.path.join(output_dir, f"hex_3hourly_counts_{year}.csv")
+            if custom_file_name:
+                file_name = os.path.join(output_dir, f"{custom_file_name}_{year}.csv")
+            else:
+                file_name = os.path.join(output_dir, f"hex_3hourly_counts_{year}.csv")
             group.to_csv(file_name, index=False)
             logging.info(f"Saved {file_name}")
 

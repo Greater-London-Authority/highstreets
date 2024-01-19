@@ -18,7 +18,15 @@ data_writer.append_data_to_postgres(
     mcard_latest_df_transformed, "econ_busyness_mrli_3hourly"
 )
 
+# Retrieve full range mastercard 3hrly quad data from PostgreSQL and write to CSV
 mrli_full_range_df = data_loader.get_full_data("econ_busyness_mrli_3hourly")
+
+data_writer.write_hex_to_csv_by_year(
+    mrli_full_range_df,
+    output_dir="//DC1-FILE01/Intelligence$/Projects/2019-20/Covid-19 Busyness/data/"
+    "mastercard/Processed/MRLI_3yr_compressed",
+    custom_file_name="MRLI_3yr_compressed",
+)
 
 mrli_hs_full_range = mcard_transform.mcard_highstreet_threehourly_transform(
     mrli_full_range_df
