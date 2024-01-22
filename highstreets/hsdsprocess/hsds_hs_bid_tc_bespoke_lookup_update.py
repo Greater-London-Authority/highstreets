@@ -45,11 +45,11 @@ bespoke = gpd.GeoDataFrame.from_postgis(
 
 # Load the .shp file using GeoPandas
 hex350_grid_GLA = gpd.read_file(
-    "//DC1-FILE01/Intelligence$/Projects/2019-20/Covid-19 Busyness/data/"
+    "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/data/"
     "reference_data/shapefiles/hex350_grid_GLA.shp"
 )
 hex_400m_buffer1 = gpd.read_file(
-    "//DC1-FILE01/Intelligence$/Projects/2019-20/Covid-19 Busyness/data/"
+    "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/data/"
     "reference_data/shapefiles/hex_400m_buffer1.shp"
 )
 hex_400m_buffer1 = hex_400m_buffer1.rename(columns={"Hex_ID": "hex_id"})
@@ -64,8 +64,8 @@ lookup_table["highstreet_id"] = lookup_table["highstreet_id"].astype("Int64")
 
 # Save the lookup table as a CSV file
 lookup_table.to_csv(
-    "//DC1-FILE01/Intelligence$/Projects/2019-20/Covid-19 Busyness/data/reference_data/"
-    "hex_highstreet_lookup.csv",
+    "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/data"
+    "/reference_data/hex_highstreet_lookup.csv",
     index=False,
 )
 
@@ -79,8 +79,8 @@ lookup_table["tc_id"] = lookup_table["tc_id"].astype("Int64")
 
 # Save the lookup table as a CSV file
 lookup_table.to_csv(
-    "//DC1-FILE01/Intelligence$/Projects/2019-20/Covid-19 Busyness/data/reference_data/"
-    "hex_towncentre_lookup.csv",
+    "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/data"
+    "/reference_data/hex_towncentre_lookup.csv",
     index=False,
 )
 
@@ -94,8 +94,8 @@ lookup_table["bid_id"] = lookup_table["bid_id"].astype("Int64")
 
 # Save the lookup table as a CSV file
 lookup_table.to_csv(
-    "//DC1-FILE01/Intelligence$/Projects/2019-20/Covid-19 Busyness/data/reference_data/"
-    "hex_bid_lookup.csv",
+    "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/data"
+    "/reference_data/hex_bid_lookup.csv",
     index=False,
 )
 
@@ -109,7 +109,7 @@ lookup_table["bespoke_area_id"] = lookup_table["bespoke_area_id"].astype("Int64"
 
 # Save the lookup table as a CSV file
 lookup_table.to_csv(
-    "//DC1-FILE01/Intelligence$/Projects/2019-20/Covid-19 Busyness/data/reference_data/"
-    "hex_bespoke_lookup.csv",
+    "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/data"
+    "/reference_data/hex_bespoke_lookup.csv",
     index=False,
 )

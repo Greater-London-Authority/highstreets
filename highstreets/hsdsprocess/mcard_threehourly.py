@@ -6,7 +6,7 @@ from highstreets.data_transformation.mcard_transform import McardTransform
 
 data_loader = DataLoader()
 mcard_latest_df = data_loader.mcard_3hourly_latest_data_read(
-    "//onelondon.tfl.local/gla/INTELLIGENCE$/Projects/2019-20/Covid-19 Busyness/"
+    "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/"
     "data/mastercard/sharefile_3hr_timeslot"
 )
 
@@ -23,8 +23,8 @@ mrli_full_range_df = data_loader.get_full_data("econ_busyness_mrli_3hourly")
 
 data_writer.write_hex_to_csv_by_year(
     mrli_full_range_df,
-    output_dir="//DC1-FILE01/Intelligence$/Projects/2019-20/Covid-19 Busyness/data/"
-    "mastercard/Processed/MRLI_3yr_compressed",
+    output_dir="//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/"
+    "Covid-19 Busyness/data/mastercard/Processed/MRLI_3yr_compressed",
     custom_file_name="MRLI_3yr_compressed",
 )
 
@@ -78,7 +78,7 @@ holba_ids = [112, 113, 114, 115, 116, 117, 118, 197]
 mrli_bespoke_full_range[
     mrli_bespoke_full_range["bespoke_area_id"].isin(holba_ids)
 ].to_csv(
-    "//DC1-FILE01/Intelligence$/Projects/2019-20/Covid-19 Busyness"
+    "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness"
     "/data/mastercard/Processed/bespoke/"
     "Colliers agreement - Holba sites/"
     "colliers_hsds_mcard_3hourly_txn.csv",
@@ -91,7 +91,7 @@ ltn_ids = [220, 221, 222, 223, 224, 225, 226, 227, 228]
 mrli_bespoke_full_range[
     mrli_bespoke_full_range["bespoke_area_id"].isin(ltn_ids)
 ].to_csv(
-    "//DC1-FILE01/Intelligence$/Projects/"
+    "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/"
     "2019-20/Covid-19 Busyness/data/mastercard/Processed/bespoke/"
     "LTN/ltn_hsds_mcard_3hourly_txn.csv",
     index=False,

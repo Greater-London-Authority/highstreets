@@ -20,7 +20,8 @@ class DataWriter:
         self.port = os.getenv("PG_PORT")
         self.lds_api_key = os.getenv("LDS_API_KEY")
         self.base_path = (
-            "//DC1-FILE01/Intelligence$/Projects/2019-20/" "Covid-19 Busyness/data/"
+            "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/"
+            "Covid-19 Busyness/data/"
         )
         # Create a database connection
         self.engine = create_engine(

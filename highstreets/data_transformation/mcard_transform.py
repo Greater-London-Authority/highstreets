@@ -22,8 +22,8 @@ class McardTransform:
 
     def preprocess_mcard_data(self, data):
         mcard_grid_to_ldn_ref_lookup = pd.read_csv(
-            "//DC1-FILE01/Intelligence$/Projects/2019-20/Covid-19 Busyness/data/"
-            "reference_data/mcard_grid_to_ldn_ref_lookup.csv"
+            "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/"
+            "data/reference_data/mcard_grid_to_ldn_ref_lookup.csv"
         )
         # data manipulation
         data = data[(data["geo_name"] == "London") & (data["segment"] == "Overall")]
@@ -62,7 +62,7 @@ class McardTransform:
 
     def mcard_highstreet_threehourly_transform(self, data):
         Highstreets_quad_lookup = pd.read_csv(
-            "//DC1-FILE01/Intelligence$/Projects/2019-20/Covid-19 Busyness/"
+            "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/"
             "data/mastercard/Highstreets_quad_lookup.csv"
         )
         data = (
@@ -89,7 +89,7 @@ class McardTransform:
 
     def mcard_towncentre_threehourly_transform(self, data):
         TownCentres_quad_lookup = pd.read_csv(
-            "//DC1-FILE01/Intelligence$/Projects/2019-20/Covid-19 Busyness/"
+            "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/"
             "data/mastercard/TownCentres_quad_lookup.csv"
         )
         data = (
@@ -106,7 +106,7 @@ class McardTransform:
 
     def mcard_bid_threehourly_transform(self, data):
         BIDS_quad_lookup = pd.read_csv(
-            "//DC1-FILE01/Intelligence$/Projects/2019-20/Covid-19 Busyness/"
+            "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/"
             "data/mastercard/BIDS_quad_lookup.csv"
         )
         data = (
@@ -123,7 +123,7 @@ class McardTransform:
 
     def mcard_bespoke_threehourly_transform(self, data):
         bespoke_quad_lookup = pd.read_csv(
-            "//DC1-FILE01/Intelligence$/Projects/2019-20/Covid-19 Busyness/"
+            "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/"
             "data/mastercard/bespoke_quad_lookup.csv"
         )
         data = (

@@ -101,11 +101,11 @@ class DataLoader:
     def get_hex_lookup(self, lookup_type):
         # Load the .shp file using GeoPandas
         hex350_grid_GLA = gpd.read_file(
-            "//DC1-FILE01/Intelligence$/Projects/2019-20/Covid-19 Busyness/"
+            "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/"
             "data/reference_data/shapefiles/hex350_grid_GLA.shp"
         )
         hex_400m_buffer1 = gpd.read_file(
-            "//DC1-FILE01/Intelligence$/Projects/2019-20/Covid-19 Busyness/"
+            "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/"
             "data/reference_data/shapefiles/hex_400m_buffer1.shp"
         )
         hex_400m_buffer1 = hex_400m_buffer1.rename(columns={"Hex_ID": "hex_id"})
@@ -171,8 +171,8 @@ class DataLoader:
 
     def mcard_3hourly_latest_data_read(self, mcard_source_path):
         mcard_source_path = (
-            "//DC1-FILE01/Intelligence$/Projects/2019-20/Covid-19 Busyness/data/"
-            "mastercard/sharefile_3hr_timeslot"
+            "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/"
+            "data/mastercard/sharefile_3hr_timeslot"
         )
         try:
             latest_date_range = None
