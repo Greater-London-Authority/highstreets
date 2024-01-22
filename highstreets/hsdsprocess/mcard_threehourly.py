@@ -6,7 +6,7 @@ from highstreets.data_transformation.mcard_transform import McardTransform
 
 data_loader = DataLoader()
 mcard_latest_df = data_loader.mcard_3hourly_latest_data_read(
-    "//DC1-FILE01/Intelligence$/Projects/2019-20/Covid-19 Busyness/"
+    "//onelondon.tfl.local/gla/INTELLIGENCE$/Projects/2019-20/Covid-19 Busyness/"
     "data/mastercard/sharefile_3hr_timeslot"
 )
 
