@@ -312,6 +312,7 @@ class DataWriter:
         df=None,
         file_path=None,
         file_name=None,
+        custom_date_column="count_date",  # Added parameter for custom date column
     ):
         """
         Upload data to the Linked Data Service (LDS) for a given resource.
@@ -355,11 +356,12 @@ class DataWriter:
         if df is not None:
             # If DataFrame is provided, calculate temporal_coverage_from
             # and temporal_coverage_to
-            if "count_date" not in df.columns:
-                raise ValueError("Date column not found in the DataFrame.")
-
-            temporal_coverage_from = str(df["count_date"].min())
-            temporal_coverage_to = str(df["count_date"].max())
+            if custom_date_column not in df.columns:
+                raise ValueError(
+                    f"Date column {custom_date_column!r} not found in the DataFrame."
+                )
+            temporal_coverage_from = str(df[custom_date_column].min())
+            temporal_coverage_to = str(df[custom_date_column].max())
 
         # Construct default file path if not provided
         if file_path is None:

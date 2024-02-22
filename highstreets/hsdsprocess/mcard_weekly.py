@@ -210,6 +210,7 @@ mcard_weekly[mcard_weekly["bespoke_area_id"].isin(holba_ids)].to_csv(
 # Offloading Holba Site 3hourly txn data to datastore
 data_writer.upload_data_to_lds(
     slug="colliers---hsds",
+    custom_date_column="week_start",
     resource_title="Mcard_Islington_weekly_txn.csv",
     df=mcard_weekly[mcard_weekly["bespoke_area_id"].isin(holba_ids)],
     file_path=(
@@ -233,6 +234,7 @@ mcard_weekly[mcard_weekly["bespoke_area_id"].isin(ltn_ids)].to_csv(
 # Offloading LTN 3hourly txn data to datastore
 data_writer.upload_data_to_lds(
     slug="andrew-scott-project",
+    custom_date_column="week_start",
     resource_title="Mcard_Islington_3hourly_txn.csv",
     df=mcard_weekly[mcard_weekly["bespoke_area_id"].isin(ltn_ids)],
     file_path=(
