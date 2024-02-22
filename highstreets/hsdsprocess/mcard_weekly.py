@@ -207,6 +207,19 @@ mcard_weekly[mcard_weekly["bespoke_area_id"].isin(holba_ids)].to_csv(
     index=False,
 )
 
+# Offloading Holba Site 3hourly txn data to datastore
+data_writer.upload_data_to_lds(
+    slug="colliers---hsds",
+    resource_title="Mcard_Islington_weekly_txn.csv",
+    df=mcard_weekly[mcard_weekly["bespoke_area_id"].isin(holba_ids)],
+    file_path=(
+        "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/data"
+        "/mastercard/Processed/bespoke/"
+        "Colliers agreement - Holba sites/"
+        "colliers_hsds_mcard_weekly_txn.csv"
+    ),
+)
+
 # Andrew Scott Project
 ltn_ids = [220, 221, 222, 223, 224, 225, 226, 227, 228]
 # filtering ltn weekly transaction data and writing it to csv
@@ -215,4 +228,17 @@ mcard_weekly[mcard_weekly["bespoke_area_id"].isin(ltn_ids)].to_csv(
     "2019-20/Covid-19 Busyness/data/mastercard/Processed/bespoke/"
     "LTN/ltn_hsds_mcard_weekly_txn.csv",
     index=False,
+)
+
+# Offloading LTN 3hourly txn data to datastore
+data_writer.upload_data_to_lds(
+    slug="andrew-scott-project",
+    resource_title="Mcard_Islington_3hourly_txn.csv",
+    df=mcard_weekly[mcard_weekly["bespoke_area_id"].isin(ltn_ids)],
+    file_path=(
+        "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/data"
+        "/mastercard/Processed/bespoke/"
+        "LTN/"
+        "ltn_hsds_mcard_weekly_txn.csv"
+    ),
 )

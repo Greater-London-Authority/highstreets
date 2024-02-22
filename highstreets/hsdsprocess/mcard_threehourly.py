@@ -67,8 +67,43 @@ data_writer.write_threehourly_hs_to_csv(mrli_bespoke_full_range, "mastercard")
 data_writer.write_threehourly_hs_to_csv(mrli_hs_full_range, "mastercard")
 data_writer.write_threehourly_hs_to_csv(mrli_tc_full_range, "mastercard")
 data_writer.write_threehourly_hs_to_csv(mrli_bid_full_range, "mastercard")
-data_writer.write_threehourly_hs_to_csv(mrli_bespoke_full_range, "mastercard")
 
+# update data in London Datastore along with start and end dates
+data_writer.upload_data_to_lds(
+    slug="spend-mastercard-retail-index-3-hourly",
+    resource_title="highstreets_3hourly_txn.csv",
+    source="mastercard",
+    poi_type="highstreet",
+    df=mrli_hs_full_range,
+    file_name="highstreet_3hourly_txn",
+)
+
+data_writer.upload_data_to_lds(
+    slug="spend-mastercard-retail-index-3-hourly",
+    resource_title="bespoke_3hourly_txn.csv",
+    source="mastercard",
+    poi_type="bespoke",
+    df=mrli_bespoke_full_range,
+    file_name="bespoke_3hourly_txn",
+)
+
+data_writer.upload_data_to_lds(
+    slug="spend-mastercard-retail-index-3-hourly",
+    resource_title="towncentres_3hourly_txn.csv",
+    source="mastercard",
+    poi_type="towncentre",
+    df=mrli_tc_full_range,
+    file_name="towncentres_3hourly_txn",
+)
+
+data_writer.upload_data_to_lds(
+    slug="spend-mastercard-retail-index-3-hourly",
+    resource_title="bids_3hourly_txn.csv",
+    source="mastercard",
+    poi_type="bid",
+    df=mrli_bid_full_range,
+    file_name="bid_3hourly_txn",
+)
 # sub-licensing agreement for colliers
 # process HSDS data for the HOLBA sites
 # select ids cooresponding to HOLBA sites
@@ -85,6 +120,21 @@ mrli_bespoke_full_range[
     index=False,
 )
 
+# Offloading Holba Site 3hourly txn data to datastore
+data_writer.upload_data_to_lds(
+    slug="colliers---hsds",
+    resource_title="colliers_hsds_mcard_3hourly_txn.csv",
+    df=mrli_bespoke_full_range[
+        mrli_bespoke_full_range["bespoke_area_id"].isin(holba_ids)
+    ],
+    file_path=(
+        "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/data"
+        "/mastercard/Processed/bespoke/"
+        "Colliers agreement - Holba sites/"
+        "colliers_hsds_mcard_3hourly_txn.csv"
+    ),
+)
+
 # Andrew Scott Project
 ltn_ids = [220, 221, 222, 223, 224, 225, 226, 227, 228]
 # filtering ltn weekly transaction data and writing it to csv
@@ -95,6 +145,21 @@ mrli_bespoke_full_range[
     "2019-20/Covid-19 Busyness/data/mastercard/Processed/bespoke/"
     "LTN/ltn_hsds_mcard_3hourly_txn.csv",
     index=False,
+)
+
+# Offloading LTN 3hourly txn data to datastore
+data_writer.upload_data_to_lds(
+    slug="andrew-scott-project",
+    resource_title="Mcard_Islington_3hourly_txn.csv",
+    df=mrli_bespoke_full_range[
+        mrli_bespoke_full_range["bespoke_area_id"].isin(ltn_ids)
+    ],
+    file_path=(
+        "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/data"
+        "/mastercard/Processed/bespoke/"
+        "LTN/"
+        "ltn_hsds_mcard_3hourly_txn.csv"
+    ),
 )
 
 # Concatenate latest data from different layers

@@ -314,6 +314,19 @@ bespoke_full_range[bespoke_full_range["bespoke_area_id"].isin(holba_ids)].to_csv
     index=False,
 )
 
+# Offloading Holba site data to datastore
+data_writer.upload_data_to_lds(
+    slug="colliers---hsds",
+    resource_title="colliers_hsds_footfall_3hourly_counts.csv",
+    df=bespoke_full_range[bespoke_full_range["bespoke_area_id"].isin(holba_ids)],
+    file_path=(
+        "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/"
+        "Covid-19 Busyness/data/BT/Processed/bespoke/"
+        "Colliers agreement - Holba sites/"
+        "colliers_hsds_bt_footfall_3hourly_counts.csv"
+    ),
+)
+
 # Andrew Scott Project
 ltn_ids = [220, 221, 222, 223, 224, 225, 226, 227, 228]
 # filtering ltn weekly transaction data and writing it to csv
@@ -322,4 +335,17 @@ bespoke_full_range[bespoke_full_range["bespoke_area_id"].isin(ltn_ids)].to_csv(
     "2019-20/Covid-19 Busyness/data/BT/Processed/bespoke/"
     "LTN/ltn_hsds_bt_footfall_3hourly_counts.csv",
     index=False,
+)
+
+# Offloading Islington data to datastore
+data_writer.upload_data_to_lds(
+    slug="andrew-scott-project",
+    resource_title="BT_Islington_footfall_3hourly_counts.csv",
+    df=bespoke_full_range[bespoke_full_range["bespoke_area_id"].isin(ltn_ids)],
+    file_path=(
+        "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/"
+        "2019-20/Covid-19 Busyness/data/BT/Processed/bespoke/"
+        "LTN/"
+        "ltn_hsds_bt_footfall_3hourly_counts.csv"
+    ),
 )

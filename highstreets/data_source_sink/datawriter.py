@@ -231,10 +231,16 @@ class DataWriter:
                             f"{start_date}_{end_date}.csv"
                         )
                     else:
-                        filename = (
-                            f"{directory_name}_3hourly_counts_"
-                            f"{start_date}_{end_date}.csv"
-                        )
+                        if data_source == "mastercard":
+                            filename = (
+                                f"{directory_name}_3hourly_txn_"
+                                f"{start_date}_{end_date}.csv"
+                            )
+                        else:
+                            filename = (
+                                f"{directory_name}_3hourly_counts_"
+                                f"{start_date}_{end_date}.csv"
+                            )
                     file_path = os.path.join(
                         self.hs_file_path[data_source], directory_name, filename
                     )

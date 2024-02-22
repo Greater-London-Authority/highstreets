@@ -36,3 +36,7 @@ BT_HEX_API_ENDPOINT = (
 BT_MSOA_API_ENDPOINT = (
     "https://api.business.bt.com/v1/footfall/reports/" "hourly-aggregate/msoa?agg=hour"
 )
+BT_HOURLY_OUTAGE_API_ENDPOINT = (
+    "https://api.business.bt.com/v1/active-intelligence-health-checks/"
+    "data-pipelines/hourly-outage-history"
+)
