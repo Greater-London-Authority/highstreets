@@ -211,7 +211,7 @@ mcard_weekly[mcard_weekly["bespoke_area_id"].isin(holba_ids)].to_csv(
 data_writer.upload_data_to_lds(
     slug="colliers---hsds",
     custom_date_column="week_start",
-    resource_title="Mcard_Islington_weekly_txn.csv",
+    resource_title="colliers_hsds_mcard_weekly_txn.csv",
     df=mcard_weekly[mcard_weekly["bespoke_area_id"].isin(holba_ids)],
     file_path=(
         "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/data"
@@ -231,11 +231,11 @@ mcard_weekly[mcard_weekly["bespoke_area_id"].isin(ltn_ids)].to_csv(
     index=False,
 )
 
-# Offloading LTN 3hourly txn data to datastore
+# Offloading LTN weekly txn data to datastore
 data_writer.upload_data_to_lds(
     slug="andrew-scott-project",
     custom_date_column="week_start",
-    resource_title="Mcard_Islington_3hourly_txn.csv",
+    resource_title="Mcard_Islington_weekly_txn.csv",
     df=mcard_weekly[mcard_weekly["bespoke_area_id"].isin(ltn_ids)],
     file_path=(
         "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/data"
