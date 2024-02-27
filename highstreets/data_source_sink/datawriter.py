@@ -360,8 +360,12 @@ class DataWriter:
                 raise ValueError(
                     f"Date column {custom_date_column!r} not found in the DataFrame."
                 )
-            temporal_coverage_from = str(df[custom_date_column].min())
-            temporal_coverage_to = str(df[custom_date_column].max())
+            temporal_coverage_from = str(
+                pd.to_datetime(df[custom_date_column]).min().date()
+            )
+            temporal_coverage_to = str(
+                pd.to_datetime(df[custom_date_column]).max().date()
+            )
 
         # Construct default file path if not provided
         if file_path is None:
