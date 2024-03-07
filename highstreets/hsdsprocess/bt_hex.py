@@ -349,3 +349,72 @@ data_writer.upload_data_to_lds(
         "ltn_hsds_bt_footfall_3hourly_counts.csv"
     ),
 )
+
+# Sublicenses - Fitzrovia & Knightsbridge
+
+hex_bid_lookup = pd.read_csv(
+    "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/"
+    "data/reference_data/hex_bid_lookup.csv"
+)
+
+fitzrovia_ids = [21, 77]
+knightsbridge_ids = [64]
+
+fitzrovia_hex = tfl_hex_full_range.merge(
+    hex_bid_lookup[hex_bid_lookup["bid_id"].isin(fitzrovia_ids)],
+    left_on="hex_id",
+    right_on="hex_id",
+    how="right",
+)
+knightsbridge_hex = tfl_hex_full_range.merge(
+    hex_bid_lookup[hex_bid_lookup["bid_id"].isin(knightsbridge_ids)],
+    left_on="hex_id",
+    right_on="hex_id",
+    how="right",
+)
+
+columns_hex_bid = [
+    "hex_id",
+    "bid_name",
+    "count_date",
+    "day",
+    "time_indicator",
+    "resident",
+    "visitor",
+    "worker",
+    "loyalty_percentage",
+    "dwell_time",
+]
+
+fitzrovia_hex[columns_hex_bid].to_csv(
+    "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/data/"
+    "BT/Processed/hex_grid/Fitzrovia/Fitzrovia_bt_hex_3hourly_counts.csv",
+    index=False,
+)
+knightsbridge_hex[columns_hex_bid].to_csv(
+    "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/data/"
+    "BT/Processed/hex_grid/knightsbridge/Knightsbridge_bt_hex_3hourly_counts.csv",
+    index=False,
+)
+
+# Offloading Fitzrovia 3hourly hex counts data to datastore
+data_writer.upload_data_to_lds(
+    slug="rendle-intelligence-for-fitzrovia-partnership",
+    resource_title="Fitzrovia_bt_hex_3hourly_counts.csv",
+    df=fitzrovia_hex[columns_hex_bid],
+    file_path=(
+        "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/data/"
+        "BT/Processed/hex_grid/Fitzrovia/Fitzrovia_bt_hex_3hourly_counts.csv"
+    ),
+)
+
+# Offloading Knightsbridge 3hourly hex counts data to datastore
+data_writer.upload_data_to_lds(
+    slug="rendle-intelligence-for-knightsbridge-partnership",
+    resource_title="Knightsbridge_mcard_quad_3hourly_txn.csv",
+    df=knightsbridge_hex[columns_hex_bid],
+    file_path=(
+        "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/data/"
+        "BT/Processed/hex_grid/knightsbridge/Knightsbridge_bt_hex_3hourly_counts.csv"
+    ),
+)

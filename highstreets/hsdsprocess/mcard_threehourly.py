@@ -162,6 +162,77 @@ data_writer.upload_data_to_lds(
     ),
 )
 
+# Sublicenses - Fitzrovia & Knightsbridge
+
+fitzrovia_ids = [21, 77]
+knightsbridge_ids = [64]
+
+BIDS_quad_lookup = pd.read_csv(
+    "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/"
+    "data/mastercard/BIDS_quad_lookup.csv"
+)
+
+fitzrovia_mrli = mrli_full_range_df.merge(
+    BIDS_quad_lookup[BIDS_quad_lookup["bid_id"].isin(fitzrovia_ids)],
+    left_on="quad_id",
+    right_on="quad_id",
+    how="right",
+)
+knightsbridge_mrli = mrli_full_range_df.merge(
+    BIDS_quad_lookup[BIDS_quad_lookup["bid_id"].isin(knightsbridge_ids)],
+    left_on="quad_id",
+    right_on="quad_id",
+    how="right",
+)
+
+columns_mrli_bid = [
+    "quad_id",
+    "bid_name",
+    "count_date",
+    "hours",
+    "txn_amt",
+    "txn_cnt",
+    "avg_spend_amt",
+]
+
+fitzrovia_mrli[columns_mrli_bid].to_csv(
+    "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/"
+    "data/mastercard/Processed/MRLI_3yr_compressed/Fitzrovia/"
+    "Fitzrovia_mcard_quad_3hourly_txn.csv",
+    index=False,
+)
+knightsbridge_mrli[columns_mrli_bid].to_csv(
+    "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/"
+    "data/mastercard/Processed/MRLI_3yr_compressed/knightsbridge/"
+    "Knightsbridge_mcard_quad_3hourly_txn.csv",
+    index=False,
+)
+
+# Offloading Fitzrovia 3hourly txn data to datastore
+data_writer.upload_data_to_lds(
+    slug="rendle-intelligence-for-fitzrovia-partnership",
+    resource_title="Fitzrovia_mcard_quad_3hourly_txn.csv",
+    df=fitzrovia_mrli[columns_mrli_bid],
+    file_path=(
+        "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/data"
+        "/mastercard/Processed/MRLI_3yr_compressed/Fitzrovia/"
+        "Fitzrovia_mcard_quad_3hourly_txn.csv"
+    ),
+)
+
+# Offloading Knightsbridge 3hourly txn data to datastore
+data_writer.upload_data_to_lds(
+    slug="rendle-intelligence-for-knightsbridge-partnership",
+    resource_title="Knightsbridge_mcard_quad_3hourly_txn.csv",
+    df=knightsbridge_mrli[columns_mrli_bid],
+    file_path=(
+        "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/data"
+        "/mastercard/Processed/MRLI_3yr_compressed/knightsbridge/"
+        "Knightsbridge_mcard_quad_3hourly_txn.csv"
+    ),
+)
+
+
 # Concatenate latest data from different layers
 econ_busyness_mcard_3hourly_txn = pd.concat(
     [
