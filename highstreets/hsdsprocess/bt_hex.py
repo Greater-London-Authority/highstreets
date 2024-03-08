@@ -411,7 +411,7 @@ data_writer.upload_data_to_lds(
 # Offloading Knightsbridge 3hourly hex counts data to datastore
 data_writer.upload_data_to_lds(
     slug="rendle-intelligence-for-knightsbridge-partnership",
-    resource_title="Knightsbridge_mcard_quad_3hourly_txn.csv",
+    resource_title="Knightsbridge_bt_hex_3hourly_counts.csv",
     df=knightsbridge_hex[columns_hex_bid],
     file_path=(
         "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/data/"
