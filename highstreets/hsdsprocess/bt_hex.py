@@ -418,3 +418,33 @@ data_writer.upload_data_to_lds(
         "BT/Processed/hex_grid/knightsbridge/Knightsbridge_bt_hex_3hourly_counts.csv"
     ),
 )
+
+# Sublicenses - Southbank BID
+
+southbank_bid_id = [35]
+
+southbank_hex = tfl_hex_full_range.merge(
+    hex_bid_lookup[hex_bid_lookup["bid_id"].isin(southbank_bid_id)],
+    left_on="hex_id",
+    right_on="hex_id",
+    how="right",
+)
+
+southbank_bid_id = [35]
+
+southbank_hex[columns_hex_bid].to_csv(
+    "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/data"
+    "/BT/Processed/hex_grid/Southbank/Southbank_bt_hex_3hourly_counts.csv",
+    index=False,
+)
+
+# Offloading Southbank bid 3hourly hex counts data to southbank datastore page
+data_writer.upload_data_to_lds(
+    slug="southbank-centre",
+    resource_title="Southbank_bt_hex_3hourly_counts.csv",
+    df=knightsbridge_hex[columns_hex_bid],
+    file_path=(
+        "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/data/"
+        "BT/Processed/hex_grid/Southbank/Southbank_bt_hex_3hourly_counts.csv"
+    ),
+)
