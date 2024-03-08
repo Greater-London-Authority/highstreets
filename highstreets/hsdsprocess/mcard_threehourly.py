@@ -93,7 +93,7 @@ data_writer.upload_data_to_lds(
     source="mastercard",
     poi_type="towncentre",
     df=mrli_tc_full_range,
-    file_name="towncentres_3hourly_txn",
+    file_name="towncentre_3hourly_txn",
 )
 
 data_writer.upload_data_to_lds(
