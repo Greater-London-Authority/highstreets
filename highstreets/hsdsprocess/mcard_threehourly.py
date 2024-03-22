@@ -186,6 +186,7 @@ knightsbridge_mrli = mrli_full_range_df.merge(
 )
 
 columns_mrli_bid = [
+    "ldn_ref",
     "quad_id",
     "bid_name",
     "count_date",
