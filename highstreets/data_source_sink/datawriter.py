@@ -177,7 +177,9 @@ class DataWriter:
         merged_df.info()
         merged_df = merged_df.replace("\n", "", regex=True)
 
-        fast_write(merged_df, "hsds_bid_hs_tc", if_exists="truncate")
+        fast_write(
+            merged_df, "hsds_bid_hs_tc", if_exists="truncate", schema="gisapdata"
+        )
 
     def write_hex_to_csv_by_year(self, data, output_dir, custom_file_name=None):
         if not os.path.exists(output_dir):
