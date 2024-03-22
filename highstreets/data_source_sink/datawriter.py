@@ -176,7 +176,6 @@ class DataWriter:
         merged_df = pd.concat(frames)
         merged_df.info()
         merged_df = merged_df.replace("\n", "", regex=True)
-        print(merged_df)
 
         fast_write(merged_df, "hsds_bid_hs_tc", if_exists="truncate")
 
