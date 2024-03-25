@@ -186,7 +186,7 @@ class DataWriter:
         data["count_date"] = pd.to_datetime(data["count_date"])
         # the line below added to add double quotes around hours
         # because excel autoformats it to date
-        data["hours"] = "'" + data["hours"]
+        data["time_indicator"] = "'" + data["time_indicator"]
 
         for year, group in data.groupby(data["count_date"].dt.year):
             if custom_file_name:
