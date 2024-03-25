@@ -184,6 +184,9 @@ class DataWriter:
             os.makedirs(output_dir)
 
         data["count_date"] = pd.to_datetime(data["count_date"])
+        # the line below added to add double quotes around hours
+        # because excel autoformats it to date
+        data["hours"] = "'" + data["hours"]
 
         for year, group in data.groupby(data["count_date"].dt.year):
             if custom_file_name:
@@ -225,6 +228,9 @@ class DataWriter:
                     }[first_column_name]
                     start_date = data["count_date"].min().strftime("%Y-%m-%d")
                     end_date = data["count_date"].max().strftime("%Y-%m-%d")
+                    # the line below added to add double quotes around hours
+                    # because excel autoformats it to date
+                    data["hours"] = "'" + data["hours"]
                     if first_column_name == "msoa_id":
                         filename = (
                             f"{directory_name}_hourly_counts_"

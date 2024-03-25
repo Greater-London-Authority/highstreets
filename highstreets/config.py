@@ -40,3 +40,7 @@ BT_HOURLY_OUTAGE_API_ENDPOINT = (
     "https://api.business.bt.com/v1/active-intelligence-health-checks/"
     "data-pipelines/hourly-outage-history"
 )
+BT_OUTAGE_HISTORY_API_ENDPOINT = (
+    "https://api.business.bt.com/v1/active-intelligence-health-checks/"
+    "data-pipelines/outage-history"
+)

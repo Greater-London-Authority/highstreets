@@ -307,7 +307,9 @@ data_writer.upload_data_to_lds(
 holba_ids = [112, 113, 114, 115, 116, 117, 118, 197]
 
 # filtering all holba site footfall data and writing it to csv
-bespoke_full_range[bespoke_full_range["bespoke_area_id"].isin(holba_ids)].to_csv(
+bespoke_full_range[bespoke_full_range["bespoke_area_id"].isin(holba_ids)].assign(
+    hours=lambda x: "'" + x["hours"]
+).to_csv(
     "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/"
     "data/BT/Processed/bespoke/Colliers agreement - Holba sites/"
     "colliers_hsds_bt_footfall_3hourly_counts.csv",
@@ -330,7 +332,9 @@ data_writer.upload_data_to_lds(
 # Andrew Scott Project
 ltn_ids = [220, 221, 222, 223, 224, 225, 226, 227, 228]
 # filtering ltn weekly transaction data and writing it to csv
-bespoke_full_range[bespoke_full_range["bespoke_area_id"].isin(ltn_ids)].to_csv(
+bespoke_full_range[bespoke_full_range["bespoke_area_id"].isin(ltn_ids)].assign(
+    hours=lambda x: "'" + x["hours"]
+).to_csv(
     "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/"
     "2019-20/Covid-19 Busyness/data/BT/Processed/bespoke/"
     "LTN/ltn_hsds_bt_footfall_3hourly_counts.csv",
@@ -386,12 +390,14 @@ columns_hex_bid = [
     "dwell_time",
 ]
 
-fitzrovia_hex[columns_hex_bid].to_csv(
+fitzrovia_hex[columns_hex_bid].assign(hours=lambda x: "'" + x["time_indicator"]).to_csv(
     "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/data/"
     "BT/Processed/hex_grid/Fitzrovia/Fitzrovia_bt_hex_3hourly_counts.csv",
     index=False,
 )
-knightsbridge_hex[columns_hex_bid].to_csv(
+knightsbridge_hex[columns_hex_bid].assign(
+    hours=lambda x: "'" + x["time_indicator"]
+).to_csv(
     "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/data/"
     "BT/Processed/hex_grid/knightsbridge/Knightsbridge_bt_hex_3hourly_counts.csv",
     index=False,
@@ -432,7 +438,7 @@ southbank_hex = tfl_hex_full_range.merge(
 
 southbank_bid_id = [35]
 
-southbank_hex[columns_hex_bid].to_csv(
+southbank_hex[columns_hex_bid].assign(hours=lambda x: "'" + x["time_indicator"]).to_csv(
     "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/data"
     "/BT/Processed/hex_grid/Southbank/Southbank_bt_hex_3hourly_counts.csv",
     index=False,
