@@ -184,9 +184,11 @@ class DataWriter:
             os.makedirs(output_dir)
 
         data["count_date"] = pd.to_datetime(data["count_date"])
-        # the line below added to add double quotes around hours
-        # because excel autoformats it to date
-        data["time_indicator"] = "'" + data["time_indicator"]
+
+        if custom_file_name != "MRLI_3yr_compressed":
+            # the line below added to add double quotes around hours
+            # because excel autoformats it to date
+            data["time_indicator"] = "'" + data["time_indicator"]
 
         for year, group in data.groupby(data["count_date"].dt.year):
             if custom_file_name:
