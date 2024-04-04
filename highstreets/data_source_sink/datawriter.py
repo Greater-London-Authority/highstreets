@@ -229,9 +229,10 @@ class DataWriter:
                     start_date = data["count_date"].min().strftime("%Y-%m-%d")
                     end_date = data["count_date"].max().strftime("%Y-%m-%d")
                     # the line below added to add double quotes around hours
-                    # because excel autoformats it to date
-                    data["hours"] = "'" + data["hours"]
-                    if first_column_name == "msoa_id":
+                    # for hex level databecause excel autoformats it to date
+                    if first_column_name != "msoa_id":
+                        data["hours"] = "'" + data["hours"]
+                    elif first_column_name == "msoa_id":
                         filename = (
                             f"{directory_name}_hourly_counts_"
                             f"{start_date}_{end_date}.csv"
