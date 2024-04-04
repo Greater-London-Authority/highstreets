@@ -362,7 +362,7 @@ hex_bid_lookup = pd.read_csv(
 )
 
 fitzrovia_ids = [21, 77]
-knightsbridge_ids = [64]
+knightsbridge_ids = [64, 69]
 
 fitzrovia_hex = tfl_hex_full_range.merge(
     hex_bid_lookup[hex_bid_lookup["bid_id"].isin(fitzrovia_ids)],

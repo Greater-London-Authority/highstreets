@@ -165,7 +165,7 @@ data_writer.upload_data_to_lds(
 # Sublicenses - Fitzrovia & Knightsbridge
 
 fitzrovia_ids = [21, 77]
-knightsbridge_ids = [64]
+knightsbridge_ids = [64, 69]
 
 BIDS_quad_lookup = pd.read_csv(
     "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/"

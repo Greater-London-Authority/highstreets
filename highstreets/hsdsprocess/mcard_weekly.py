@@ -248,7 +248,7 @@ data_writer.upload_data_to_lds(
 # Sublicenses - Fitzrovia & Knightsbridge
 
 fitzrovia_ids = [21, 77]
-knightsbridge_ids = [64]
+knightsbridge_ids = [64, 69]
 
 # reading full range txn_bid data from mastercard directory
 mcard_weekly_bid = pd.read_csv(
