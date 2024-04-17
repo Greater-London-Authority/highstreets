@@ -19,10 +19,7 @@ class DataWriter:
         self.host = os.getenv("PG_HOST")
         self.port = os.getenv("PG_PORT")
         self.lds_api_key = os.getenv("LDS_API_KEY")
-        self.base_path = (
-            "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/"
-            "Covid-19 Busyness/data/"
-        )
+        self.base_path = "/mnt/q/Projects/2019-20/" "Covid-19 Busyness/data/"
         # Create a database connection
         self.engine = create_engine(
             f"postgresql+psycopg2://{self.username}:{self.password}@"
@@ -386,30 +383,37 @@ class DataWriter:
         try:
             # Replace resource using lds.replace_resource
             df_metadata = lds.meta_dataset(slug, self.lds_api_key)[
-                ["resource_id", "resource_title"]
+                ["resource_id", "resource_title", "description_y"]
             ]
             resource_id = df_metadata.loc[
                 df_metadata["resource_title"] == resource_title, "resource_id"
             ].values[0]
+            resource_description = df_metadata.loc[
+                df_metadata["resource_title"] == resource_title, "description_y"
+            ].values[0]
             if df is not None:
-                lds.replace_resource(
+                lds.replace_resource_s3(
                     file_path=file_path,
                     slug=slug,
                     api_key=self.lds_api_key,
                     res_id=resource_id,
                     temporal_coverage_from=pd.to_datetime(temporal_coverage_from),
                     temporal_coverage_to=pd.to_datetime(temporal_coverage_to),
+                    res_title=resource_title,
+                    description=resource_description,
                 )
                 logging.info(
                     f"Data uploaded successfully to LDS for resource {resource_title}"
                     f"from {temporal_coverage_from} to {temporal_coverage_to}"
                 )
             else:
-                lds.replace_resource(
+                lds.replace_resource_s3(
                     file_path=file_path,
                     slug=slug,
                     api_key=self.lds_api_key,
+                    res_title=resource_title,
                     res_id=resource_id,
+                    description=resource_description,
                 )
                 logging.info(
                     f"Data uploaded successfully to LDS for resource {resource_title}"
