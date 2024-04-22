@@ -236,7 +236,7 @@ class DataWriter:
                     # for hex level databecause excel autoformats it to date
                     if first_column_name != "msoa_id":
                         data["hours"] = "'" + data["hours"]
-                    elif first_column_name == "msoa_id":
+                    if first_column_name == "msoa_id":
                         filename = (
                             f"{directory_name}_hourly_counts_"
                             f"{start_date}_{end_date}.csv"
