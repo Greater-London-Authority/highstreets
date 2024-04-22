@@ -19,7 +19,10 @@ class DataWriter:
         self.host = os.getenv("PG_HOST")
         self.port = os.getenv("PG_PORT")
         self.lds_api_key = os.getenv("LDS_API_KEY")
-        self.base_path = "/mnt/q/Projects/2019-20/" "Covid-19 Busyness/data/"
+        self.base_path = (
+            "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/"
+            "Covid-19 Busyness/data/"
+        )
         # Create a database connection
         self.engine = create_engine(
             f"postgresql+psycopg2://{self.username}:{self.password}@"
@@ -186,6 +189,8 @@ class DataWriter:
             # the line below added to add double quotes around hours
             # because excel autoformats it to date
             data["time_indicator"] = "'" + data["time_indicator"]
+        elif custom_file_name == "MRLI_3yr_compressed":
+            data["hours"] = "'" + data["hours"]
 
         for year, group in data.groupby(data["count_date"].dt.year):
             if custom_file_name:
