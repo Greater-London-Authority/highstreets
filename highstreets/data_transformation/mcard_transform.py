@@ -4,12 +4,15 @@ import re
 import numpy as np
 import pandas as pd
 
+from highstreets import config
+
 
 class McardTransform:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.INFO)
         self.logger.addHandler(logging.StreamHandler())
+        self.base_dir = config.BASE_DIR
 
     def extract_range(self, input_string):
         # Define a regular expression pattern to match the desired range
@@ -22,7 +25,7 @@ class McardTransform:
 
     def preprocess_mcard_data(self, data):
         mcard_grid_to_ldn_ref_lookup = pd.read_csv(
-            "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/"
+            f"{self.base_dir}/Projects/2019-20/Covid-19 Busyness/"
             "data/reference_data/mcard_grid_to_ldn_ref_lookup.csv"
         )
         # data manipulation
@@ -62,7 +65,7 @@ class McardTransform:
 
     def mcard_highstreet_threehourly_transform(self, data):
         Highstreets_quad_lookup = pd.read_csv(
-            "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/"
+            f"{self.base_dir}/Projects/2019-20/Covid-19 Busyness/"
             "data/mastercard/Highstreets_quad_lookup.csv"
         )
         data = (
@@ -89,7 +92,7 @@ class McardTransform:
 
     def mcard_towncentre_threehourly_transform(self, data):
         TownCentres_quad_lookup = pd.read_csv(
-            "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/"
+            f"{self.base_dir}/Projects/2019-20/Covid-19 Busyness/"
             "data/mastercard/TownCentres_quad_lookup.csv"
         )
         data = (
@@ -106,7 +109,7 @@ class McardTransform:
 
     def mcard_bid_threehourly_transform(self, data):
         BIDS_quad_lookup = pd.read_csv(
-            "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/"
+            f"{self.base_dir}/Projects/2019-20/Covid-19 Busyness/"
             "data/mastercard/BIDS_quad_lookup.csv"
         )
         data = (
@@ -123,7 +126,7 @@ class McardTransform:
 
     def mcard_bespoke_threehourly_transform(self, data):
         bespoke_quad_lookup = pd.read_csv(
-            "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/"
+            f"{self.base_dir}/Projects/2019-20/Covid-19 Busyness/"
             "data/mastercard/bespoke_quad_lookup.csv"
         )
         data = (

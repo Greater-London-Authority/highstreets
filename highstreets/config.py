@@ -30,6 +30,9 @@ BT_MSOA_MONTHLY_PREFIX = "msoa_monthly_agg"
 BT_TFL_HEX_DAILY_PREFIX = "tfl_hex_daily_agg"
 BT_TFL_HEX_MONTHLY_PREFIX = "tfl_hex_monthly_agg"
 BT_MSOA_FOOTFALL_HIST_PREFIX = "msoa_footfall_hist"
+
+BASE_DIR = "//onelondon.tfl.local/gla/INTELLIGENCE"
+# BASE_DIR = "/mnt/q"
 BT_HEX_API_ENDPOINT = (
     "https://api.business.bt.com/v1/footfall/reports/hex-grid/tfl?agg=time_indicator"
 )
@@ -43,4 +46,7 @@ BT_HOURLY_OUTAGE_API_ENDPOINT = (
 BT_OUTAGE_HISTORY_API_ENDPOINT = (
     "https://api.business.bt.com/v1/active-intelligence-health-checks/"
     "data-pipelines/outage-history"
+)
+BT_DAILY_AGGREGATED_SHAPES = (
+    "https://api.business.bt.com/v1/footfall/reports/daily-aggregate/customer-shapes"
 )

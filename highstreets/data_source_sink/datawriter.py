@@ -8,6 +8,8 @@ from glapy import lds
 from glapy.database.utils import fast_write
 from sqlalchemy import create_engine, text
 
+from highstreets import config
+
 load_dotenv(find_dotenv())
 
 
@@ -19,10 +21,8 @@ class DataWriter:
         self.host = os.getenv("PG_HOST")
         self.port = os.getenv("PG_PORT")
         self.lds_api_key = os.getenv("LDS_API_KEY")
-        self.base_path = (
-            "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/"
-            "Covid-19 Busyness/data/"
-        )
+        self.base_dir = config.BASE_DIR
+        self.base_path = f"{self.base_dir}/Projects/2019-20/" "Covid-19 Busyness/data/"
         # Create a database connection
         self.engine = create_engine(
             f"postgresql+psycopg2://{self.username}:{self.password}@"
@@ -180,6 +180,14 @@ class DataWriter:
         fast_write(merged_df, "hsds_bid_hs_tc", if_exists="truncate")
 
     def write_hex_to_csv_by_year(self, data, output_dir, custom_file_name=None):
+        """
+        Writes DataFrame to CSV files by year.
+
+        Args:
+            data (pandas.DataFrame): The DataFrame to be exported.
+            output_dir (str): The directory to save the CSV files.
+            custom_file_name (str, optional): Custom file name prefix. Defaults to None.
+        """
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
@@ -198,6 +206,11 @@ class DataWriter:
             else:
                 file_name = os.path.join(output_dir, f"hex_3hourly_counts_{year}.csv")
             group.to_csv(file_name, index=False)
+        # Revert modifications after writing to csv
+        if custom_file_name != "MRLI_3yr_compressed":
+            data["time_indicator"] = data["time_indicator"].str.strip("'")
+        elif custom_file_name == "MRLI_3yr_compressed":
+            data["hours"] = data["hours"].str.strip("'")
             logging.info(f"Saved {file_name}")
 
     def write_threehourly_hs_to_csv(self, data, data_source):
@@ -236,6 +249,9 @@ class DataWriter:
                     # for hex level databecause excel autoformats it to date
                     if first_column_name != "msoa_id":
                         data["hours"] = "'" + data["hours"]
+                        modify_in_place = True
+                    else:
+                        modify_in_place = False
                     if first_column_name == "msoa_id":
                         filename = (
                             f"{directory_name}_hourly_counts_"
@@ -255,7 +271,11 @@ class DataWriter:
                     file_path = os.path.join(
                         self.hs_file_path[data_source], directory_name, filename
                     )
-                    pd.DataFrame(data).to_csv(file_path, index=False)
+                    if modify_in_place:
+                        pd.DataFrame(data).to_csv(file_path, index=False)
+                        data["hours"] = data["hours"].str.strip("'")
+                    else:
+                        pd.DataFrame(data).to_csv(file_path, index=False)
                     logging.info(f"Data successfully written to CSV: {file_path}")
                 else:
                     logging.error(f"Invalid column name: {first_column_name}")

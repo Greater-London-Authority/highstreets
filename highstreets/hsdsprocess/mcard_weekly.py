@@ -1,8 +1,11 @@
 import pandas as pd
 
+from highstreets import config
 from highstreets.data_source_sink.dataloader import DataLoader
 from highstreets.data_source_sink.datawriter import DataWriter
 from highstreets.data_transformation.mcard_transform import McardTransform
+
+base_dir = config.BASE_DIR
 
 # instantiate the classes
 data_loader = DataLoader()
@@ -190,8 +193,7 @@ data_writer.truncate_and_load_to_postgres(
 
 # reading full range txn_bespoke data from mastercard directory
 mcard_weekly = pd.read_csv(
-    "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/"
-    "Covid-19 Busyness/data/mastercard/txn_bespoke.csv"
+    f"{base_dir}/Projects/2019-20/" "Covid-19 Busyness/data/mastercard/txn_bespoke.csv"
 )
 
 # sub-licensing agreement for colliers
@@ -201,7 +203,7 @@ holba_ids = [112, 113, 114, 115, 116, 117, 118, 197]
 
 # filtering all holba site weekly transaction data and writing it to csv
 mcard_weekly[mcard_weekly["bespoke_area_id"].isin(holba_ids)].to_csv(
-    "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/"
+    f"{base_dir}/Projects/"
     "2019-20/Covid-19 Busyness/data/mastercard/Processed/bespoke/"
     "Colliers agreement - Holba sites/colliers_hsds_mcard_weekly_txn.csv",
     index=False,
@@ -214,7 +216,7 @@ data_writer.upload_data_to_lds(
     resource_title="colliers_hsds_mcard_weekly_txn.csv",
     df=mcard_weekly[mcard_weekly["bespoke_area_id"].isin(holba_ids)],
     file_path=(
-        "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/data"
+        f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data"
         "/mastercard/Processed/bespoke/"
         "Colliers agreement - Holba sites/"
         "colliers_hsds_mcard_weekly_txn.csv"
@@ -225,7 +227,7 @@ data_writer.upload_data_to_lds(
 ltn_ids = [220, 221, 222, 223, 224, 225, 226, 227, 228]
 # filtering ltn weekly transaction data and writing it to csv
 mcard_weekly[mcard_weekly["bespoke_area_id"].isin(ltn_ids)].to_csv(
-    "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/"
+    f"{base_dir}/Projects/"
     "2019-20/Covid-19 Busyness/data/mastercard/Processed/bespoke/"
     "LTN/ltn_hsds_mcard_weekly_txn.csv",
     index=False,
@@ -238,7 +240,7 @@ data_writer.upload_data_to_lds(
     resource_title="Mcard_Islington_weekly_txn.csv",
     df=mcard_weekly[mcard_weekly["bespoke_area_id"].isin(ltn_ids)],
     file_path=(
-        "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/data"
+        f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data"
         "/mastercard/Processed/bespoke/"
         "LTN/"
         "ltn_hsds_mcard_weekly_txn.csv"
@@ -252,19 +254,18 @@ knightsbridge_ids = [64, 69]
 
 # reading full range txn_bid data from mastercard directory
 mcard_weekly_bid = pd.read_csv(
-    "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/"
-    "Covid-19 Busyness/data/mastercard/txn_bids.csv"
+    f"{base_dir}/Projects/2019-20/" "Covid-19 Busyness/data/mastercard/txn_bids.csv"
 )
 
 # filtering all holba site weekly transaction data and writing it to csv
 mcard_weekly_bid[mcard_weekly_bid["bid_id"].isin(fitzrovia_ids)].to_csv(
-    "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/"
+    f"{base_dir}/Projects/"
     "2019-20/Covid-19 Busyness/data/mastercard/Processed/bid/"
     "fitzrovia/Fitzrovia_hsds_mcard_weekly_txn.csv",
     index=False,
 )
 mcard_weekly_bid[mcard_weekly_bid["bid_id"].isin(knightsbridge_ids)].to_csv(
-    "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/"
+    f"{base_dir}/Projects/"
     "2019-20/Covid-19 Busyness/data/mastercard/Processed/bid/"
     "knightsbridge/Knightsbridge_hsds_mcard_weekly_txn.csv",
     index=False,
@@ -277,7 +278,7 @@ data_writer.upload_data_to_lds(
     resource_title="Fitzrovia_hsds_mcard_weekly_txn.csv",
     df=mcard_weekly_bid[mcard_weekly_bid["bid_id"].isin(fitzrovia_ids)],
     file_path=(
-        "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/data"
+        f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data"
         "/mastercard/Processed/bid/fitzrovia/Fitzrovia_hsds_mcard_weekly_txn.csv"
     ),
 )
@@ -289,7 +290,7 @@ data_writer.upload_data_to_lds(
     resource_title="Knightsbridge_hsds_mcard_weekly_txn.csv",
     df=mcard_weekly_bid[mcard_weekly_bid["bid_id"].isin(knightsbridge_ids)],
     file_path=(
-        "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/data"
+        f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data"
         "/mastercard/Processed/bid/knightsbridge/Knightsbridge_hsds_mcard_weekly_txn.csv"
     ),
 )

@@ -32,6 +32,8 @@ class DataLoader:
         self.msoa_api_endpoint = config.BT_MSOA_API_ENDPOINT
         self.bt_hourly_outage_api_endpoint = config.BT_HOURLY_OUTAGE_API_ENDPOINT
         self.bt_outage_history_api_endpoint = config.BT_OUTAGE_HISTORY_API_ENDPOINT
+        self.bt_daily_aggregated_shapes = config.BT_DAILY_AGGREGATED_SHAPES
+        self.base_dir = config.BASE_DIR
         self.api_client = APIClient()
         self.logger = logging.getLogger(__name__)
         self.database = os.getenv("PG_DATABASE")
@@ -101,6 +103,20 @@ class DataLoader:
             self.logger.error(f"An unexpected error occurred: {str(e)}")
             raise DataLoaderException("An unexpected error occurred.") from None
 
+    def get_bt_daily_aggregate_customer_shapes(self, date_from, date_to):
+        params = {"date_from": date_from, "date_to": date_to}
+
+        try:
+            return self.api_client.get_data_request(
+                self.bt_daily_aggregated_shapes, params=params
+            )  # noqa: E501
+        except APIClientException as e:
+            self.logger.error(str(e))
+            raise DataLoaderException("Failed to fetch data.") from None
+        except Exception as e:
+            self.logger.error(f"An unexpected error occurred: {str(e)}")
+            raise DataLoaderException("An unexpected error occurred.") from None
+
     def get_full_data(self, table_name):
         """
         Retrieve full data from a PostgreSQL table into a DataFrame.
@@ -131,11 +147,11 @@ class DataLoader:
     def get_hex_lookup(self, lookup_type):
         # Load the .shp file using GeoPandas
         hex350_grid_GLA = gpd.read_file(
-            "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/"
+            f"{self.base_dir}/Projects/2019-20/Covid-19 Busyness/"
             "data/reference_data/shapefiles/hex350_grid_GLA.shp"
         )
         hex_400m_buffer1 = gpd.read_file(
-            "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/"
+            f"{self.base_dir}/Projects/2019-20/Covid-19 Busyness/"
             "data/reference_data/shapefiles/hex_400m_buffer1.shp"
         )
         hex_400m_buffer1 = hex_400m_buffer1.rename(columns={"Hex_ID": "hex_id"})
@@ -201,7 +217,7 @@ class DataLoader:
 
     def mcard_3hourly_latest_data_read(self, mcard_source_path):
         mcard_source_path = (
-            "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/"
+            f"{self.base_dir}/Projects/2019-20/Covid-19 Busyness/"
             "data/mastercard/sharefile_3hr_timeslot"
         )
         try:

@@ -1,12 +1,15 @@
 import pandas as pd
 
+from highstreets import config
 from highstreets.data_source_sink.dataloader import DataLoader
 from highstreets.data_source_sink.datawriter import DataWriter
 from highstreets.data_transformation.mcard_transform import McardTransform
 
+base_dir = config.BASE_DIR
+
 data_loader = DataLoader()
 mcard_latest_df = data_loader.mcard_3hourly_latest_data_read(
-    "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/"
+    f"{base_dir}/Projects/2019-20/Covid-19 Busyness/"
     "data/mastercard/sharefile_3hr_timeslot"
 )
 
@@ -23,7 +26,7 @@ mrli_full_range_df = data_loader.get_full_data("econ_busyness_mrli_3hourly")
 
 data_writer.write_hex_to_csv_by_year(
     mrli_full_range_df,
-    output_dir="//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/"
+    output_dir=f"{base_dir}/Projects/2019-20/"
     "Covid-19 Busyness/data/mastercard/Processed/MRLI_3yr_compressed",
     custom_file_name="MRLI_3yr_compressed",
 )
@@ -113,7 +116,7 @@ holba_ids = [112, 113, 114, 115, 116, 117, 118, 197]
 mrli_bespoke_full_range[
     mrli_bespoke_full_range["bespoke_area_id"].isin(holba_ids)
 ].to_csv(
-    "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness"
+    f"{base_dir}/Projects/2019-20/Covid-19 Busyness"
     "/data/mastercard/Processed/bespoke/"
     "Colliers agreement - Holba sites/"
     "colliers_hsds_mcard_3hourly_txn.csv",
@@ -128,7 +131,7 @@ data_writer.upload_data_to_lds(
         mrli_bespoke_full_range["bespoke_area_id"].isin(holba_ids)
     ],
     file_path=(
-        "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/data"
+        f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data"
         "/mastercard/Processed/bespoke/"
         "Colliers agreement - Holba sites/"
         "colliers_hsds_mcard_3hourly_txn.csv"
@@ -141,7 +144,7 @@ ltn_ids = [220, 221, 222, 223, 224, 225, 226, 227, 228]
 mrli_bespoke_full_range[
     mrli_bespoke_full_range["bespoke_area_id"].isin(ltn_ids)
 ].to_csv(
-    "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/"
+    f"{base_dir}/Projects/"
     "2019-20/Covid-19 Busyness/data/mastercard/Processed/bespoke/"
     "LTN/ltn_hsds_mcard_3hourly_txn.csv",
     index=False,
@@ -155,7 +158,7 @@ data_writer.upload_data_to_lds(
         mrli_bespoke_full_range["bespoke_area_id"].isin(ltn_ids)
     ],
     file_path=(
-        "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/data"
+        f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data"
         "/mastercard/Processed/bespoke/"
         "LTN/"
         "ltn_hsds_mcard_3hourly_txn.csv"
@@ -168,7 +171,7 @@ fitzrovia_ids = [21, 77]
 knightsbridge_ids = [64, 69]
 
 BIDS_quad_lookup = pd.read_csv(
-    "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/"
+    f"{base_dir}/Projects/2019-20/Covid-19 Busyness/"
     "data/mastercard/BIDS_quad_lookup.csv"
 )
 
@@ -197,13 +200,13 @@ columns_mrli_bid = [
 ]
 
 fitzrovia_mrli[columns_mrli_bid].to_csv(
-    "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/"
+    f"{base_dir}/Projects/2019-20/Covid-19 Busyness/"
     "data/mastercard/Processed/MRLI_3yr_compressed/Fitzrovia/"
     "Fitzrovia_mcard_quad_3hourly_txn.csv",
     index=False,
 )
 knightsbridge_mrli[columns_mrli_bid].to_csv(
-    "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/"
+    f"{base_dir}/Projects/2019-20/Covid-19 Busyness/"
     "data/mastercard/Processed/MRLI_3yr_compressed/knightsbridge/"
     "Knightsbridge_mcard_quad_3hourly_txn.csv",
     index=False,
@@ -215,7 +218,7 @@ data_writer.upload_data_to_lds(
     resource_title="Fitzrovia_mcard_quad_3hourly_txn.csv",
     df=fitzrovia_mrli[columns_mrli_bid],
     file_path=(
-        "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/data"
+        f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data"
         "/mastercard/Processed/MRLI_3yr_compressed/Fitzrovia/"
         "Fitzrovia_mcard_quad_3hourly_txn.csv"
     ),
@@ -227,7 +230,7 @@ data_writer.upload_data_to_lds(
     resource_title="Knightsbridge_mcard_quad_3hourly_txn.csv",
     df=knightsbridge_mrli[columns_mrli_bid],
     file_path=(
-        "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/data"
+        f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data"
         "/mastercard/Processed/MRLI_3yr_compressed/knightsbridge/"
         "Knightsbridge_mcard_quad_3hourly_txn.csv"
     ),

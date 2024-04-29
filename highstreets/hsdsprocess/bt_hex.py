@@ -2,10 +2,13 @@ import os
 
 import pandas as pd
 
+from highstreets import config
 from highstreets.data_source_sink.dataloader import DataLoader
 from highstreets.data_source_sink.datawriter import DataWriter
 from highstreets.data_source_sink.gischangetracking import DataProcessor
 from highstreets.data_transformation.hextransform import HexTransform
+
+base_dir = config.BASE_DIR
 
 # Initialise data loader
 data_loader = DataLoader()
@@ -36,8 +39,7 @@ tfl_hex_full_range = data_loader.get_full_data("bt_footfall_tfl_hex_3hourly")
 # Retrieve full range BT hex data from PostgreSQL and write to CSV
 data_writer.write_hex_to_csv_by_year(
     tfl_hex_full_range,
-    "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/data/BT/"
-    "Processed/hex_grid",
+    f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data/BT/" "Processed/hex_grid",
 )
 
 # Initialize DataProcessor to obtain new hex IDs from tracking table
@@ -308,7 +310,7 @@ holba_ids = [112, 113, 114, 115, 116, 117, 118, 197]
 
 # filtering all holba site footfall data and writing it to csv
 bespoke_full_range[bespoke_full_range["bespoke_area_id"].isin(holba_ids)].to_csv(
-    "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/"
+    f"{base_dir}/Projects/2019-20/Covid-19 Busyness/"
     "data/BT/Processed/bespoke/Colliers agreement - Holba sites/"
     "colliers_hsds_bt_footfall_3hourly_counts.csv",
     index=False,
@@ -320,7 +322,7 @@ data_writer.upload_data_to_lds(
     resource_title="colliers_hsds_footfall_3hourly_counts.csv",
     df=bespoke_full_range[bespoke_full_range["bespoke_area_id"].isin(holba_ids)],
     file_path=(
-        "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/"
+        f"{base_dir}/Projects/2019-20/"
         "Covid-19 Busyness/data/BT/Processed/bespoke/"
         "Colliers agreement - Holba sites/"
         "colliers_hsds_bt_footfall_3hourly_counts.csv"
@@ -331,7 +333,7 @@ data_writer.upload_data_to_lds(
 ltn_ids = [220, 221, 222, 223, 224, 225, 226, 227, 228]
 # filtering ltn weekly transaction data and writing it to csv
 bespoke_full_range[bespoke_full_range["bespoke_area_id"].isin(ltn_ids)].to_csv(
-    "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/"
+    f"{base_dir}/Projects/"
     "2019-20/Covid-19 Busyness/data/BT/Processed/bespoke/"
     "LTN/ltn_hsds_bt_footfall_3hourly_counts.csv",
     index=False,
@@ -343,7 +345,7 @@ data_writer.upload_data_to_lds(
     resource_title="BT_Islington_footfall_3hourly_counts.csv",
     df=bespoke_full_range[bespoke_full_range["bespoke_area_id"].isin(ltn_ids)],
     file_path=(
-        "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/"
+        f"{base_dir}/Projects/"
         "2019-20/Covid-19 Busyness/data/BT/Processed/bespoke/"
         "LTN/"
         "ltn_hsds_bt_footfall_3hourly_counts.csv"
@@ -353,7 +355,7 @@ data_writer.upload_data_to_lds(
 # Sublicenses - Fitzrovia & Knightsbridge
 
 hex_bid_lookup = pd.read_csv(
-    "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/"
+    f"{base_dir}/Projects/2019-20/Covid-19 Busyness/"
     "data/reference_data/hex_bid_lookup.csv"
 )
 
@@ -387,14 +389,14 @@ columns_hex_bid = [
 ]
 
 fitzrovia_hex[columns_hex_bid].assign(hours=lambda x: "'" + x["time_indicator"]).to_csv(
-    "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/data/"
+    f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data/"
     "BT/Processed/hex_grid/Fitzrovia/Fitzrovia_bt_hex_3hourly_counts.csv",
     index=False,
 )
 knightsbridge_hex[columns_hex_bid].assign(
     hours=lambda x: "'" + x["time_indicator"]
 ).to_csv(
-    "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/data/"
+    f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data/"
     "BT/Processed/hex_grid/knightsbridge/Knightsbridge_bt_hex_3hourly_counts.csv",
     index=False,
 )
@@ -405,7 +407,7 @@ data_writer.upload_data_to_lds(
     resource_title="Fitzrovia_bt_hex_3hourly_counts.csv",
     df=fitzrovia_hex[columns_hex_bid],
     file_path=(
-        "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/data/"
+        f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data/"
         "BT/Processed/hex_grid/Fitzrovia/Fitzrovia_bt_hex_3hourly_counts.csv"
     ),
 )
@@ -416,7 +418,7 @@ data_writer.upload_data_to_lds(
     resource_title="Knightsbridge_bt_hex_3hourly_counts.csv",
     df=knightsbridge_hex[columns_hex_bid],
     file_path=(
-        "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/data/"
+        f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data/"
         "BT/Processed/hex_grid/knightsbridge/Knightsbridge_bt_hex_3hourly_counts.csv"
     ),
 )
@@ -435,7 +437,7 @@ southbank_hex = tfl_hex_full_range.merge(
 southbank_bid_id = [35]
 
 southbank_hex[columns_hex_bid].assign(hours=lambda x: "'" + x["time_indicator"]).to_csv(
-    "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/data"
+    f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data"
     "/BT/Processed/hex_grid/Southbank/Southbank_bt_hex_3hourly_counts.csv",
     index=False,
 )
