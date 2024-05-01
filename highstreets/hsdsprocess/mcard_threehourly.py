@@ -199,13 +199,17 @@ columns_mrli_bid = [
     "avg_spend_amt",
 ]
 
-fitzrovia_mrli[columns_mrli_bid].to_csv(
+fitzrovia_mrli[columns_mrli_bid].assign(hours=lambda x: "'" + x["hours"])[
+    columns_mrli_bid
+].to_csv(
     f"{base_dir}/Projects/2019-20/Covid-19 Busyness/"
     "data/mastercard/Processed/MRLI_3yr_compressed/Fitzrovia/"
     "Fitzrovia_mcard_quad_3hourly_txn.csv",
     index=False,
 )
-knightsbridge_mrli[columns_mrli_bid].to_csv(
+knightsbridge_mrli[columns_mrli_bid].assign(hours=lambda x: "'" + x["hours"])[
+    columns_mrli_bid
+].to_csv(
     f"{base_dir}/Projects/2019-20/Covid-19 Busyness/"
     "data/mastercard/Processed/MRLI_3yr_compressed/knightsbridge/"
     "Knightsbridge_mcard_quad_3hourly_txn.csv",
