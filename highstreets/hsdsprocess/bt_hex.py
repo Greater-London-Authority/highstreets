@@ -380,7 +380,7 @@ columns_hex_bid = [
     "bid_name",
     "count_date",
     "day",
-    "time_indicator",
+    "hours",
     "resident",
     "visitor",
     "worker",
