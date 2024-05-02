@@ -405,7 +405,7 @@ knightsbridge_hex.assign(hours=lambda x: "'" + x["time_indicator"])[
 data_writer.upload_data_to_lds(
     slug="rendle-intelligence-for-fitzrovia-partnership",
     resource_title="Fitzrovia_bt_hex_3hourly_counts.csv",
-    df=fitzrovia_hex[columns_hex_bid],
+    df=fitzrovia_hex,
     file_path=(
         f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data/"
         "BT/Processed/hex_grid/Fitzrovia/Fitzrovia_bt_hex_3hourly_counts.csv"
@@ -416,7 +416,7 @@ data_writer.upload_data_to_lds(
 data_writer.upload_data_to_lds(
     slug="rendle-intelligence-for-knightsbridge-partnership",
     resource_title="Knightsbridge_bt_hex_3hourly_counts.csv",
-    df=knightsbridge_hex[columns_hex_bid],
+    df=knightsbridge_hex,
     file_path=(
         f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data/"
         "BT/Processed/hex_grid/knightsbridge/Knightsbridge_bt_hex_3hourly_counts.csv"
@@ -446,7 +446,7 @@ southbank_hex.assign(hours=lambda x: "'" + x["time_indicator"])[columns_hex_bid]
 data_writer.upload_data_to_lds(
     slug="southbank-centre",
     resource_title="Southbank_bt_hex_3hourly_counts.csv",
-    df=knightsbridge_hex[columns_hex_bid],
+    df=knightsbridge_hex,
     file_path=(
         "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/data/"
         "BT/Processed/hex_grid/Southbank/Southbank_bt_hex_3hourly_counts.csv"
