@@ -388,14 +388,12 @@ columns_hex_bid = [
     "dwell_time",
 ]
 
-fitzrovia_hex[columns_hex_bid].assign(hours=lambda x: "'" + x["time_indicator"])[
-    columns_hex_bid
-].to_csv(
+fitzrovia_hex.assign(hours=lambda x: "'" + x["time_indicator"])[columns_hex_bid].to_csv(
     f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data/"
     "BT/Processed/hex_grid/Fitzrovia/Fitzrovia_bt_hex_3hourly_counts.csv",
     index=False,
 )
-knightsbridge_hex[columns_hex_bid].assign(hours=lambda x: "'" + x["time_indicator"])[
+knightsbridge_hex.assign(hours=lambda x: "'" + x["time_indicator"])[
     columns_hex_bid
 ].to_csv(
     f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data/"
@@ -438,9 +436,7 @@ southbank_hex = tfl_hex_full_range.merge(
 
 southbank_bid_id = [35]
 
-southbank_hex[columns_hex_bid].assign(hours=lambda x: "'" + x["time_indicator"])[
-    columns_hex_bid
-].to_csv(
+southbank_hex.assign(hours=lambda x: "'" + x["time_indicator"])[columns_hex_bid].to_csv(
     f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data"
     "/BT/Processed/hex_grid/Southbank/Southbank_bt_hex_3hourly_counts.csv",
     index=False,
