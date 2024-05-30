@@ -30,6 +30,7 @@ class DataLoader:
     def __init__(self):
         self.hex_api_endpoint = config.BT_HEX_API_ENDPOINT
         self.msoa_api_endpoint = config.BT_MSOA_API_ENDPOINT
+        self.lsoa_api_endpoint = config.BT_LSOA_API_ENDPOINT
         self.bt_hourly_outage_api_endpoint = config.BT_HOURLY_OUTAGE_API_ENDPOINT
         self.bt_outage_history_api_endpoint = config.BT_OUTAGE_HISTORY_API_ENDPOINT
         self.bt_daily_aggregated_shapes = config.BT_DAILY_AGGREGATED_SHAPES
@@ -67,6 +68,20 @@ class DataLoader:
         try:
             return self.api_client.get_data_request(
                 self.msoa_api_endpoint, params=params
+            )  # noqa: E501
+        except APIClientException as e:
+            self.logger.error(str(e))
+            raise DataLoaderException("Failed to fetch data.") from None
+        except Exception as e:
+            self.logger.error(f"An unexpected error occurred: {str(e)}")
+            raise DataLoaderException("An unexpected error occurred.") from None
+
+    def get_lsoa_data(self, date_from, date_to):
+        params = {"date_from": date_from, "date_to": date_to}
+
+        try:
+            return self.api_client.get_data_request(
+                self.lsoa_api_endpoint, params=params
             )  # noqa: E501
         except APIClientException as e:
             self.logger.error(str(e))

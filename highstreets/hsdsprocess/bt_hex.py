@@ -452,3 +452,47 @@ data_writer.upload_data_to_lds(
         "BT/Processed/hex_grid/Southbank/Southbank_bt_hex_3hourly_counts.csv"
     ),
 )
+
+# Sublicense - UCL - Geetanjli Project
+hex_borough_lookup = pd.read_csv(
+    f"{base_dir}/Projects/2019-20/Covid-19 Busyness/"
+    "data/reference_data/hex_borough_lookup.csv"
+)
+ucl_geetanjli_hex = (
+    tfl_hex_full_range.merge(
+        hex_borough_lookup[hex_borough_lookup["name"].isin(["Westminster"])],
+        left_on="hex_id",
+        right_on="hex_id",
+        how="right",
+    )
+    .assign(hours=lambda x: "'" + x["time_indicator"])[
+        [
+            "hex_id",
+            "name",
+            "count_date",
+            "day",
+            "hours",
+            "resident",
+            "visitor",
+            "worker",
+            "loyalty_percentage",
+            "dwell_time",
+        ]
+    ]
+    .to_csv(
+        f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data/"
+        "BT/Processed/hex_grid/UCL/Geetanjli/ucl_bt_hex_3hourly_counts.csv",
+        index=False,
+    )
+)
+
+# Offloading the hex data filtered to Westminster to datastore page
+data_writer.upload_data_to_lds(
+    slug="ucl---geetanjli-rani",
+    resource_title="ucl_bt_hex_3hourly_counts.csv",
+    df=ucl_geetanjli_hex,
+    file_path=(
+        "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/data/"
+        "BT/Processed/hex_grid/UCL/Geetanjli/ucl_bt_hex_3hourly_counts.csv"
+    ),
+)
