@@ -72,27 +72,25 @@ Westminster_msoa = [
     "Westminster 024",
 ]
 
-ucl_geetanjli_msoa = (
-    msoa_full_range["msoa_name"]
-    .isin(Westminster_msoa)[
-        [
-            "msoa_id",
-            "msoa_name",
-            "count_date",
-            "day",
-            "hour",
-            "resident",
-            "visitor",
-            "worker",
-            "loyalty_percentage",
-            "dwell_time",
-        ]
+ucl_geetanjli_msoa = msoa_full_range[
+    msoa_full_range["msoa_name"].isin(Westminster_msoa)
+][
+    [
+        "msoa_id",
+        "msoa_name",
+        "count_date",
+        "day",
+        "hour",
+        "resident",
+        "visitor",
+        "worker",
+        "loyalty_percentage",
+        "dwell_time",
     ]
-    .to_csv(
-        f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data/"
-        "BT/Processed/msoa/UCL/Geetanjli/ucl_bt_msoa_hourly_counts.csv",
-        index=False,
-    )
+].to_csv(
+    f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data/"
+    "BT/Processed/msoa/UCL/Geetanjli/ucl_bt_msoa_hourly_counts.csv",
+    index=False,
 )
 
 # Offloading the hex data filtered to Westminster to datastore page
