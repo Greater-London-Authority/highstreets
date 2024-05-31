@@ -100,6 +100,6 @@ data_writer.upload_data_to_lds(
     df=ucl_geetanjli_msoa,
     file_path=(
         "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/data/"
-        "BT/Processed/hex_grid/UCL/Geetanjli/ucl_bt_msoa_hourly_counts.csv"
+        "BT/Processed/msoa/UCL/Geetanjli/ucl_bt_msoa_hourly_counts.csv"
     ),
 )
