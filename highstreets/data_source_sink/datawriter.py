@@ -193,7 +193,7 @@ class DataWriter:
 
         data["count_date"] = pd.to_datetime(data["count_date"])
 
-        if custom_file_name != "MRLI_3yr_compressed":
+        if custom_file_name == "hex_3hourly_counts":
             # the line below added to add double quotes around hours
             # because excel autoformats it to date
             data["time_indicator"] = "'" + data["time_indicator"]
@@ -207,11 +207,71 @@ class DataWriter:
                 file_name = os.path.join(output_dir, f"hex_3hourly_counts_{year}.csv")
             group.to_csv(file_name, index=False)
         # Revert modifications after writing to csv
-        if custom_file_name != "MRLI_3yr_compressed":
+        if custom_file_name == "hex_3hourly_counts":
             data["time_indicator"] = data["time_indicator"].str.strip("'")
         elif custom_file_name == "MRLI_3yr_compressed":
             data["hours"] = data["hours"].str.strip("'")
             logging.info(f"Saved {file_name}")
+
+    def write_to_csv_by_year_half(self, data, output_dir, custom_file_name=None):
+        """
+        Writes DataFrame to CSV files by year, with each year split into two
+        6-month CSV files.
+
+        Args:
+            data (pandas.DataFrame): The DataFrame to be exported.
+            output_dir (str): The directory to save the CSV files.
+            custom_file_name (str, optional): Custom file name prefix. Defaults to None.
+        """
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+
+        data["count_date"] = pd.to_datetime(data["count_date"])
+
+        if custom_file_name == "hex_3hourly_counts":
+            data["time_indicator"] = "'" + data["time_indicator"]
+        elif custom_file_name == "MRLI_3yr_compressed":
+            data["hours"] = "'" + data["hours"]
+
+        for year, group in data.groupby(data["count_date"].dt.year):
+            # Split data into two halves
+            first_half = group[group["count_date"].dt.month <= 6]
+            second_half = group[group["count_date"].dt.month > 6]
+
+            if custom_file_name:
+                file_name_first_half = os.path.join(
+                    output_dir, f"{custom_file_name}_{year}_H1.csv")
+                file_name_second_half = os.path.join(
+                    output_dir, f"{custom_file_name}_{year}_H2.csv")
+            else:
+                file_name_first_half = os.path.join(
+                    output_dir, f"hex_3hourly_counts_{year}_H1.csv")
+                file_name_second_half = os.path.join(
+                    output_dir, f"hex_3hourly_counts_{year}_H2.csv")
+
+            # Write to CSV only if there's data
+            if not first_half.empty:
+                first_half.to_csv(file_name_first_half, index=False)
+                logging.info(f"Saved {file_name_first_half}")
+            else:
+                logging.info(
+                    f"No data for first half of {year}, skipping {file_name_first_half}")
+
+            if not second_half.empty:
+                second_half.to_csv(file_name_second_half, index=False)
+                logging.info(f"Saved {
+                    file_name_second_half}")
+            else:
+                logging.info(
+                    f"No data for second half of {year}, skipping {
+                        file_name_second_half}")
+
+        # Revert modifications after writing to csv
+        if custom_file_name == "hex_3hourly_counts":
+            data["time_indicator"] = data["time_indicator"].str.strip("'")
+        elif custom_file_name == "MRLI_3yr_compressed":
+            data["hours"] = data["hours"].str.strip("'")
+            logging.info(f"Reverted modifications for {custom_file_name}")
 
     def write_threehourly_hs_to_csv(self, data, data_source):
         """
@@ -235,6 +295,7 @@ class DataWriter:
                     "bespoke_area_id",
                     "bid_id",
                     "msoa_id",
+                    "lsoa_id",
                 ]:
                     directory_name = {
                         "highstreet_id": "highstreet",
@@ -242,17 +303,23 @@ class DataWriter:
                         "bespoke_area_id": "bespoke",
                         "bid_id": "bid",
                         "msoa_id": "msoa",
+                        "lsoa_id": "lsoa",
                     }[first_column_name]
                     start_date = data["count_date"].min().strftime("%Y-%m-%d")
                     end_date = data["count_date"].max().strftime("%Y-%m-%d")
                     # the line below added to add double quotes around hours
                     # for hex level databecause excel autoformats it to date
-                    if first_column_name != "msoa_id":
+                    if first_column_name != "msoa_id" and first_column_name != "lsoa_id":
                         data["hours"] = "'" + data["hours"]
                         modify_in_place = True
                     else:
                         modify_in_place = False
                     if first_column_name == "msoa_id":
+                        filename = (
+                            f"{directory_name}_hourly_counts_"
+                            f"{start_date}_{end_date}.csv"
+                        )
+                    if first_column_name == "lsoa_id":
                         filename = (
                             f"{directory_name}_hourly_counts_"
                             f"{start_date}_{end_date}.csv"
@@ -390,6 +457,20 @@ class DataWriter:
             if custom_date_column not in df.columns:
                 raise ValueError(
                     f"Date column {custom_date_column!r} not found in the DataFrame."
+                )
+            temporal_coverage_from = str(
+                pd.to_datetime(df[custom_date_column]).min().date()
+            )
+            temporal_coverage_to = str(
+                pd.to_datetime(df[custom_date_column]).max().date()
+            )
+
+        if file_path is not None and df is None:
+            # Read the file into a DataFrame
+            df = pd.read_csv(file_path)
+            if custom_date_column not in df.columns:
+                raise ValueError(
+                    f"Date column {custom_date_column!r} not found in the file."
                 )
             temporal_coverage_from = str(
                 pd.to_datetime(df[custom_date_column]).min().date()
