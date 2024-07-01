@@ -254,17 +254,15 @@ class DataWriter:
                 first_half.to_csv(file_name_first_half, index=False)
                 logging.info(f"Saved {file_name_first_half}")
             else:
-                logging.info(
-                    f"No data for first half of {year}, skipping {file_name_first_half}")
+                logging.info(f"No data for first half of "
+                             f"{year}, skipping {file_name_first_half}")
 
             if not second_half.empty:
                 second_half.to_csv(file_name_second_half, index=False)
-                logging.info(f"Saved {
-                    file_name_second_half}")
+                logging.info(f"Saved {file_name_second_half}")
             else:
-                logging.info(
-                    f"No data for second half of {year}, skipping {
-                        file_name_second_half}")
+                logging.info(f"No data for second"
+                             f" half of {year}, skipping {file_name_second_half}")
 
         # Revert modifications after writing to csv
         if custom_file_name == "hex_3hourly_counts":
