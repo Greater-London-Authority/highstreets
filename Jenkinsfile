@@ -18,6 +18,14 @@ pipeline {
     }
 
     stages {
+        stage('Trigger Lookups') {
+            steps {
+                script {
+                    def lookupBuild = build job: 'HSDS-HS-TC-BID-BESPOKE-LOOKUP-UPDATE', propagate: true
+                }
+            }
+        }
+
         stage('Checkout') {
             steps {
                 checkout scm
