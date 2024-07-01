@@ -18,6 +18,7 @@ pipeline {
                 script {
                     def lookupBuild = build job: 'HSDS-HS-TC-BID-BESPOKE-LOOKUP-UPDATE', propagate: true
                 }
+            }
         }
 
         stage('Checkout') {
