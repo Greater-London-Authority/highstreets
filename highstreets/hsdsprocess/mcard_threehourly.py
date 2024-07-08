@@ -107,6 +107,42 @@ data_writer.upload_data_to_lds(
     df=mrli_bid_full_range,
     file_name="bid_3hourly_txn",
 )
+
+# Sublicenses - UCL Geetanjli
+
+quad_borough_lookup = pd.read_csv(
+    f"{base_dir}/Projects/2019-20/Covid-19 Busyness/"
+    "data/reference_data/mcard_grid_ldn_ref_HS_TC_BID_CAZ_Borough_lookup2.csv",
+    usecols=['quad_id', 'borough_name']
+)
+
+ucl_geetanjli_mrli = mrli_full_range_df.merge(
+    quad_borough_lookup[quad_borough_lookup["borough_name"].isin(['Westminster'])],
+    left_on="quad_id",
+    right_on="quad_id",
+    how="inner",
+)
+
+ucl_geetanjli_mrli.assign(hours=lambda x: "'" + x["hours"]).to_csv(
+    f"{base_dir}/Projects/2019-20/Covid-19 Busyness/"
+    "data/mastercard/Processed/MRLI_3yr_compressed/UCL/Geetanjli"
+    "Geetanjli_mcard_3hourly_spend.csv",
+    index=False,
+)
+
+# Offloading geetanjli-rani 3hourly txn data to datastore
+data_writer.upload_data_to_lds(
+    slug="ucl---geetanjli-rani",
+    resource_title="ucl_mcard_3hourly_spend.csv",
+    df=ucl_geetanjli_mrli,
+    file_path=(
+        f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data"
+        "/mastercard/Processed/MRLI_3yr_compressed/UCL/Geetanjli"
+        "Geetanjli_mcard_3hourly_spend.csv"
+    ),
+)
+
+
 # sub-licensing agreement for colliers
 # process HSDS data for the HOLBA sites
 # select ids cooresponding to HOLBA sites
