@@ -1,4 +1,5 @@
 import os
+import pandas as pd
 import glob
 from highstreets import config
 from highstreets.data_source_sink.dataloader import DataLoader
@@ -61,3 +62,58 @@ for csv_file in csv_files:
         resource_title=resource_title,
         file_path=csv_file
     )
+
+# Bespoke requests for UCL sub-license Geetanjli
+
+lsoa_lookup = pd.read_csv(
+    f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data/"
+    "reference_data/unique_hex_HS_TC_BID_CAZ_Borough_lookup.csv"
+)
+lsoa_lookup = lsoa_lookup[lsoa_lookup['borough_name'] == 'Westminster'][
+    ['borough_name', 'lsoa']]
+
+bt_lsoa_borough_merged = lsoa_lookup.merge(
+    lsoa_full_range, left_on="lsoa", right_on="lsoa_id", how="left"
+)
+
+bt_lsoa_borough_merged[
+    [
+        "lsoa_id",
+        "lsoa_name",
+        "borough_name",
+        "count_date",
+        "day",
+        "hour",
+        "resident",
+        "worker",
+        "visitor",
+        "loyalty_percentage",
+        "dwell_time"
+    ]
+].to_csv(
+    f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data/BT/Processed/"
+    f"lsoa/UCL/Geetanjli/ucl_bt_lsoa_hourly_count.csv",
+    index=False,
+)
+
+# Offloading the lsoa ucl geetanjli data filtered to Westminster to datastore page
+data_writer.upload_data_to_lds(
+    slug="ucl---geetanjli-rani",
+    resource_title="ucl_bt_lsoa_hourly_count.csv",
+    df=bt_lsoa_borough_merged[[
+        "lsoa_id",
+        "lsoa_name",
+        "borough_name",
+        "count_date",
+        "day",
+        "hour",
+        "resident",
+        "worker",
+        "visitor",
+        "loyalty_percentage",
+        "dwell_time"]],
+    file_path=(
+        f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data/"
+        f"BT/Processed/lsoa/UCL/Geetanjli/ucl_bt_lsoa_hourly_count.csv"
+    ),
+)

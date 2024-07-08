@@ -56,6 +56,23 @@ pipeline {
             }
         }
 
+        stage('Build LSOA Data') {
+            steps {
+                script {
+                    def start_date = params.START_DATE
+                    def end_date = params.END_DATE
+
+                    // Set the parameter value as an enviroment variable
+                    env.START_DATE = start_date
+                    env.END_DATE = end_date
+
+                    withEnv(["CONSUMER_KEY=${CONSUMER_KEY}", "CONSUMER_SECRET=${CONSUMER_SECRET}", "PG_DATABASE=${PG_DATABASE}", "PG_USER=${PG_USER}", "PG_PASSWORD=${PG_PASSWORD}", "PG_HOST=${PG_HOST}", "PG_PORT=${PG_PORT}", "LDS_API_KEY=${LDS_API_KEY}"]) {
+                        sh 'poetry run python highstreets/hsdsprocess/bt_lsoa.py'
+                    }
+                }
+            }
+        }
+
         stage('Build MSOA Data') {
             steps {
                 script {

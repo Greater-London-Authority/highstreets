@@ -63,14 +63,13 @@ class LsoaTransform(DataLoader):
         self.logger.info("Starting data transformation...")
         # Validate input data
         # Convert JSON data to DataFrame
-        # try:
-        #     df = pd.DataFrame(data)
-        # except ValueError:
-        #     self.logger.error("Invalid JSON data format. Cannot convert to DataFrame.")
-        #     raise ValueError(
-        #         "Invalid JSON data format. Cannot convert to DataFrame."
-        #     ) from None
-        df = data
+        try:
+            df = pd.DataFrame(data)
+        except ValueError:
+            self.logger.error("Invalid JSON data format. Cannot convert to DataFrame.")
+            raise ValueError(
+                "Invalid JSON data format. Cannot convert to DataFrame."
+            ) from None
         # Validate input data columns
         required_columns = [
             "poi_id",
