@@ -223,6 +223,30 @@ data_writer.upload_data_to_lds(
     ),
 )
 
+# sub-licensing agreement for south bank - holba all sites
+southbank_holba_ids = [197]
+
+# filtering southbank all holba site weekly transaction data and writing it to csv
+mcard_weekly[mcard_weekly["bespoke_area_id"].isin(southbank_holba_ids)].to_csv(
+    f"{base_dir}/Projects/"
+    "2019-20/Covid-19 Busyness/data/mastercard/Processed/bespoke/"
+    "southbank/southbank_holba_mcard_weekly_txn.csv",
+    index=False,
+)
+# Offloading southbank all Holba Site 3hourly txn data to datastore
+data_writer.upload_data_to_lds(
+    slug="-rendle-intelligence-for-southbank-bid",
+    custom_date_column="week_start",
+    resource_title="southbank_holba_mcard_weekly_txn.csv",
+    df=mcard_weekly[mcard_weekly["bespoke_area_id"].isin(southbank_holba_ids)],
+    file_path=(
+        f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data"
+        "/mastercard/Processed/bespoke/"
+        "southbank/"
+        "southbank_holba_mcard_weekly_txn.csv"
+    ),
+)
+
 # Andrew Scott Project
 ltn_ids = [220, 221, 222, 223, 224, 225, 226, 227, 228]
 # filtering ltn weekly transaction data and writing it to csv
@@ -292,5 +316,30 @@ data_writer.upload_data_to_lds(
     file_path=(
         f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data"
         "/mastercard/Processed/bid/knightsbridge/Knightsbridge_hsds_mcard_weekly_txn.csv"
+    ),
+)
+
+# sub-licensing agreement for south bank - holba all sites
+southbank_bid_ids = [35, 23, 16, 24]
+
+# filtering southbank all holba site weekly transaction data and writing it to csv
+mcard_weekly_bid[mcard_weekly_bid["bid_id"].isin(southbank_bid_ids)].to_csv(
+    f"{base_dir}/Projects/"
+    "2019-20/Covid-19 Busyness/data/mastercard/Processed/bid/"
+    "southbank/southbank_bids_mcard_weekly_txn.csv",
+    index=False,
+)
+
+# Offloading southbank all Holba Site 3hourly txn data to datastore
+data_writer.upload_data_to_lds(
+    slug="-rendle-intelligence-for-southbank-bid",
+    custom_date_column="week_start",
+    resource_title="southbank_bids_mcard_weekly_txn.csv",
+    df=mcard_weekly_bid[mcard_weekly_bid["bid_id"].isin(southbank_bid_ids)],
+    file_path=(
+        f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data"
+        "/mastercard/Processed/bid/"
+        "southbank/"
+        "southbank_bids_mcard_weekly_txn.csv"
     ),
 )

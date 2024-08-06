@@ -276,6 +276,101 @@ data_writer.upload_data_to_lds(
     ),
 )
 
+# Sublicenses - South Bank (quads - full range)
+
+southbank_ids = [35]
+
+BIDS_quad_lookup = pd.read_csv(
+    f"{base_dir}/Projects/2019-20/Covid-19 Busyness/"
+    "data/mastercard/BIDS_quad_lookup.csv"
+)
+
+southbank_mrli = mrli_full_range_df.merge(
+    BIDS_quad_lookup[BIDS_quad_lookup["bid_id"].isin(southbank_ids)],
+    left_on="quad_id",
+    right_on="quad_id",
+    how="right",
+)
+southbank_mrli = southbank_mrli[southbank_mrli['ldn_ref'].notna()]
+
+southbank_mrli[columns_mrli_bid].assign(hours=lambda x: "'" + x["hours"])[
+    columns_mrli_bid
+].to_csv(
+    f"{base_dir}/Projects/2019-20/Covid-19 Busyness/"
+    "data/mastercard/Processed/MRLI_3yr_compressed/southbank/"
+    "southbank_mcard_quad_3hourly_txn.csv",
+    index=False,
+)
+
+# Offloading southbank quad 3hourly txn data to datastore
+data_writer.upload_data_to_lds(
+    slug="-rendle-intelligence-for-southbank-bid",
+    resource_title="southbank_mcard_quad_3hourly_txn.csv",
+    df=southbank_mrli[columns_mrli_bid],
+    file_path=(
+        f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data"
+        "/mastercard/Processed/MRLI_3yr_compressed/southbank/"
+        "southbank_mcard_quad_3hourly_txn.csv"
+    ),
+)
+# sub-licensing agreement for south bank - holba all sites
+
+southbank_holba_ids = [197]
+
+# filtering all holba site footfall data and writing it to csv
+mrli_bespoke_full_range[
+    mrli_bespoke_full_range["bespoke_area_id"].isin(southbank_holba_ids)
+].assign(hours=lambda x: "'" + x["hours"]).to_csv(
+    f"{base_dir}/Projects/2019-20/Covid-19 Busyness"
+    "/data/mastercard/Processed/bespoke/"
+    "southbank/"
+    "southbank_holba_mcard_3hourly_txn.csv",
+    index=False,
+)
+# Offloading south bank Holba all Site 3hourly txn data to datastore
+data_writer.upload_data_to_lds(
+    slug="-rendle-intelligence-for-southbank-bid",
+    resource_title="southbank_holba_mcard_3hourly_txn.csv",
+    df=mrli_bespoke_full_range[
+        mrli_bespoke_full_range["bespoke_area_id"].isin(southbank_holba_ids)
+    ],
+    file_path=(
+        f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data"
+        "/mastercard/Processed/bespoke/"
+        "southbank/"
+        "southbank_holba_mcard_3hourly_txn.csv"
+    ),
+)
+
+# sub-licensing agreement for south bank - bids
+
+southbank_bid_ids = [35, 23, 16, 24]
+
+# filtering southbank sublicense bids footfall data and writing it to csv
+mrli_bid_full_range[
+    mrli_bid_full_range["bid_id"].isin(southbank_bid_ids)
+].assign(hours=lambda x: "'" + x["hours"]).to_csv(
+    f"{base_dir}/Projects/2019-20/Covid-19 Busyness"
+    "/data/mastercard/Processed/bid/"
+    "southbank/"
+    "southbank_bids_mcard_3hourly_txn.csv",
+    index=False,
+)
+# Offloading southbank sublicense bids 3hourly txn data to datastore
+data_writer.upload_data_to_lds(
+    slug="-rendle-intelligence-for-southbank-bid",
+    resource_title="southbank_bids_mcard_3hourly_txn.csv",
+    df=mrli_bid_full_range[
+        mrli_bid_full_range["bid_id"].isin(southbank_bid_ids)
+    ],
+    file_path=(
+        f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data"
+        "/mastercard/Processed/bid/"
+        "southbank/"
+        "southbank_bids_mcard_3hourly_txn.csv"
+    ),
+)
+
 
 # Concatenate latest data from different layers
 econ_busyness_mcard_3hourly_txn = pd.concat(
