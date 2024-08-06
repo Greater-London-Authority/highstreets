@@ -241,7 +241,8 @@ data_sources = [
     ),
 ]
 
-for data, hex_insert, id_column, table_name, layer, rename_key in data_sources:  # Added rename_key to unpacking
+# Added rename_key to unpacking
+for data, hex_insert, id_column, table_name, layer, rename_key in data_sources:
     # ... (append data with ID check)
     # ... (append transformed data without check)
     ids_to_check = hex_insert[id_column].unique()
@@ -270,7 +271,8 @@ for data, hex_insert, id_column, table_name, layer, rename_key in data_sources: 
 #     # ... (append data with ID check)
 #     # ... (append transformed data without check)
 #     ids_to_check = hex_insert[id_column].unique()
-#     if data_writer.append_data_with_id_check(data, ids_to_check, id_column, table_name):
+    # if data_writer.append_data_with_id_check(
+    #     data, ids_to_check, id_column, table_name):
 #         layer = id_column.split("_")[0]  # Extract 'highstreet', 'tc', etc.
 #         data = (
 #             data.assign(layer=layer)
@@ -347,7 +349,8 @@ data_writer.upload_data_to_lds(
 holba_ids = [112, 113, 114, 115, 116, 117, 118, 197]
 
 # filtering all holba site footfall data and writing it to csv
-bespoke_full_range[bespoke_full_range["bespoke_area_id"].isin(holba_ids)].assign(hours=lambda x: "'" + x["hours"]).to_csv(
+bespoke_full_range[bespoke_full_range["bespoke_area_id"].isin(
+    holba_ids)].assign(hours=lambda x: "'" + x["hours"]).to_csv(
     f"{base_dir}/Projects/2019-20/Covid-19 Busyness/"
     "data/BT/Processed/bespoke/Colliers agreement - Holba sites/"
     "colliers_hsds_bt_footfall_3hourly_counts.csv",
@@ -370,7 +373,8 @@ data_writer.upload_data_to_lds(
 # Andrew Scott Project
 ltn_ids = [220, 221, 222, 223, 224, 225, 226, 227, 228]
 # filtering andrew scott sublicense footfall data and writing it to csv
-bespoke_full_range[bespoke_full_range["bespoke_area_id"].isin(ltn_ids)].assign(hours=lambda x: "'" + x["hours"]).to_csv(
+bespoke_full_range[bespoke_full_range["bespoke_area_id"].isin(
+    ltn_ids)].assign(hours=lambda x: "'" + x["hours"]).to_csv(
     f"{base_dir}/Projects/"
     "2019-20/Covid-19 Busyness/data/BT/Processed/bespoke/"
     "LTN/ltn_hsds_bt_footfall_3hourly_counts.csv",
@@ -394,7 +398,8 @@ data_writer.upload_data_to_lds(
 # South Bank
 southbank_holba_ids = [197]
 # filtering south bank sublicense footfall data and writing it to csv
-bespoke_full_range[bespoke_full_range["bespoke_area_id"].isin(southbank_holba_ids)].assign(hours=lambda x: "'" + x["hours"]).to_csv(
+bespoke_full_range[bespoke_full_range["bespoke_area_id"].isin(
+    southbank_holba_ids)].assign(hours=lambda x: "'" + x["hours"]).to_csv(
     f"{base_dir}/Projects/"
     "2019-20/Covid-19 Busyness/data/BT/Processed/bespoke/"
     "southbank/southbank_holba_bt_footfall_3hourly_counts.csv",
@@ -404,7 +409,8 @@ bespoke_full_range[bespoke_full_range["bespoke_area_id"].isin(southbank_holba_id
 # South Bank
 southbank_ids = [35, 23, 16, 24]
 # filtering south bank sublicense bids footfall data and writing it to csv
-bid_full_range[bid_full_range["bid_id"].isin(southbank_ids)].assign(hours=lambda x: "'" + x["hours"]).to_csv(
+bid_full_range[bid_full_range["bid_id"].isin(
+    southbank_ids)].assign(hours=lambda x: "'" + x["hours"]).to_csv(
     f"{base_dir}/Projects/"
     "2019-20/Covid-19 Busyness/data/BT/Processed/bid/"
     "southbank/southbank_bids_bt_footfall_3hourly_counts.csv",
@@ -415,7 +421,8 @@ bid_full_range[bid_full_range["bid_id"].isin(southbank_ids)].assign(hours=lambda
 data_writer.upload_data_to_lds(
     slug="-rendle-intelligence-for-southbank-bid",
     resource_title="southbank_holba_bt_footfall_3hourly_counts.csv",
-    df=bespoke_full_range[bespoke_full_range["bespoke_area_id"].isin(southbank_holba_ids)],
+    df=bespoke_full_range[bespoke_full_range["bespoke_area_id"].isin(
+        southbank_holba_ids)],
     file_path=(
         f"{base_dir}/Projects/"
         "2019-20/Covid-19 Busyness/data/BT/Processed/bespoke/"
