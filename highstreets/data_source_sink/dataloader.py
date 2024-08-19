@@ -6,7 +6,7 @@ from datetime import datetime
 import geopandas as gpd
 import pandas as pd
 from dotenv import find_dotenv, load_dotenv
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, text, MetaData, Table, Column, String, Float
 
 from highstreets import config
 from highstreets.api.clientbase import APIClient, APIClientException
@@ -47,6 +47,65 @@ class DataLoader:
             f"postgresql+psycopg2://{self.username}:{self.password}@"
             f"{self.host}:{self.port}/{self.database}"
         )
+        self.metadata = MetaData()
+        self.metadata.reflect(self.engine)
+        logging.info("Database engine created and metadata reflected.")
+
+    def create_table_mcard_weekly_raw(self, table_name: str):
+        Table(
+            table_name, self.metadata,
+            Column('yr', Float),
+            Column('wk', Float),
+            Column('industry', String),
+            Column('segment', String),
+            Column('geo_type', String),
+            Column('geo_name', String),
+            Column('quad_id', String),
+            Column('central_latitude', Float),
+            Column('central_longitude', Float),
+            Column('bounding_box', String),
+            Column('txn_amt', Float),
+            Column('txn_cnt', Float),
+            Column('acct_cnt', Float),
+            Column('avg_ticket', Float),
+            Column('avg_freq', Float),
+            Column('avg_spend_amt', Float),
+            Column('yoy_txn_amt', String),
+            Column('yoy_txn_cnt', String),
+            Column('weekday_weekend', String),  # New column
+            Column('file_name', String),         # New column
+            extend_existing=True    # Allow redefinition of existing table
+        )
+        self.metadata.create_all(self.engine)
+        logging.info(f"Ensured table {table_name} exists or created it.")
+
+    def get_most_recent_dates(self, table_names: list) -> dict:
+        recent_dates = {}
+        for table_name in table_names:
+            if table_name in self.metadata.tables:
+                with self.engine.connect() as connection:
+                    max_year_query = text(f"SELECT MAX(yr) as max_yr FROM {table_name}")
+                    max_year_result = connection.execute(max_year_query).fetchone()
+                    if max_year_result and max_year_result[0] is not None:
+                        max_year = max_year_result[0]
+                        max_week_query = text(
+                            f"SELECT MAX(wk) as max_wk FROM {table_name}"
+                            f" WHERE yr = :max_year")
+                        max_week_result = connection.execute(
+                            max_week_query, {'max_year': max_year}).fetchone()
+                        if max_week_result and max_week_result[0] is not None:
+                            max_week = max_week_result[0]
+                            recent_dates[table_name] = (max_year, max_week)
+                            logging.info(
+                                f"Most recent date for table"
+                                f" {table_name}: {max_year}-W{max_week}")
+                        else:
+                            logging.info(
+                                f"No max week found for table"
+                                f" {table_name} with year {max_year}.")
+                    else:
+                        logging.info(f"No max year found for table {table_name}.")
+        return recent_dates
 
     def get_hex_data(self, date_from, date_to):
         params = {"date_from": date_from, "date_to": date_to}

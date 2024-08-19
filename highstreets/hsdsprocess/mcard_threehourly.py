@@ -24,6 +24,34 @@ data_writer.append_data_to_postgres(
 # Retrieve full range mastercard 3hrly quad data from PostgreSQL and write to CSV
 mrli_full_range_df = data_loader.get_full_data("econ_busyness_mrli_3hourly")
 
+# Transform full range mastercard 3hrly data with added txn adjusted column
+spend_adj = mcard_transform.mcard_adjust(
+    mrli_full_range_df, col_to_adjust='txn_amt',
+    adj_col='adjustment_factor_retail', date_col='count_date')
+spend_adj = spend_adj[
+    ['ldn_ref', 'quad_id', 'count_date', 'hours', 'txn_amt', 'txn_cnt', 'txn_amt_adj']]
+adjustment_factor = pd.read_csv(
+    "Q:/Projects/2019-20/Covid-19 Busyness/data/mastercard/"
+    "SpendingPulse/mcard_adjustment_factor.csv")
+
+# Step 1: Find the maximum year and month in DataFrame a
+max_year = adjustment_factor['yr'].max()
+max_month = adjustment_factor[adjustment_factor['yr'] == max_year]['month'].max()
+
+cutoff_date = pd.Timestamp(
+    year=max_year, month=max_month, day=1) + pd.offsets.MonthEnd(0)
+
+spend_adj = spend_adj[spend_adj['count_date'] <= cutoff_date]
+
+data_writer.append_data_to_postgres(spend_adj, "econ_busyness_mrli_3hourly_adj")
+
+data_writer.write_hex_to_csv_by_year(
+    spend_adj,
+    output_dir=f"{base_dir}/Projects/2019-20/"
+    "Covid-19 Busyness/data/mastercard/Processed/MRLI_3yr_compressed",
+    custom_file_name="MRLI_3yr_compressed_adj",
+)
+
 data_writer.write_hex_to_csv_by_year(
     mrli_full_range_df,
     output_dir=f"{base_dir}/Projects/2019-20/"

@@ -2,9 +2,11 @@ import base64
 import logging
 import os
 import uuid
-
+import io
+import pandas as pd
 import requests
 from dotenv import find_dotenv, load_dotenv
+from highstreets import config
 
 load_dotenv(find_dotenv())
 
@@ -22,6 +24,8 @@ class APIClient:
 
     def __init__(self):
         self.token = self.get_access_token()
+        self.cpi_categories = config.CPI_CATEGORIES
+        self.cpi_api = config.CPI_API_ENDPOINT
 
     @staticmethod
     def get_access_token():
@@ -55,6 +59,24 @@ class APIClient:
         except requests.exceptions.RequestException as e:
             logger.error("Failed to obtain access token: %s", str(e))
             raise APIClientException("Failed to obtain access token.") from None
+
+    def fetch_cpi(self):
+        response = requests.get(self.cpi_api)
+        latest_version = requests.get(response.json()['links']['latest_version']['href'])
+        url = latest_version.json()['downloads']['csv']['href']
+        s = requests.get(url).content
+        cpi_table = pd.read_csv(io.StringIO(s.decode('utf-8')))
+        cpi_table['date'] = pd.to_datetime(cpi_table["mmm-yy"], format="%b-%y")
+        cpi_table['yr'] = cpi_table['date'].dt.year
+        cpi_table['month'] = cpi_table['date'].dt.month
+        # there are sub-categories within these also
+        cpi_table = cpi_table[
+            cpi_table['Aggregate'].isin(
+                self.cpi_categories)].sort_values('date')[
+                    ['yr', 'month', 'Aggregate', 'v4_0']].rename(
+                        columns={'v4_0': 'cpi_index'}).reset_index().drop(
+                            columns='index')
+        return cpi_table
 
     def get_data_request(self, endpoint, headers=None, params=None):
         headers = headers or {}

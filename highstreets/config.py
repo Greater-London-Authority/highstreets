@@ -1,5 +1,5 @@
 import os
-
+import pandas as pd
 from dotenv import find_dotenv, load_dotenv
 
 load_dotenv(find_dotenv())
@@ -18,6 +18,37 @@ PG11_PORT = os.getenv("PG11_PORT")
 
 # ================ MCARD CONFIG ===============================================
 YOY_FILE = os.getenv("YOY_FILE")
+CPI_API_ENDPOINT = "https://api.beta.ons.gov.uk/v1/datasets/cpih01"
+ADJUSTMENT_FACTOR_DIR = ("Q:/Projects/2019-20/Covid-19 Busyness/data/mastercard/"
+                         "SpendingPulse/mcard_adjustment_factor.csv")
+INNER_OUTER_QUAD_DIR = ("Q:/Projects/2019-20/Covid-19 Busyness/data/mastercard/"
+                        "Inner_outer_quad_lookup.csv")
+SECTORS_DF = pd.DataFrame({'spending_pulse': [
+                           'Total Retail (excl. Auto)', 'Apparel', 'Restaurants'],
+                           'geo_insights': ['retail', 'apparel', 'eating'],
+                           'geo_insights_raw': [
+                           'Total Retail', 'Total Apparel', 'Eating Places'],
+                           'cpi': [
+                           'Overall Index', '03 Clothing and footwear',
+                           '11 Restaurants and hotels']
+                           })
+CPI_CATEGORIES = ['Overall Index',
+                  '01 Food and non-alcoholic beverages',
+                  '02 Alcoholic beverages and tobacco',
+                  '03 Clothing and footwear',
+                  '04 Housing, water, electricity, gas and other fuels',
+                  '05 Furniture, household equipment and maintenance',
+                  '05.1 Furniture, furnishings and carpets',
+                  '06 Health',
+                  '07 Transport',
+                  '07.2.2 Fuels and lubricants',
+                  '08 Communication',
+                  '09 Recreation and culture',
+                  '09.1 Audio-visual equipment and related products',
+                  '10 Education',
+                  '11 Restaurants and hotels',
+                  '12 Miscellaneous goods and services',
+                  '12.3.1 Jewellery, clocks and watches']
 
 # ================ BT CONFIG ==================================================
 BT_DIR = os.getenv("BT_DIR")

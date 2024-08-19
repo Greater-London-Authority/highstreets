@@ -87,6 +87,10 @@ class DataWriter:
         except Exception as e:
             print("Error occurred while disconnecting from the database:", str(e))
 
+    def append_chunk(self, chunk, table_name: str):
+        chunk.to_sql(table_name, self.engine, if_exists='append', index=False)
+        logging.info(f"Appended chunk to table {table_name}.")
+
     def append_data_without_check(self, data, table_name):
         # Check if there are rows to append
         if len(data) > 0:

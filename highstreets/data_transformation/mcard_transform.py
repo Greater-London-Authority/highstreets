@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 
 from highstreets import config
+from highstreets.api.clientbase import APIClient
 
 
 class McardTransform:
@@ -13,6 +14,9 @@ class McardTransform:
         self.logger.setLevel(logging.INFO)
         self.logger.addHandler(logging.StreamHandler())
         self.base_dir = config.BASE_DIR
+        self.sectors_df = config.SECTORS_DF
+        self.adjustment_factor_dir = config.ADJUSTMENT_FACTOR_DIR
+        self.inner_outer_quad_dir = config.INNER_OUTER_QUAD_DIR
 
     def extract_range(self, input_string):
         # Define a regular expression pattern to match the desired range
@@ -62,6 +66,121 @@ class McardTransform:
         data["hours"] = data["hours"].str.replace("0-3", "00-03")
 
         return data
+
+    # INFLATION ADJUSTMENT
+    def inflation_adjust(self, spend, cpi_table, reindexing_year=None,
+                         col_to_adjust=['txn_amt'], date_col='count_date'):
+        '''
+        Adjusts spend columns 'txn_amt' and 'avg_spend_amt by
+        monthly ONS inflation rates.
+        spend: spend table of MC 3-hourly/weekly/Spending Pulse data
+        cpi_table: imported and cleaned CPIH table from ONS
+        reindexing year (optional): the year that you want to use as cpi_index = 100.
+        If none, does not reindex beyond ONS's existing 2015=100 reindex
+        '''
+        # Reindex to a chosen baseline year, otherwise skip
+        if reindexing_year is not None:
+            reindex = cpi_table[cpi_table['yr'] == reindexing_year]['cpi_index'].mean()
+            cpi_table['cpi_index'] = cpi_table['cpi_index'] / reindex * 100
+        else:
+            pass
+
+        # Add month and yr column to spend data
+        spend['month'] = spend[date_col].dt.month
+        spend['yr'] = spend[date_col].dt.year
+
+        # Join spend data with cpi data
+        spend = pd.merge(spend, cpi_table, how='left', on=['yr', 'month'])
+
+        # If spend data is more recent than cpi data, there will be NaNs.
+        # Fill them with the latest available cpi index
+        max_year = cpi_table['yr'].max()
+        max_month = cpi_table[(cpi_table['yr'] == max_year)]['month'].max()
+        spend['cpi_index'].fillna(cpi_table[
+            (cpi_table['month'] == max_month) & (cpi_table[
+                'yr'] == max_year)]['cpi_index'])
+
+        # Adjust
+        for col in col_to_adjust:
+            spend[f"{col}"] = spend[col] / spend['cpi_index'] * 100
+        spend.drop(columns=['Aggregate', 'cpi_index'], inplace=True)
+        return spend
+
+    def mcard_adjust(self, spend, col_to_adjust='txn_amt',
+                     adj_col='adjustment_factor_retail',
+                     date_col='count_date'):
+        '''
+        Adjusts spend column by monthly correction factor generated from
+        Spending Pulse data.
+        The adjustment takes into account the cash-to-card shift and the mastercard
+        share of the market.
+        Sector-specific inflation is also adjusted for.
+
+        Parameters
+        ----------
+        spend: spend table of MC 3-hourly/weekly data at quad level
+        col_to_adjust: name of spend column to be adjusted (e.g. txn_amt (3-hourly))
+        adj_col: name of adjustment factor column
+        (sector-specific: adjustment_factor_retail / adjustment_factor_eating /
+        adjustment_factor_apparel)
+        date_col: name of date column (count_date (3-hourly) or week_start (weekly))
+        sectors_df: pre-defined dataframe linking GeoInsights, Spending Pulse and CPI
+        sectors
+
+        Returns
+        --------
+        Dataframe with additional adjusted spend column (e.g. txn_amt_adj)
+        '''
+
+        adjustment_factor = pd.read_csv(self.adjustment_factor_dir)
+        inner_outer_quad = pd.read_csv(self.inner_outer_quad_dir)
+        # where a quad is assigned both Inner and Outer - keep Outer
+        inner_outer_quad = inner_outer_quad.sort_values(
+            by='inner_outer').drop_duplicates(subset='quad_id', keep='last')
+        # import ONS's CPIH table via API
+        api_client = APIClient()
+        cpi_table = api_client.fetch_cpi()
+
+        # Add month and yr column to spend data
+        spend[date_col] = pd.to_datetime(spend[date_col])
+        spend['month'] = spend[date_col].dt.month
+        spend['yr'] = spend[date_col].dt.year
+
+        # Add inner_outer to spend data
+        spend = pd.merge(spend, inner_outer_quad, how='left', on='quad_id')
+
+        # Join spend data with mcard adjustment data
+        # # need to merge on inner vs outer too
+        spend = pd.merge(spend, adjustment_factor[
+            ['yr', 'month', 'inner_outer', adj_col]], how='left', on=[
+                'yr', 'month', 'inner_outer'])
+
+        # If spend data is more recent than Spending Pulse, there will be NaNs.
+        # Fill them with the latest available mcard_adjustment
+        spend = spend.sort_values(by=['inner_outer', date_col])
+        spend[adj_col] = spend[adj_col].fillna(method='ffill')
+
+        # Adjust for cash-to-card shift and MC market share - create an additional column
+        spend[col_to_adjust + '_adj'] = spend[col_to_adjust] / spend[adj_col]
+
+        # remove unecessary columns
+        spend.drop(columns=['inner_outer', adj_col], inplace=True)
+
+        # Adjust for inflation (using subcategory-specific CPI)
+        txn_cat_cpi_dict = self.sectors_df[
+            ['geo_insights', 'cpi']].set_index('geo_insights').T.to_dict('records')[0]
+        if col_to_adjust == 'txn_amt':
+            txn_cat = 'retail'
+        else:
+            # eating / apparel / retail
+            txn_cat = col_to_adjust.split('_')[-1]
+        # adjust for inflation (subcat specific CPI) - updates adjusted column
+        spend = self.inflation_adjust(
+            spend, cpi_table[cpi_table['Aggregate'] == txn_cat_cpi_dict[txn_cat]][
+                ['yr', 'month', 'Aggregate', 'cpi_index']], reindexing_year=2018,
+            col_to_adjust=[col_to_adjust + '_adj'], date_col=date_col)
+
+        return spend
 
     def mcard_highstreet_threehourly_transform(self, data):
         Highstreets_quad_lookup = pd.read_csv(
