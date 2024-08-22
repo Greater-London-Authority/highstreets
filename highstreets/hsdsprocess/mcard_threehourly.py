@@ -31,8 +31,8 @@ spend_adj = mcard_transform.mcard_adjust(
 spend_adj = spend_adj[
     ['ldn_ref', 'quad_id', 'count_date', 'hours', 'txn_amt', 'txn_cnt', 'txn_amt_adj']]
 adjustment_factor = pd.read_csv(
-    "Q:/Projects/2019-20/Covid-19 Busyness/data/mastercard/"
-    "SpendingPulse/mcard_adjustment_factor.csv")
+    f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data/mastercard/"
+    f"SpendingPulse/mcard_adjustment_factor.csv")
 
 # Step 1: Find the maximum year and month in DataFrame a
 max_year = adjustment_factor['yr'].max()
