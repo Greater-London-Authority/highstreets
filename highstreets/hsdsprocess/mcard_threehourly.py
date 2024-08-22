@@ -30,17 +30,17 @@ spend_adj = mcard_transform.mcard_adjust(
     adj_col='adjustment_factor_retail', date_col='count_date')
 spend_adj = spend_adj[
     ['ldn_ref', 'quad_id', 'count_date', 'hours', 'txn_amt', 'txn_cnt', 'txn_amt_adj']]
-adjustment_factor = pd.read_csv(
-    f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data/mastercard/"
-    f"SpendingPulse/mcard_adjustment_factor.csv")
+adjustment_factor = pd.read_csv(config.ADJUSTMENT_FACTOR_DIR)
 
-# Step 1: Find the maximum year and month in DataFrame a
+# Find the maximum year and month in mastercard ajustment data
 max_year = adjustment_factor['yr'].max()
 max_month = adjustment_factor[adjustment_factor['yr'] == max_year]['month'].max()
 
+# Find cut-off date for the month (last day of the month)
 cutoff_date = pd.Timestamp(
     year=max_year, month=max_month, day=1) + pd.offsets.MonthEnd(0)
 
+# filtering spend data until the maximum month and year in spend pulse data
 spend_adj = spend_adj[spend_adj['count_date'] <= cutoff_date]
 
 data_writer.append_data_to_postgres(spend_adj, "econ_busyness_mrli_3hourly_adj")
