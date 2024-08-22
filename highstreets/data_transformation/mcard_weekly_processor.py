@@ -62,6 +62,63 @@ class FileProcessor:
 
         self._log_results()
 
+    def clean_and_process_data(self, zoom, cols, clean_table_name, segment="Overall",
+                               geo_name="London"):
+        # Reuse the get_most_recent_dates function to check for existing data
+        recent_dates = self.data_loader.get_most_recent_dates([clean_table_name])
+
+        if clean_table_name in recent_dates:
+            last_yr, last_wk = recent_dates[clean_table_name]
+            logging.info(f"Existing data found in {clean_table_name}."
+                         f" Processing raw data from year {last_yr}, week {last_wk}.")
+        else:
+            last_yr, last_wk = None, None
+            logging.info(f"No existing data in {clean_table_name}."
+                         f" Processing all raw data.")
+
+        # Retrieve raw data
+        df_raw = self.data_loader.query_mcard_raw_since(
+            zoom,
+            cols,
+            last_yr,
+            last_wk,
+            segment,
+            geo_name) if last_yr else self.data_loader.query_mcard_weekly_raw(zoom, cols)
+
+        if df_raw.empty:
+            logging.info(f"Most recent data already exists in {clean_table_name}."
+                         f" No new data to process.")
+            return
+
+        # Clean the data
+        dates = df_raw[["yr", "wk", "weekday_weekend"]].drop_duplicates()
+        dates['yr'] = dates['yr'].astype('Int64')
+        dates['wk'] = dates['wk'].astype('Int64')
+        dates['week_start'] = dates.apply(lambda row: self.data_loader.get_week_start(
+            row['yr'], row['wk']), axis=1)
+
+        locs = df_raw[
+            ["quad_id", "central_latitude", "central_longitude"]].drop_duplicates()
+
+        files = df_raw["file_name"].unique()
+        if any("12Apr2021_18Apr2021" in file for file in files):
+            df_raw = df_raw[~((df_raw["yr"] == 2021) & (df_raw["wk"] == 15) & df_raw[
+                "file_name"].str.contains("05Apr2021_02May2021"))]
+        df_raw = df_raw[~((df_raw["yr"] == 2020) & (df_raw["wk"] == 49) & df_raw[
+            "file_name"].str.contains("Nov"))]
+
+        df_clean = df_raw.drop(
+            columns=["file_name", "central_latitude", "central_longitude"])
+        df_clean['yr'] = df_clean['yr'].astype('Int64')
+        df_clean['wk'] = df_clean['wk'].astype('Int64')
+        df_clean = df_clean.merge(dates, on=["yr", "wk", "weekday_weekend"], how="inner")
+        df_clean = df_clean.merge(locs, on="quad_id", how="left")
+
+        logging.info("Data cleaned successfully.")
+        # Write the cleaned data to the database
+        self.data_writer.append_chunk(df_clean, clean_table_name)
+        logging.info(f"Cleaned data appended to table {clean_table_name}.")
+
     def _process_file(self, file: str, table_name: str):
         day_end = "weekend" if "weekend" in file.lower() else "weekday"
         chunk_size = 200000

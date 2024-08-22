@@ -1,7 +1,7 @@
 import logging
 import os
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import geopandas as gpd
 import pandas as pd
@@ -106,6 +106,70 @@ class DataLoader:
                     else:
                         logging.info(f"No max year found for table {table_name}.")
         return recent_dates
+
+    @staticmethod
+    def get_week_start(year, week):
+        jan4 = datetime(year, 1, 4)
+        start_of_first_week = jan4 - timedelta(days=jan4.weekday())
+        start_date = start_of_first_week + timedelta(weeks=week - 1)
+        return start_date.strftime('%Y-%m-%d')
+
+    def query_mcard_raw_since(self, zoom, cols, last_yr, last_wk, segment="Overall",
+                              geo_name="London"):
+        table_name = f"test_econ_busyness_mcard_raw_{zoom}_zoom"
+        columns = ", ".join(cols) if cols else "*"
+        query = text(f"""
+            SELECT {columns}
+            FROM {table_name}
+            WHERE ((yr > {last_yr}) OR (yr = {last_yr} AND wk > {last_wk}))
+            AND segment = :segment AND geo_name = :geo_name
+        """)
+
+        with self.engine.connect() as conn:
+            df = pd.read_sql_query(
+                query, conn, params={'segment': segment, 'geo_name': geo_name})
+        logging.info(
+            f"Queried raw data from {table_name} starting from year"
+            f" {last_yr}, week {last_wk}.")
+        return df
+
+    def query_mcard_weekly_raw(self, zoom=18,
+                               cols=None,
+                               quad_id=None,
+                               industry=None,
+                               segment="Overall",
+                               geo_name="London",
+                               weekday_weekend=None,
+                               yr=None, wk=None, v="v1"):
+        table_name = f"test_econ_busyness_mcard_raw_{zoom}_zoom"
+        if v == "v2":
+            table_name += "_v2"
+
+        query_args = {
+            "quad_id": quad_id,
+            "industry": industry,
+            "segment": segment,
+            "geo_name": geo_name,
+            "weekday_weekend": weekday_weekend,
+            "yr": yr,
+            "wk": wk
+        }
+
+        filters = [
+            f"{k}='{v}'" if isinstance(v, str)
+            else f"{k} IN ({','.join(map(str, v))})"
+            for k, v in query_args.items()
+            if v is not None
+        ]
+        filter_clause = " AND ".join(filters)
+
+        columns = ", ".join(cols) if cols else "*"
+        query = f"SELECT {columns} FROM {table_name}" + (
+            f" WHERE {filter_clause}" if filter_clause else "")
+
+        with self.engine.connect() as conn:
+            df = pd.read_sql_query(text(query), conn)
+        return df
 
     def get_hex_data(self, date_from, date_to):
         params = {"date_from": date_from, "date_to": date_to}
