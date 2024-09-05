@@ -25,10 +25,10 @@ data_writer.append_data_to_postgres(
 mrli_full_range_df = data_loader.get_full_data("econ_busyness_mrli_3hourly")
 
 # Transform full range mastercard 3hrly data with added txn adjusted column
-spend_adj = mcard_transform.mcard_adjust(
+spend_adj_full_range = mcard_transform.mcard_adjust(
     mrli_full_range_df, col_to_adjust='txn_amt',
     adj_col='adjustment_factor_retail', date_col='count_date')
-spend_adj = spend_adj[
+spend_adj_full_range = spend_adj_full_range[
     ['ldn_ref', 'quad_id', 'count_date', 'hours', 'txn_amt', 'txn_cnt', 'txn_amt_adj']]
 adjustment_factor = pd.read_csv(config.ADJUSTMENT_FACTOR_DIR)
 
@@ -41,12 +41,14 @@ cutoff_date = pd.Timestamp(
     year=max_year, month=max_month, day=1) + pd.offsets.MonthEnd(0)
 
 # filtering spend data until the maximum month and year in spend pulse data
-spend_adj = spend_adj[spend_adj['count_date'] <= cutoff_date]
+spend_adj_full_range = spend_adj_full_range[
+    spend_adj_full_range['count_date'] <= cutoff_date]
 
-data_writer.append_data_to_postgres(spend_adj, "econ_busyness_mrli_3hourly_adj")
+data_writer.append_data_to_postgres(
+    spend_adj_full_range, "econ_busyness_mrli_3hourly_adj")
 
 data_writer.write_hex_to_csv_by_year(
-    spend_adj,
+    spend_adj_full_range,
     output_dir=f"{base_dir}/Projects/2019-20/"
     "Covid-19 Busyness/data/mastercard/Processed/MRLI_3yr_compressed",
     custom_file_name="MRLI_3yr_compressed_adj",
@@ -59,17 +61,71 @@ data_writer.write_hex_to_csv_by_year(
     custom_file_name="MRLI_3yr_compressed",
 )
 
+data_writer.upload_data_to_lds(
+    slug="spend-mastercard-retail-index-3-hourly",
+    resource_title="MRLI_3yr_compressed_2022.csv",
+    file_path=(
+        "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/data/"
+        "mastercard/Processed/MRLI_3yr_compressed/MRLI_3yr_compressed_2022.csv"
+    ),
+)
+
+data_writer.upload_data_to_lds(
+    slug="spend-mastercard-retail-index-3-hourly",
+    resource_title="MRLI_3yr_compressed_2023.csv",
+    file_path=(
+        "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/data/"
+        "mastercard/Processed/MRLI_3yr_compressed/MRLI_3yr_compressed_2023.csv"
+    ),
+)
+
+data_writer.upload_data_to_lds(
+    slug="spend-mastercard-retail-index-3-hourly",
+    resource_title="MRLI_3yr_compressed_2024.csv",
+    file_path=(
+        "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/data/"
+        "mastercard/Processed/MRLI_3yr_compressed/MRLI_3yr_compressed_2024.csv"
+    ),
+)
+
+data_writer.upload_data_to_lds(
+    slug="spend-mastercard-retail-index-3-hourly",
+    resource_title="MRLI_3yr_compressed_adj_2022.csv",
+    file_path=(
+        "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/data/"
+        "mastercard/Processed/MRLI_3yr_compressed/MRLI_3yr_compressed_adj_2022.csv"
+    ),
+)
+
+data_writer.upload_data_to_lds(
+    slug="spend-mastercard-retail-index-3-hourly",
+    resource_title="MRLI_3yr_compressed_adj_2023.csv",
+    file_path=(
+        "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/data/"
+        "mastercard/Processed/MRLI_3yr_compressed/MRLI_3yr_compressed_adj_2023.csv"
+    ),
+)
+
+data_writer.upload_data_to_lds(
+    slug="spend-mastercard-retail-index-3-hourly",
+    resource_title="MRLI_3yr_compressed_adj_2024.csv",
+    file_path=(
+        "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/data/"
+        "mastercard/Processed/MRLI_3yr_compressed/MRLI_3yr_compressed_adj_2024.csv"
+    ),
+)
+
 mrli_hs_full_range = mcard_transform.mcard_highstreet_threehourly_transform(
-    mrli_full_range_df
+    spend_adj_full_range
 )
 mrli_tc_full_range = mcard_transform.mcard_towncentre_threehourly_transform(
-    mrli_full_range_df
+    spend_adj_full_range
 )
 mrli_bid_full_range = mcard_transform.mcard_bid_threehourly_transform(
-    mrli_full_range_df
+    spend_adj_full_range
 )
 mrli_bespoke_full_range = mcard_transform.mcard_bespoke_threehourly_transform(
-    mrli_full_range_df
+    spend_adj_full_range
 )
 
 data_writer.truncate_and_load_to_postgres(
@@ -144,7 +200,7 @@ quad_borough_lookup = pd.read_csv(
     usecols=['quad_id', 'borough_name']
 )
 
-ucl_geetanjli_mrli = mrli_full_range_df.merge(
+ucl_geetanjli_mrli = spend_adj_full_range.merge(
     quad_borough_lookup[quad_borough_lookup["borough_name"].isin(['Westminster'])],
     left_on="quad_id",
     right_on="quad_id",
@@ -239,13 +295,13 @@ BIDS_quad_lookup = pd.read_csv(
     "data/mastercard/BIDS_quad_lookup.csv"
 )
 
-fitzrovia_mrli = mrli_full_range_df.merge(
+fitzrovia_mrli = spend_adj_full_range.merge(
     BIDS_quad_lookup[BIDS_quad_lookup["bid_id"].isin(fitzrovia_ids)],
     left_on="quad_id",
     right_on="quad_id",
     how="right",
 )
-knightsbridge_mrli = mrli_full_range_df.merge(
+knightsbridge_mrli = spend_adj_full_range.merge(
     BIDS_quad_lookup[BIDS_quad_lookup["bid_id"].isin(knightsbridge_ids)],
     left_on="quad_id",
     right_on="quad_id",
@@ -260,7 +316,7 @@ columns_mrli_bid = [
     "hours",
     "txn_amt",
     "txn_cnt",
-    "avg_spend_amt",
+    "txn_amt_adj",
 ]
 
 fitzrovia_mrli[columns_mrli_bid].assign(hours=lambda x: "'" + x["hours"])[
@@ -313,7 +369,7 @@ BIDS_quad_lookup = pd.read_csv(
     "data/mastercard/BIDS_quad_lookup.csv"
 )
 
-southbank_mrli = mrli_full_range_df.merge(
+southbank_mrli = spend_adj_full_range.merge(
     BIDS_quad_lookup[BIDS_quad_lookup["bid_id"].isin(southbank_ids)],
     left_on="quad_id",
     right_on="quad_id",
@@ -408,19 +464,23 @@ econ_busyness_mcard_3hourly_txn = pd.concat(
                 "highstreet_id": "id",
                 "highstreet_name": "name",
                 "txn_amt": "txn_amt_retail",
+                "txn_amt_adj": "txn_amt_retail_adj"
             }
         ),
         mrli_tc_full_range.assign(layer="towncentres").rename(
-            columns={"tc_id": "id", "tc_name": "name", "txn_amt": "txn_amt_retail"}
+            columns={"tc_id": "id", "tc_name": "name", "txn_amt": "txn_amt_retail",
+                     "txn_amt_adj": "txn_amt_retail_adj"}
         ),
         mrli_bid_full_range.assign(layer="bids").rename(
-            columns={"bid_id": "id", "bid_name": "name", "txn_amt": "txn_amt_retail"}
+            columns={"bid_id": "id", "bid_name": "name", "txn_amt": "txn_amt_retail",
+                     "txn_amt_adj": "txn_amt_retail_adj"}
         ),
         mrli_bespoke_full_range.assign(layer="bespoke").rename(
             columns={
                 "bespoke_area_id": "id",
                 "bespoke_name": "name",
                 "txn_amt": "txn_amt_retail",
+                "txn_amt_adj": "txn_amt_retail_adj"
             }
         ),
     ]
@@ -435,6 +495,7 @@ econ_busyness_mcard_3hourly_txn = econ_busyness_mcard_3hourly_txn[
         "name",
         "layer",
         "txn_amt_retail",
+        "txn_amt_retail_adj",
     ]
 ].sort_values(["count_date", "layer", "id"])
 

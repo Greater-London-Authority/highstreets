@@ -2,6 +2,7 @@
 import os
 import re
 import pandas as pd
+import geopandas as gpd
 from datetime import datetime
 from glob import glob
 import logging
@@ -26,6 +27,57 @@ class FileProcessor:
             end_date = datetime.strptime(end_date_str, '%Y%m%d')
             return start_date, end_date
         return None, None
+
+    def process_borough_hs_lookup(self, data_loader):
+        context_areas = data_loader.get_query_context(layers=[
+            "BIDs", "Highstreets", "TownCentres", "Bespoke"])
+        boroughs = data_loader.get_query_context(layers=["Boroughs"])
+        # Process context areas
+        context_areas['name'] = context_areas['name'].str.replace("â", "'")
+
+        # Conditional assignment of names and IDs
+        context_areas = context_areas.assign(
+            highstreet_name=context_areas.apply(
+                lambda x: x['name'] if x['layer'] == "Highstreets" else pd.NA, axis=1),
+            bid_name=context_areas.apply(
+                lambda x: x['name'] if x['layer'] == "BIDs" else pd.NA, axis=1),
+            tc_name=context_areas.apply(
+                lambda x: x['name'] if x['layer'] == "TownCentres" else pd.NA, axis=1),
+            bespoke_name=context_areas.apply(
+                lambda x: x['name'] if x['layer'] == "Bespoke" else pd.NA, axis=1),
+            highstreet_id=context_areas.apply(
+                lambda x: int(x['id']) if x[
+                    'layer'] == "Highstreets" else pd.NA, axis=1),
+            bid_id=context_areas.apply(
+                lambda x: int(x['id']) if x['layer'] == "BIDs" else pd.NA, axis=1),
+            tc_id=context_areas.apply(
+                lambda x: int(x['id']) if x[
+                    'layer'] == "TownCentres" else pd.NA, axis=1),
+            bespoke_id=context_areas.apply(
+                lambda x: int(x['id']) if x['layer'] == "Bespoke" else pd.NA, axis=1),
+        )
+
+        # Select and join with boroughs
+        context_areas = context_areas.drop(columns=["name", "id", "layer"])
+
+        # Apply a negative buffer to boroughs (to avoid slithers)
+        boroughs['geometry'] = boroughs['geometry'].buffer(-29)
+
+        # Spatial join with boroughs
+        df = gpd.sjoin(context_areas, boroughs, how="inner", op="intersects")
+        # drop geometry column
+        df = df.drop(columns=["geometry"]).reset_index(drop=True)
+        # rename columns
+        df.rename(columns={"name": "borough_name", "id": "borough_code"}, inplace=True)
+
+        df = df.sort_values(['bid_id', 'highstreet_id', 'tc_id', 'bespoke_id'])
+
+        # Add objectid and select final columns
+        df['objectid'] = range(1, len(df) + 1)
+        df = df[['objectid', 'borough_name', 'borough_code', 'highstreet_name',
+                 'highstreet_id', 'bid_name', 'bid_id', 'tc_name',
+                'tc_id', 'bespoke_name', 'bespoke_id']]
+        return df
 
     @staticmethod
     def is_newer_than_recent(file_start_date, recent_year, recent_week) -> bool:

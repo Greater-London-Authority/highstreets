@@ -202,7 +202,10 @@ class McardTransform:
                     "y",
                 ]
             )
-            .aggregate(txn_amt=("txn_amt", lambda x: round(x.sum(), 2)))
+            .aggregate(
+                txn_amt=("txn_amt", lambda x: round(x.sum(), 2)),
+                txn_amt_adj=("txn_amt_adj", lambda x: round(x.sum(), 2))
+            )
             .reset_index()
         )
         data["highstreet_id"] = data["highstreet_id"].astype(int)
@@ -219,7 +222,10 @@ class McardTransform:
             .merge(data, left_on="quad_id", right_on="quad_id", how="right")
             .dropna(subset=["tc_id"])
             .groupby(["tc_id", "tc_name", "count_date", "hours", "borough", "x", "y"])
-            .aggregate(txn_amt=("txn_amt", lambda x: round(x.sum(), 2)))
+            .aggregate(
+                txn_amt=("txn_amt", lambda x: round(x.sum(), 2)),
+                txn_amt_adj=("txn_amt_adj", lambda x: round(x.sum(), 2))
+            )
             .reset_index()
         )
         data["tc_id"] = data["tc_id"].astype(int)
@@ -236,7 +242,10 @@ class McardTransform:
             .merge(data, left_on="quad_id", right_on="quad_id", how="right")
             .dropna(subset=["bid_id"])
             .groupby(["bid_id", "bid_name", "count_date", "hours"])
-            .aggregate(txn_amt=("txn_amt", lambda x: round(x.sum(), 2)))
+            .aggregate(
+                txn_amt=("txn_amt", lambda x: round(x.sum(), 2)),
+                txn_amt_adj=("txn_amt_adj", lambda x: round(x.sum(), 2))
+            )
             .reset_index()
         )
         data["bid_id"] = data["bid_id"].astype(int)
@@ -254,7 +263,10 @@ class McardTransform:
             )
             .dropna(subset=["bespoke_area_id"])
             .groupby(["bespoke_area_id", "name", "count_date", "hours"])
-            .aggregate(txn_amt=("txn_amt", lambda x: round(x.sum(), 2)))
+            .aggregate(
+                txn_amt=("txn_amt", lambda x: round(x.sum(), 2)),
+                txn_amt_adj=("txn_amt_adj", lambda x: round(x.sum(), 2))
+            )
             .reset_index()
         )
         data["bespoke_area_id"] = data["bespoke_area_id"].astype(int)

@@ -2,6 +2,8 @@ import logging
 import os
 import re
 from datetime import datetime, timedelta
+import requests
+from shapely.geometry import shape
 
 import geopandas as gpd
 import pandas as pd
@@ -78,6 +80,80 @@ class DataLoader:
         )
         self.metadata.create_all(self.engine)
         logging.info(f"Ensured table {table_name} exists or created it.")
+
+    def get_query_context(self, layers=None):
+        if layers is None:
+            layers = ["BIDs",
+                      "CAZ",
+                      "Highstreets",
+                      "TownCentres",
+                      "Boroughs",
+                      "MSOAs",
+                      "Bespoke"]
+
+        layer_nums = {
+            "BIDs": 1,
+            "CAZ": 2,
+            "Highstreets": 3,
+            "TownCentres": 5,
+            "Boroughs": 0,
+            "MSOAs": 4,
+            "Bespoke": 8
+        }
+
+        layer_ids = {
+            "BIDs": ["bid_id", "bid_name"],
+            "CAZ": ["objectid", "name"],
+            "Highstreets": ["highstreet_id", "highstreet_name"],
+            "TownCentres": ["tc_id", "tc_name"],
+            "Boroughs": ["gss_code", "name"],
+            "MSOAs": ["msoa11cd", "msoa11nm"],
+            "Bespoke": ["bespoke_area_id", "name"]
+        }
+
+        layer_df = []
+
+        for layer in layers:
+            layer_num = layer_nums[layer]
+            layer_id = layer_ids[layer]
+
+            service_query = (
+                f"https://gis2.london.gov.uk/server/rest/services/apps"
+                f"/Busyness_context/MapServer/"
+                f"{layer_num}/query?where=1%3D1&outFields=*&f=geojson"
+            )
+
+            # Fetch the data
+            response = requests.get(service_query)
+            data = response.json()
+
+            # Convert to GeoDataFrame
+            features = data['features']
+            geoms = [shape(feature['geometry']) for feature in features]
+            records = [feature['properties'] for feature in features]
+            df = gpd.GeoDataFrame(records, geometry=geoms, crs="EPSG:4326")
+
+            # Specific adjustment for CAZ
+            if layer == "CAZ":
+                df['name'] = "CAZ"
+
+            # Select and rename the columns
+            df = df[layer_id + ['geometry']].rename(columns={
+                layer_id[0]: 'id',
+                layer_id[1]: 'name'
+            })
+            # Transform to British National Grid (EPSG:27700)
+            df = df.to_crs(epsg=27700)
+
+            # Add layer information
+            df['layer'] = layer
+            df['id'] = df['id'].astype(str)
+            df['name'] = df['name'].str.replace("â€™", "'")
+            layer_df.append(df)
+
+        # Combine all layers into a single DataFrame
+        df = pd.concat(layer_df, ignore_index=True)
+        return df
 
     def get_most_recent_dates(self, table_names: list) -> dict:
         recent_dates = {}
