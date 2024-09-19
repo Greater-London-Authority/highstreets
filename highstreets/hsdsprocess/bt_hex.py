@@ -25,7 +25,6 @@ hex_transform = HexTransform()
 
 # Transform the received data
 transformed_data = hex_transform.transform_data(data)
-print(transformed_data)
 
 # Initialize DataWriter for data storage
 data_writer = DataWriter()

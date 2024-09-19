@@ -152,6 +152,10 @@ class HexTransform(DataLoader):
         transformed_data["time_indicator"] = transformed_data["time_indicator"].replace(
             time_indicator_map
         )
+        # typecasting to float
+        transformed_data['loyalty_percentage'] = transformed_data[
+            'loyalty_percentage'].astype(float)
+        transformed_data['dwell_time'] = transformed_data['dwell_time'].astype(float)
 
         self.logger.info("Data transformation completed.")
         return transformed_data
