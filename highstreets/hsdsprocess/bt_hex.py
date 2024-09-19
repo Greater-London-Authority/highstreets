@@ -1,7 +1,7 @@
 import os
 
 import pandas as pd
-
+from datetime import datetime
 from highstreets import config
 from highstreets.data_source_sink.dataloader import DataLoader
 from highstreets.data_source_sink.datawriter import DataWriter
@@ -40,6 +40,20 @@ tfl_hex_full_range = data_loader.get_full_data("bt_footfall_tfl_hex_3hourly")
 data_writer.write_hex_to_csv_by_year(
     tfl_hex_full_range,
     f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data/BT/" "Processed/hex_grid",
+)
+
+# Offloading latest year hex  data to london datastore - needs to be updated to
+# to get the year automatically from the end_date
+latest_year = datetime.strptime(end_date, "%Y-%m-%d").year
+data_writer.upload_data_to_lds(
+    slug="footfall-bt-people-counts-hsds",
+    custom_date_column="count_date",
+    resource_title=f"hex_3hourly_counts_{latest_year}.csv",
+    file_path=(
+        f"//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/"
+        f"data/BT/Processed/hex_grid/"
+        f"hex_3hourly_counts_{latest_year}.csv"
+    ),
 )
 
 # Initialize DataProcessor to obtain new hex IDs from tracking table
