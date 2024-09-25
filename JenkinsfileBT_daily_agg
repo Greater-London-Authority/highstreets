@@ -13,13 +13,6 @@ pipeline {
     }
 
     stages {
-        stage('Trigger Lookups') {
-            steps {
-                script {
-                    def lookupBuild = build job: 'HSDS-HS-TC-BID-BESPOKE-LOOKUP-UPDATE', propagate: true
-                }
-            }
-        }
 
         stage('Checkout') {
             steps {
@@ -38,7 +31,7 @@ pipeline {
             steps {
                 script {
                     withEnv(["CONSUMER_KEY=${CONSUMER_KEY}", "CONSUMER_SECRET=${CONSUMER_SECRET}", "PG_DATABASE=${PG_DATABASE}", "PG_USER=${PG_USER}", "PG_PASSWORD=${PG_PASSWORD}", "PG_HOST=${PG_HOST}", "PG_PORT=${PG_PORT}", "LDS_API_KEY=${LDS_API_KEY}"]) {
-                        sh 'poetry run python highstreets/hsdsprocess/bt_daily_total.py'
+                        sh 'poetry run python highstreets/hsdsprocess/bt_daily_agg.py'
                         }
                     }
                 }
