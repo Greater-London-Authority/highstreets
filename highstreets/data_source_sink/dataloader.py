@@ -36,6 +36,8 @@ class DataLoader:
         self.bt_hourly_outage_api_endpoint = config.BT_HOURLY_OUTAGE_API_ENDPOINT
         self.bt_outage_history_api_endpoint = config.BT_OUTAGE_HISTORY_API_ENDPOINT
         self.bt_daily_aggregated_shapes = config.BT_DAILY_AGGREGATED_SHAPES
+        self.bt_catchment_visitor_api = config.BT_CATCHMENT_VISITOR_API_ENDPOINT
+        self.bt_catchment_worker_api = config.BT_CATCHMENT_WORKER_API_ENDPOINT
         self.base_dir = config.BASE_DIR
         self.api_client = APIClient()
         self.logger = logging.getLogger(__name__)
@@ -192,7 +194,7 @@ class DataLoader:
 
     def query_mcard_raw_since(self, zoom, cols, last_yr, last_wk, segment="Overall",
                               geo_name="London"):
-        table_name = f"test_econ_busyness_mcard_raw_{zoom}_zoom"
+        table_name = f"econ_busyness_mcard_raw_{zoom}_zoom"
         columns = ", ".join(cols) if cols else "*"
         query = text(f"""
             SELECT {columns}
@@ -217,7 +219,7 @@ class DataLoader:
                                geo_name="London",
                                weekday_weekend=None,
                                yr=None, wk=None, v="v1"):
-        table_name = f"test_econ_busyness_mcard_raw_{zoom}_zoom"
+        table_name = f"econ_busyness_mcard_raw_{zoom}_zoom"
         if v == "v2":
             table_name += "_v2"
 
@@ -253,6 +255,34 @@ class DataLoader:
         try:
             return self.api_client.get_data_request(
                 self.hex_api_endpoint, params=params
+            )
+        except APIClientException as e:
+            self.logger.error(str(e))
+            raise DataLoaderException("Failed to fetch data.") from None
+        except Exception as e:
+            self.logger.error(f"An unexpected error occurred: {str(e)}")
+            raise DataLoaderException("An unexpected error occurred.") from None
+
+    def get_catchment_visitor_data(self, date_from, date_to):
+        params = {"date_from": date_from, "date_to": date_to}
+
+        try:
+            return self.api_client.get_data_request(
+                self.bt_catchment_visitor_api, params=params
+            )
+        except APIClientException as e:
+            self.logger.error(str(e))
+            raise DataLoaderException("Failed to fetch data.") from None
+        except Exception as e:
+            self.logger.error(f"An unexpected error occurred: {str(e)}")
+            raise DataLoaderException("An unexpected error occurred.") from None
+
+    def get_catchment_worker_data(self, date_from, date_to):
+        params = {"date_from": date_from, "date_to": date_to}
+
+        try:
+            return self.api_client.get_data_request(
+                self.bt_catchment_worker_api, params=params
             )
         except APIClientException as e:
             self.logger.error(str(e))

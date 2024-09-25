@@ -86,3 +86,11 @@ BT_OUTAGE_HISTORY_API_ENDPOINT = (
 BT_DAILY_AGGREGATED_SHAPES = (
     "https://api.business.bt.com/v1/footfall/reports/daily-aggregate/customer-shapes"
 )
+BT_CATCHMENT_VISITOR_API_ENDPOINT = (
+    "https://api.business.bt.com/v1/footfall/reports/monthly-aggregate/"
+    "home-catchment-visitor/lsoa?agg=time_indicator"
+)
+BT_CATCHMENT_WORKER_API_ENDPOINT = (
+    "https://api.business.bt.com/v1/footfall/reports/monthly-aggregate/"
+    "home-catchment-worker/lsoa?agg=time_indicator"
+)

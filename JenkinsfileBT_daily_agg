@@ -1,0 +1,47 @@
+pipeline {
+    agent any
+
+    environment {
+        PG_DATABASE = credentials('pg-database')
+        PG_USER = credentials('pg-user')
+        PG_PASSWORD = credentials('pg-password')
+        PG_HOST = credentials('pg-host')
+        PG_PORT = credentials('pg-port')
+        CONSUMER_KEY = credentials('consumer-key') // Use Jenkins credentials to securely store the consumer key
+        CONSUMER_SECRET = credentials('consumer-secret') // Use Jenkins credentials to securely store the consumer secret
+        LDS_API_KEY = credentials('lds-api-key')
+    }
+
+    stages {
+        stage('Trigger Lookups') {
+            steps {
+                script {
+                    def lookupBuild = build job: 'HSDS-HS-TC-BID-BESPOKE-LOOKUP-UPDATE', propagate: true
+                }
+            }
+        }
+
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Install Dependencies') {
+            steps {
+                sh 'pip install poetry'
+                sh 'poetry install'
+            }
+        }
+
+        stage('Build') {
+            steps {
+                script {
+                    withEnv(["CONSUMER_KEY=${CONSUMER_KEY}", "CONSUMER_SECRET=${CONSUMER_SECRET}", "PG_DATABASE=${PG_DATABASE}", "PG_USER=${PG_USER}", "PG_PASSWORD=${PG_PASSWORD}", "PG_HOST=${PG_HOST}", "PG_PORT=${PG_PORT}", "LDS_API_KEY=${LDS_API_KEY}"]) {
+                        sh 'poetry run python highstreets/hsdsprocess/bt_daily_total.py'
+                        }
+                    }
+                }
+            }
+        }
+    }
