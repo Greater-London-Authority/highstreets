@@ -35,7 +35,7 @@ lsoa_full_range = data_loader.get_full_data("bt_footfall_lsoa_hourly")
 # Write full range data to CSVs 6 monthly: writes to Q drive
 data_writer.write_to_csv_by_year_half(
     lsoa_full_range,
-    f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data/BT/" "Processed/lsoa",
+    f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data/BT/" "Processed/lsoa/chunks",
     custom_file_name="lsoa_hourly_counts"
 )
 
