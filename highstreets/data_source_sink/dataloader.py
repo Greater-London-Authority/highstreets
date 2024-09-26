@@ -3,6 +3,7 @@ import os
 import re
 from datetime import datetime, timedelta
 import requests
+import psycopg2
 from shapely.geometry import shape
 
 import geopandas as gpd
@@ -50,6 +51,13 @@ class DataLoader:
         self.engine = create_engine(
             f"postgresql+psycopg2://{self.username}:{self.password}@"
             f"{self.host}:{self.port}/{self.database}"
+        )
+        self.conn = psycopg2.connect(
+            dbname=self.database,
+            user=self.username,
+            password=self.password,
+            host=self.host,
+            port=self.port
         )
         self.metadata = MetaData()
         self.metadata.reflect(self.engine)
@@ -191,6 +199,16 @@ class DataLoader:
         start_of_first_week = jan4 - timedelta(days=jan4.weekday())
         start_date = start_of_first_week + timedelta(weeks=week - 1)
         return start_date.strftime('%Y-%m-%d')
+
+    def query_from_file(self, filepath):
+        """Read, execute and load execute SQL query from a file"""
+        with open(filepath, 'r') as file:
+            query = file.read()
+        return pd.read_sql_query(query, self.conn)
+
+    def close_connection(self):
+        """close the PostgreSQL connection"""
+        self.conn.close()
 
     def query_mcard_raw_since(self, zoom, cols, last_yr, last_wk, segment="Overall",
                               geo_name="London"):

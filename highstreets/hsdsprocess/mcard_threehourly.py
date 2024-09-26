@@ -455,6 +455,95 @@ data_writer.upload_data_to_lds(
     ),
 )
 
+# towncentre quad data request aveson young
+
+aveson_young_tc_ids = [23, 33, 29, 37, 28, 46, 31]
+
+
+TownCentres_quad_lookup = pd.read_csv(
+    f"{base_dir}/Projects/2019-20/Covid-19 Busyness/"
+    "data/mastercard/TownCentres_quad_lookup.csv"
+)
+aveson_young_tc = spend_adj_full_range.merge(
+    TownCentres_quad_lookup[TownCentres_quad_lookup["tc_id"].isin(aveson_young_tc_ids)],
+    left_on="quad_id",
+    right_on="quad_id",
+    how="right",
+)
+columns_mrli_tc = [
+    "ldn_ref",
+    "quad_id",
+    "tc_name",
+    "count_date",
+    "hours",
+    "txn_amt",
+    "txn_cnt",
+    "txn_amt_adj",
+]
+
+aveson_young_tc[columns_mrli_tc].assign(hours=lambda x: "'" + x["hours"])[
+    columns_mrli_tc
+].to_csv(
+    f"{base_dir}/Projects/2019-20/Covid-19 Busyness/"
+    "data/mastercard/Processed/MRLI_3yr_compressed/aveson_young/"
+    "aveson_young_tc_mcard_quad_3hourly_txn.csv",
+    index=False,
+)
+data_writer.upload_data_to_lds(
+    slug="avison-young",
+    resource_title="aveson_young_tc_mcard_quad_3hourly_txn.csv",
+    file_path=(
+        f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data"
+        "/mastercard/Processed/MRLI_3yr_compressed/"
+        "aveson_young/"
+        "aveson_young_tc_mcard_quad_3hourly_txn.csv"
+    ),
+)
+
+# bespoke areas - quads
+# sublicense - aveson young
+aveson_young_bespoke_ids = [249]
+bespoke_quad_lookup = pd.read_csv(
+    f"{base_dir}/Projects/2019-20/Covid-19 Busyness/"
+    "data/mastercard/bespoke_quad_lookup.csv"
+)
+aveson_young_bespoke = spend_adj_full_range.merge(
+    bespoke_quad_lookup[bespoke_quad_lookup[
+        "bespoke_area_id"].isin(aveson_young_bespoke_ids)],
+    left_on="quad_id",
+    right_on="quad_id",
+    how="right",
+)
+columns_mrli_bespoke = [
+    "ldn_ref",
+    "quad_id",
+    "name",
+    "count_date",
+    "hours",
+    "txn_amt",
+    "txn_cnt",
+    "txn_amt_adj",
+]
+
+aveson_young_bespoke[columns_mrli_bespoke].assign(hours=lambda x: "'" + x["hours"])[
+    columns_mrli_bespoke
+].to_csv(
+    f"{base_dir}/Projects/2019-20/Covid-19 Busyness/"
+    "data/mastercard/Processed/MRLI_3yr_compressed/aveson_young/"
+    "aveson_young_bespoke_mcard_quad_3hourly_txn.csv",
+    index=False,
+)
+
+data_writer.upload_data_to_lds(
+    slug="avison-young",
+    resource_title="aveson_young_bespoke_mcard_quad_3hourly_txn.csv",
+    file_path=(
+        f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data"
+        "/mastercard/Processed/MRLI_3yr_compressed/"
+        "aveson_young/"
+        "aveson_young_bespoke_mcard_quad_3hourly_txn.csv"
+    ),
+)
 
 # Concatenate latest data from different layers
 econ_busyness_mcard_3hourly_txn = pd.concat(

@@ -457,6 +457,92 @@ data_writer.upload_data_to_lds(
     ),
 )
 
+# sublicnese - aveson young
+
+hex_towncentre_lookup = pd.read_csv(
+    f"{base_dir}/Projects/2019-20/Covid-19 Busyness/"
+    "data/reference_data/hex_towncentre_lookup.csv"
+)
+hex_bespoke_lookup = pd.read_csv(
+    f"{base_dir}/Projects/2019-20/Covid-19 Busyness/"
+    "data/reference_data/hex_bespoke_lookup.csv"
+)
+aveson_young_tc_ids = [23, 33, 29, 37, 28, 46, 31]
+aveson_young_bespoke_ids = [249]
+
+
+aveson_hex_tc = tfl_hex_full_range.merge(
+    hex_towncentre_lookup[hex_towncentre_lookup["tc_id"].isin(aveson_young_tc_ids)],
+    left_on="hex_id",
+    right_on="hex_id",
+    how="right",
+)
+aveson_hex_bespoke = tfl_hex_full_range.merge(
+    hex_bespoke_lookup[hex_bespoke_lookup["bespoke_area_id"].isin(
+        aveson_young_bespoke_ids)],
+    left_on="hex_id",
+    right_on="hex_id",
+    how="right",
+)
+
+columns_hex_tc = [
+    "hex_id",
+    "tc_name",
+    "count_date",
+    "day",
+    "hours",
+    "resident",
+    "visitor",
+    "worker",
+    "loyalty_percentage",
+    "dwell_time",
+]
+
+columns_hex_bespoke = [
+    "hex_id",
+    "name",
+    "count_date",
+    "day",
+    "hours",
+    "resident",
+    "visitor",
+    "worker",
+    "loyalty_percentage",
+    "dwell_time",
+]
+
+aveson_hex_tc.assign(hours=lambda x: "'" + x["time_indicator"])[columns_hex_tc].to_csv(
+    f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data/"
+    "BT/Processed/hex_grid/aveson_young/aveson_tc_bt_hex_3hourly_counts.csv",
+    index=False,
+)
+aveson_hex_bespoke.assign(hours=lambda x: "'" + x["time_indicator"])[
+    columns_hex_bespoke
+].to_csv(
+    f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data/"
+    "BT/Processed/hex_grid/aveson_young/aveson_bespoke_bt_hex_3hourly_counts.csv",
+    index=False,
+)
+
+# Offloading aveson 3hourly hex counts data to datastore
+data_writer.upload_data_to_lds(
+    slug="avison-young",
+    resource_title="aveson_tc_bt_hex_3hourly_counts.csv",
+    file_path=(
+        f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data/"
+        "BT/Processed/hex_grid/aveson_young/aveson_tc_bt_hex_3hourly_counts.csv"
+    ),
+)
+
+# Offloading aveson 3hourly hex counts data to datastore
+data_writer.upload_data_to_lds(
+    slug="avison-young",
+    resource_title="aveson_bespoke_bt_hex_3hourly_counts.csv",
+    file_path=(
+        f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data/"
+        "BT/Processed/hex_grid/aveson_young/aveson_bespoke_bt_hex_3hourly_counts.csv"
+    ),
+)
 
 # Sublicenses - Fitzrovia & Knightsbridge
 
@@ -566,49 +652,5 @@ data_writer.upload_data_to_lds(
     file_path=(
         "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/data/"
         "BT/Processed/hex_grid/Southbank/Southbank_bt_hex_3hourly_counts.csv"
-    ),
-)
-
-# Sublicense - UCL - Geetanjli Project
-hex_borough_lookup = pd.read_csv(
-    f"{base_dir}/Projects/2019-20/Covid-19 Busyness/"
-    "data/reference_data/hex_borough_lookup.csv"
-)
-ucl_geetanjli_hex = (
-    tfl_hex_full_range.merge(
-        hex_borough_lookup[hex_borough_lookup["name"].isin(["Westminster"])],
-        left_on="hex_id",
-        right_on="hex_id",
-        how="right",
-    )
-    .assign(hours=lambda x: "'" + x["time_indicator"])[
-        [
-            "hex_id",
-            "name",
-            "count_date",
-            "day",
-            "hours",
-            "resident",
-            "visitor",
-            "worker",
-            "loyalty_percentage",
-            "dwell_time",
-        ]
-    ]
-    .to_csv(
-        f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data/"
-        "BT/Processed/hex_grid/UCL/Geetanjli/ucl_bt_hex_3hourly_counts.csv",
-        index=False,
-    )
-)
-
-# Offloading the hex data filtered to Westminster to datastore page
-data_writer.upload_data_to_lds(
-    slug="ucl---geetanjli-rani",
-    resource_title="ucl_bt_hex_3hourly_counts.csv",
-    df=ucl_geetanjli_hex,
-    file_path=(
-        "//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/Covid-19 Busyness/data/"
-        "BT/Processed/hex_grid/UCL/Geetanjli/ucl_bt_hex_3hourly_counts.csv"
     ),
 )
