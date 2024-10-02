@@ -247,29 +247,29 @@ data_writer.upload_data_to_lds(
     ),
 )
 
-# Andrew Scott Project
-ltn_ids = [220, 221, 222, 223, 224, 225, 226, 227, 228]
-# filtering ltn weekly transaction data and writing it to csv
-mcard_weekly[mcard_weekly["bespoke_area_id"].isin(ltn_ids)].to_csv(
-    f"{base_dir}/Projects/"
-    "2019-20/Covid-19 Busyness/data/mastercard/Processed/bespoke/"
-    "LTN/ltn_hsds_mcard_weekly_txn.csv",
-    index=False,
-)
+# # Andrew Scott Project
+# ltn_ids = [220, 221, 222, 223, 224, 225, 226, 227, 228]
+# # filtering ltn weekly transaction data and writing it to csv
+# mcard_weekly[mcard_weekly["bespoke_area_id"].isin(ltn_ids)].to_csv(
+#     f"{base_dir}/Projects/"
+#     "2019-20/Covid-19 Busyness/data/mastercard/Processed/bespoke/"
+#     "LTN/ltn_hsds_mcard_weekly_txn.csv",
+#     index=False,
+# )
 
-# Offloading LTN weekly txn data to datastore
-data_writer.upload_data_to_lds(
-    slug="andrew-scott-project",
-    custom_date_column="week_start",
-    resource_title="Mcard_Islington_weekly_txn.csv",
-    df=mcard_weekly[mcard_weekly["bespoke_area_id"].isin(ltn_ids)],
-    file_path=(
-        f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data"
-        "/mastercard/Processed/bespoke/"
-        "LTN/"
-        "ltn_hsds_mcard_weekly_txn.csv"
-    ),
-)
+# # Offloading LTN weekly txn data to datastore
+# data_writer.upload_data_to_lds(
+#     slug="andrew-scott-project",
+#     custom_date_column="week_start",
+#     resource_title="Mcard_Islington_weekly_txn.csv",
+#     df=mcard_weekly[mcard_weekly["bespoke_area_id"].isin(ltn_ids)],
+#     file_path=(
+#         f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data"
+#         "/mastercard/Processed/bespoke/"
+#         "LTN/"
+#         "ltn_hsds_mcard_weekly_txn.csv"
+#     ),
+# )
 
 # Sublicenses - Fitzrovia & Knightsbridge
 

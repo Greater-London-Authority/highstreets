@@ -192,7 +192,6 @@ data_writer.upload_data_to_lds(
     file_name="bid_3hourly_txn",
 )
 
-# Sublicenses - UCL Geetanjli
 
 quad_borough_lookup = pd.read_csv(
     f"{base_dir}/Projects/2019-20/Covid-19 Busyness/"
@@ -200,31 +199,31 @@ quad_borough_lookup = pd.read_csv(
     usecols=['quad_id', 'borough_name']
 )
 
-ucl_geetanjli_mrli = spend_adj_full_range.merge(
-    quad_borough_lookup[quad_borough_lookup["borough_name"].isin(['Westminster'])],
-    left_on="quad_id",
-    right_on="quad_id",
-    how="inner",
-)
+# ucl_geetanjli_mrli = spend_adj_full_range.merge(
+#     quad_borough_lookup[quad_borough_lookup["borough_name"].isin(['Westminster'])],
+#     left_on="quad_id",
+#     right_on="quad_id",
+#     how="inner",
+# )
 
-ucl_geetanjli_mrli.assign(hours=lambda x: "'" + x["hours"]).to_csv(
-    f"{base_dir}/Projects/2019-20/Covid-19 Busyness/"
-    "data/mastercard/Processed/MRLI_3yr_compressed/UCL/Geetanjli"
-    "Geetanjli_mcard_3hourly_spend.csv",
-    index=False,
-)
+# ucl_geetanjli_mrli.assign(hours=lambda x: "'" + x["hours"]).to_csv(
+#     f"{base_dir}/Projects/2019-20/Covid-19 Busyness/"
+#     "data/mastercard/Processed/MRLI_3yr_compressed/UCL/Geetanjli"
+#     "Geetanjli_mcard_3hourly_spend.csv",
+#     index=False,
+# )
 
-# Offloading geetanjli-rani 3hourly txn data to datastore
-data_writer.upload_data_to_lds(
-    slug="ucl---geetanjli-rani",
-    resource_title="ucl_mcard_3hourly_spend.csv",
-    df=ucl_geetanjli_mrli,
-    file_path=(
-        f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data"
-        "/mastercard/Processed/MRLI_3yr_compressed/UCL/Geetanjli"
-        "Geetanjli_mcard_3hourly_spend.csv"
-    ),
-)
+# # Offloading geetanjli-rani 3hourly txn data to datastore
+# data_writer.upload_data_to_lds(
+#     slug="ucl---geetanjli-rani",
+#     resource_title="ucl_mcard_3hourly_spend.csv",
+#     df=ucl_geetanjli_mrli,
+#     file_path=(
+#         f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data"
+#         "/mastercard/Processed/MRLI_3yr_compressed/UCL/Geetanjli"
+#         "Geetanjli_mcard_3hourly_spend.csv"
+#     ),
+# )
 
 
 # sub-licensing agreement for colliers
@@ -258,32 +257,32 @@ data_writer.upload_data_to_lds(
     ),
 )
 
-# Andrew Scott Project
-ltn_ids = [220, 221, 222, 223, 224, 225, 226, 227, 228]
-# filtering ltn weekly transaction data and writing it to csv
-mrli_bespoke_full_range[
-    mrli_bespoke_full_range["bespoke_area_id"].isin(ltn_ids)
-].to_csv(
-    f"{base_dir}/Projects/"
-    "2019-20/Covid-19 Busyness/data/mastercard/Processed/bespoke/"
-    "LTN/ltn_hsds_mcard_3hourly_txn.csv",
-    index=False,
-)
+# # Andrew Scott Project
+# ltn_ids = [220, 221, 222, 223, 224, 225, 226, 227, 228]
+# # filtering ltn weekly transaction data and writing it to csv
+# mrli_bespoke_full_range[
+#     mrli_bespoke_full_range["bespoke_area_id"].isin(ltn_ids)
+# ].to_csv(
+#     f"{base_dir}/Projects/"
+#     "2019-20/Covid-19 Busyness/data/mastercard/Processed/bespoke/"
+#     "LTN/ltn_hsds_mcard_3hourly_txn.csv",
+#     index=False,
+# )
 
-# Offloading LTN 3hourly txn data to datastore
-data_writer.upload_data_to_lds(
-    slug="andrew-scott-project",
-    resource_title="Mcard_Islington_3hourly_txn.csv",
-    df=mrli_bespoke_full_range[
-        mrli_bespoke_full_range["bespoke_area_id"].isin(ltn_ids)
-    ],
-    file_path=(
-        f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data"
-        "/mastercard/Processed/bespoke/"
-        "LTN/"
-        "ltn_hsds_mcard_3hourly_txn.csv"
-    ),
-)
+# # Offloading LTN 3hourly txn data to datastore
+# data_writer.upload_data_to_lds(
+#     slug="andrew-scott-project",
+#     resource_title="Mcard_Islington_3hourly_txn.csv",
+#     df=mrli_bespoke_full_range[
+#         mrli_bespoke_full_range["bespoke_area_id"].isin(ltn_ids)
+#     ],
+#     file_path=(
+#         f"{base_dir}/Projects/2019-20/Covid-19 Busyness/data"
+#         "/mastercard/Processed/bespoke/"
+#         "LTN/"
+#         "ltn_hsds_mcard_3hourly_txn.csv"
+#     ),
+# )
 
 # Sublicenses - Fitzrovia & Knightsbridge
 

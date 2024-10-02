@@ -383,29 +383,29 @@ data_writer.upload_data_to_lds(
     ),
 )
 
-# Andrew Scott Project
-ltn_ids = [220, 221, 222, 223, 224, 225, 226, 227, 228]
-# filtering andrew scott sublicense footfall data and writing it to csv
-bespoke_full_range[bespoke_full_range["bespoke_area_id"].isin(
-    ltn_ids)].assign(hours=lambda x: "'" + x["hours"]).to_csv(
-    f"{base_dir}/Projects/"
-    "2019-20/Covid-19 Busyness/data/BT/Processed/bespoke/"
-    "LTN/ltn_hsds_bt_footfall_3hourly_counts.csv",
-    index=False,
-)
+# # Andrew Scott Project
+# ltn_ids = [220, 221, 222, 223, 224, 225, 226, 227, 228]
+# # filtering andrew scott sublicense footfall data and writing it to csv
+# bespoke_full_range[bespoke_full_range["bespoke_area_id"].isin(
+#     ltn_ids)].assign(hours=lambda x: "'" + x["hours"]).to_csv(
+#     f"{base_dir}/Projects/"
+#     "2019-20/Covid-19 Busyness/data/BT/Processed/bespoke/"
+#     "LTN/ltn_hsds_bt_footfall_3hourly_counts.csv",
+#     index=False,
+# )
 
-# Offloading andrew scott ltn data to datastore
-data_writer.upload_data_to_lds(
-    slug="andrew-scott-project",
-    resource_title="BT_Islington_footfall_3hourly_counts.csv",
-    df=bespoke_full_range[bespoke_full_range["bespoke_area_id"].isin(ltn_ids)],
-    file_path=(
-        f"{base_dir}/Projects/"
-        "2019-20/Covid-19 Busyness/data/BT/Processed/bespoke/"
-        "LTN/"
-        "ltn_hsds_bt_footfall_3hourly_counts.csv"
-    ),
-)
+# # Offloading andrew scott ltn data to datastore
+# data_writer.upload_data_to_lds(
+#     slug="andrew-scott-project",
+#     resource_title="BT_Islington_footfall_3hourly_counts.csv",
+#     df=bespoke_full_range[bespoke_full_range["bespoke_area_id"].isin(ltn_ids)],
+#     file_path=(
+#         f"{base_dir}/Projects/"
+#         "2019-20/Covid-19 Busyness/data/BT/Processed/bespoke/"
+#         "LTN/"
+#         "ltn_hsds_bt_footfall_3hourly_counts.csv"
+#     ),
+# )
 
 # South bank sublicense - HOLBA - All Sites
 # South Bank
