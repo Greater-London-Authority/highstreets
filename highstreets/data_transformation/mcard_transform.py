@@ -184,8 +184,7 @@ class McardTransform:
 
     def mcard_highstreet_threehourly_transform(self, data):
         Highstreets_quad_lookup = pd.read_csv(
-            f"{self.base_dir}/Projects/2019-20/Covid-19 Busyness/"
-            "data/mastercard/Highstreets_quad_lookup.csv"
+            f"{self.base_dir}reference_data/Highstreets_quad_lookup.csv"
         )
         data = (
             Highstreets_quad_lookup.drop_duplicates(subset="quad_id")
@@ -214,8 +213,7 @@ class McardTransform:
 
     def mcard_towncentre_threehourly_transform(self, data):
         TownCentres_quad_lookup = pd.read_csv(
-            f"{self.base_dir}/Projects/2019-20/Covid-19 Busyness/"
-            "data/mastercard/TownCentres_quad_lookup.csv"
+            f"{self.base_dir}reference_data/TownCentres_quad_lookup.csv"
         )
         data = (
             TownCentres_quad_lookup.drop_duplicates(subset="quad_id")
@@ -234,8 +232,7 @@ class McardTransform:
 
     def mcard_bid_threehourly_transform(self, data):
         BIDS_quad_lookup = pd.read_csv(
-            f"{self.base_dir}/Projects/2019-20/Covid-19 Busyness/"
-            "data/mastercard/BIDS_quad_lookup.csv"
+            f"{self.base_dir}reference_data/BIDS_quad_lookup.csv"
         )
         data = (
             BIDS_quad_lookup.drop_duplicates(subset="quad_id")
@@ -254,8 +251,7 @@ class McardTransform:
 
     def mcard_bespoke_threehourly_transform(self, data):
         bespoke_quad_lookup = pd.read_csv(
-            f"{self.base_dir}/Projects/2019-20/Covid-19 Busyness/"
-            "data/mastercard/bespoke_quad_lookup.csv"
+            f"{self.base_dir}reference_data/bespoke_quad_lookup.csv"
         )
         data = (
             bespoke_quad_lookup.merge(

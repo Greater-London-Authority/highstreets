@@ -19,11 +19,15 @@ PG11_PORT = os.getenv("PG11_PORT")
 # ================ MCARD CONFIG ===============================================
 YOY_FILE = os.getenv("YOY_FILE")
 CPI_API_ENDPOINT = "https://api.beta.ons.gov.uk/v1/datasets/cpih01"
-ADJUSTMENT_FACTOR_DIR = ("//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/"
-                         "Covid-19 Busyness/data/mastercard/"
-                         "SpendingPulse/mcard_adjustment_factor.csv")
-INNER_OUTER_QUAD_DIR = ("//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/"
-                        "Covid-19 Busyness/data/mastercard/"
+# ADJUSTMENT_FACTOR_DIR = ("//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/"
+#                          "Covid-19 Busyness/data/mastercard/"
+#                          "SpendingPulse/mcard_adjustment_factor.csv")
+# INNER_OUTER_QUAD_DIR = ("//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/"
+#                         "Covid-19 Busyness/data/mastercard/"
+#                         "Inner_outer_quad_lookup.csv")
+ADJUSTMENT_FACTOR_DIR = ("Z:/HSDS/data/mastercard/SpendingPulse/"
+                         "mcard_adjustment_factor.csv")
+INNER_OUTER_QUAD_DIR = ("Z:/HSDS/data/mastercard/SpendingPulse/"
                         "Inner_outer_quad_lookup.csv")
 SECTORS_DF = pd.DataFrame({'spending_pulse': [
                            'Total Retail (excl. Auto)', 'Apparel', 'Restaurants'],
@@ -64,7 +68,7 @@ BT_TFL_HEX_DAILY_PREFIX = "tfl_hex_daily_agg"
 BT_TFL_HEX_MONTHLY_PREFIX = "tfl_hex_monthly_agg"
 BT_MSOA_FOOTFALL_HIST_PREFIX = "msoa_footfall_hist"
 
-BASE_DIR = "//onelondon.tfl.local/gla/INTELLIGENCE"
+BASE_DIR = "Z:/HSDS/data/"
 # BASE_DIR = "/mnt/q"
 BT_HEX_API_ENDPOINT = (
     "https://api.business.bt.com/v1/footfall/reports/hex-grid/tfl?agg=time_indicator"

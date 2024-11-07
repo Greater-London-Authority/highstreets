@@ -359,6 +359,77 @@ data_writer.upload_data_to_lds(
     ),
 )
 
+# sublicense - rendle intel harrow
+rendl_intel_harrow_ids = [31]
+
+BIDS_quad_lookup = pd.read_csv(
+    f"{base_dir}"
+    "reference_data/BIDS_quad_lookup.csv"
+)
+
+rendl_intel_harrow_mrli = spend_adj_full_range.merge(
+    BIDS_quad_lookup[BIDS_quad_lookup["bid_id"].isin(rendl_intel_harrow_ids)],
+    left_on="quad_id",
+    right_on="quad_id",
+    how="right",
+)
+
+columns_mrli_bid = [
+    "ldn_ref",
+    "quad_id",
+    "bid_name",
+    "count_date",
+    "hours",
+    "txn_amt",
+    "txn_cnt",
+    "txn_amt_adj",
+]
+
+rendl_intel_harrow_mrli[columns_mrli_bid].assign(hours=lambda x: "'" + x["hours"])[
+    columns_mrli_bid
+].to_csv(
+    f"{base_dir}"
+    "mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/rendle_intel_harrow/"
+    "rendle_intel_mcard_quad_3hourly_txn.csv",
+    index=False,
+)
+
+# Offloading rendle intel harrow data to datastore
+data_writer.upload_data_to_lds(
+    slug="rendle-intelligence-for-harrow-bid",
+    resource_title="rendle_intel_mcard_quad_3hourly_txn.csv",
+    file_path=(
+        f"{base_dir}"
+        "mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/rendle_intel_harrow/"
+        "rendle_intel_mcard_quad_3hourly_txn.csv"
+    ),
+)
+
+# filtering rendle intel harrow sublicense bids footfall data and writing it to csv
+mrli_bid_full_range[
+    mrli_bid_full_range["bid_id"].isin(rendl_intel_harrow_ids)
+].assign(hours=lambda x: "'" + x["hours"]).to_csv(
+    f"{base_dir}"
+    "mastercard/mrli_3hourly/processed/bid/"
+    "rendle_intel_harrow/"
+    "rendle_intel_bid_mcard_3hourly_txn.csv",
+    index=False,
+)
+# Offloading rendle intel harrow 3hourly txn data to datastore
+data_writer.upload_data_to_lds(
+    slug="rendle-intelligence-for-harrow-bid",
+    resource_title="rendle_intel_bid_mcard_3hourly_txn.csv",
+    df=mrli_bid_full_range[
+        mrli_bid_full_range["bid_id"].isin(rendl_intel_harrow_ids)
+    ],
+    file_path=(
+        f"{base_dir}"
+        "mastercard/mrli_3hourly/processed/bid/"
+        "rendle_intel_harrow/"
+        "rendle_intel_bid_mcard_3hourly_txn.csv"
+    ),
+)
+
 # Sublicenses - South Bank (quads - full range)
 
 southbank_ids = [35]

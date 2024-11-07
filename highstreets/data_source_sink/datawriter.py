@@ -22,15 +22,15 @@ class DataWriter:
         self.port = os.getenv("PG_PORT")
         self.lds_api_key = os.getenv("LDS_API_KEY")
         self.base_dir = config.BASE_DIR
-        self.base_path = f"{self.base_dir}/Projects/2019-20/" "Covid-19 Busyness/data/"
+        self.base_path = f"{self.base_dir}"
         # Create a database connection
         self.engine = create_engine(
             f"postgresql+psycopg2://{self.username}:{self.password}@"
             f"{self.host}:{self.port}/{self.database}"
         )
         self.hs_file_path = {
-            "mastercard": f"{self.base_path}mastercard/Processed/",
-            "bt": f"{self.base_path}BT/Processed/",
+            "mastercard_3hourly": f"{self.base_path}mastercard/mrli_3hourly/processed/",
+            "bt": f"{self.base_path}bt/processed/",
         }
 
     def load_data_to_csv(self, data, file_path):
@@ -327,7 +327,7 @@ class DataWriter:
                             f"{start_date}_{end_date}.csv"
                         )
                     else:
-                        if data_source == "mastercard":
+                        if data_source == "mastercard_3hourly":
                             filename = (
                                 f"{directory_name}_3hourly_txn_"
                                 f"{start_date}_{end_date}.csv"
@@ -483,11 +483,18 @@ class DataWriter:
 
         # Construct default file path if not provided
         if file_path is None:
-            file_path = (
-                f"{self.base_path}{source}/Processed/{poi_type}/"
-                f"{file_name}_{temporal_coverage_from}"
-                f"_{temporal_coverage_to}.csv"
-            )
+            if source == 'mastercard_3hourly':
+                file_path = (
+                    f"{self.base_path}mastercard/mrli_3hourly/Processed/{poi_type}/"
+                    f"{file_name}_{temporal_coverage_from}"
+                    f"_{temporal_coverage_to}.csv"
+                )
+            elif source == 'BT':
+                file_path = (
+                    f"{self.base_path}{source}/Processed/{poi_type}/"
+                    f"{file_name}_{temporal_coverage_from}"
+                    f"_{temporal_coverage_to}.csv"
+                )
         try:
             # Replace resource using lds.replace_resource
             df_metadata = lds.meta_dataset(slug, self.lds_api_key)[

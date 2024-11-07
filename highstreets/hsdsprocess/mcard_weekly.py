@@ -319,6 +319,38 @@ data_writer.upload_data_to_lds(
     ),
 )
 
+# sublicense - rendle intel harrow
+rendl_intel_harrow_ids = [31]
+
+# reading full range txn_bid data from mastercard directory
+mcard_weekly_bid = pd.read_csv(
+    f"{base_dir}mastercard/weekly/processed/bid/txn_bids.csv"
+)
+
+# filtering a# sublicense - rendle intel harrow weekly transaction
+# data and writing it to csv
+mcard_weekly_bid[
+    (mcard_weekly_bid[
+        "bid_id"].isin(
+            rendl_intel_harrow_ids)) & (
+                mcard_weekly_bid['week_start'] >= '2020-01-01')].to_csv(
+    f"{base_dir}"
+    "mastercard/weekly/processed/bid/"
+    "rendle_intel_harrow/rendle_intel_mcard_weekly_txn.csv",
+    index=False,
+)
+# Offloading rendle_intel_harrow bid weekly txn data to datastore
+data_writer.upload_data_to_lds(
+    slug="rendle-intelligence-for-harrow-bid",
+    custom_date_column="week_start",
+    resource_title="rendle_intel_mcard_weekly_txn.csv",
+    file_path=(
+        f"{base_dir}"
+        "/mastercard/weekly/processed/bid/"
+        "rendle_intel_harrow/rendle_intel_mcard_weekly_txn.csv"
+    ),
+)
+
 # sub-licensing agreement for south bank - holba all sites
 southbank_bid_ids = [35, 23, 16, 24]
 
