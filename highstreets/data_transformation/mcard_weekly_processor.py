@@ -2,8 +2,12 @@
 import os
 import re
 import pandas as pd
+import numpy as np
 import geopandas as gpd
 from datetime import datetime
+from highstreets import config
+from highstreets.api.clientbase import APIClient
+from highstreets.data_transformation.mcard_transform import McardTransform
 from glob import glob
 import logging
 
@@ -12,6 +16,10 @@ class FileProcessor:
     def __init__(self, data_loader, data_writer, dir_path: str):
         self.data_loader = data_loader
         self.data_writer = data_writer
+        self.sectors_df = config.SECTORS_DF
+        self.base_dir = config.BASE_DIR
+        self.adjustment_factor_dir = config.ADJUSTMENT_FACTOR_DIR
+        self.inner_outer_quad_dir = config.INNER_OUTER_QUAD_DIR
         self.dir_path = dir_path
         self.new_files = []
         self.existing_files = []
@@ -201,3 +209,195 @@ class FileProcessor:
         logging.info("Files already present in the database:")
         for existing_file in self.existing_files:
             logging.info(f" - {existing_file}")
+
+    def calculate_yoy_growth_compared_to_2019(self, df, col, new_col, ids='inner_outer'):
+        """
+        Calculate Year-over-Year (YOY) growth for a specified column in a DataFrame.
+
+        This method calculates YOY growth for a given column by comparing values with
+        2019 (2019 is compared with 2018)
+         based on matching 'wk' and 'id' columns if 'id' is present.
+        It ensures proper sorting of the DataFrame and handles cases where division by
+        zero results in infinite values by replacing them with NaN. Finally, it resets
+        the index before returning the updated DataFrame.
+
+        Parameters:
+            df (pandas.DataFrame): The DataFrame containing the data.
+            col (str): The name of the column for which YOY growth will be calculated.
+            new_col (str): The name of the new column to store the YOY growth values.
+
+        Returns:
+            pandas.DataFrame: The DataFrame with YOY growth values added in the 'new_col'
+            column and the index reset.
+        """
+        df = df.copy()
+        try:
+            if len(ids) > 0:
+                # Ensure 'id' column is treated as an integer
+                # df["id"] = df["id"].astype(int)
+                # Sort the DataFrame by 'id', 'yr', and 'wk' to ensure proper calculation
+                df.sort_values(by=[ids, "yr", "wk"], inplace=True)
+                # df[new_col] = None
+                df_2019 = df[df['yr'].isin([2018, 2019])]
+                df_2019[new_col] = df_2019[col].div(
+                    df_2019.groupby([ids, "wk"])[col].transform('first'))
+
+                df_2019_onwards = df[df['yr'] != 2018]
+                df_2019_onwards[new_col] = df_2019_onwards[col].div(
+                    df_2019_onwards.groupby([ids, "wk"])[col].transform('first'))
+                df = pd.concat([df_2019, df_2019_onwards[df_2019_onwards['yr'] != 2019]],
+                               axis=0)
+                df.sort_values(by=[ids, "yr", "wk"], inplace=True)
+
+                # Set YOY growth to NaN for the first entry of each 'id' and 'wk'
+                df.loc[df.groupby([ids, "wk"]).head(1).index, new_col] = None
+                # Handle division by zero by replacing resulting infinite values with NaN
+                df[new_col].replace([np.inf, -np.inf], np.nan, inplace=True)
+                # Sort the DataFrame by 'id', 'yr', and 'wk' to arrange years
+                #  in ascending order
+                df.sort_values(by=["yr", "wk", ids], inplace=True)
+            else:
+                # Sort the DataFrame by 'yr' and 'wk' to ensure proper calculation
+                df.sort_values(by=["yr", "wk"], inplace=True)
+
+                # Calculate YOY growth based on matching 'wk' with the previous year
+                df[new_col] = df.groupby(["wk"])[col].shift(0) / df.groupby(["wk"])[
+                    col
+                ].shift(1)
+                # Set YOY growth to NaN for the first entry of each 'wk'
+                df.loc[df.groupby(["wk"]).head(1).index, new_col] = None
+                # Handle division by zero by replacing resulting infinite values with NaN
+                df[new_col].replace([np.inf, -np.inf], np.nan, inplace=True)
+                # Sort the DataFrame by 'yr', and 'wk' to arrange years
+                #  in ascending order
+                df.sort_values(by=["yr", "wk"], inplace=True)
+            # Reset the index and return the updated DataFrame
+            return df.reset_index(drop=True)
+        except Exception as e:
+            # Handle any exceptions here
+            logging.info(f"An error occurred: {str(e)}")
+
+    # MASTERCARD Spending Pulse adjustment factor
+    def mcard_adjust_weekly(self, spend, lookup_file, quad_lookup_file,
+                            col_to_adjust=['txn_amt'],
+                            date_col='count_date',
+                            poi_id='quad_id',
+                            filename='txn'):
+        '''
+        Adjusts spend column by monthly correction factor generated from
+        Spending Pulse data.
+        The adjustment takes into account the cash-to-card shift and the mastercard
+        share of the market.
+        Sector-specific inflation is also adjusted for.
+
+        Parameters
+        ----------
+        spend: spend table of MC 3-hourly/weekly data at quad level
+        col_to_adjust: name of spend column to be adjusted (e.g. txn_amt (3-hourly))
+        adj_col: name of adjustment factor column
+                 (sector-specific: adjustment_factor_retail / adjustment_factor_eating /
+                adjustment_factor_apparel)
+        date_col: name of date column (count_date (3-hourly) or week_start (weekly))
+        sectors_df: pre-defined dataframe linking GeoInsights, Spending Pulse and
+                    CPI sectors
+
+        Returns
+        --------
+        Dataframe with additional adjusted spend column (e.g. txn_amt_adj)
+        '''
+
+        # Add month and yr column to spend data
+        spend[date_col] = pd.to_datetime(spend[date_col])
+        spend['month'] = spend[date_col].dt.month
+        spend['yr'] = spend[date_col].dt.year
+
+        if lookup_file is not None:
+            # Merge quad lookup to spend
+            quad_lookup = quad_lookup_file
+
+            # Load quad inner_outer lookup
+            inner_outer_quad = lookup_file
+            # where a quad is assigned both Inner and Outer - keep Outer
+            inner_outer_quad = inner_outer_quad.sort_values(
+                by='inner_outer').drop_duplicates(subset='quad_id', keep='last')
+            # Add inner_outer to spend data
+            inner_outer_poi = pd.merge(quad_lookup[['quad_id', poi_id]],
+                                       inner_outer_quad, how='left', on='quad_id')
+
+            # Designate Inner or Outer to each POI - take most common POI
+            poi_io_lookup = inner_outer_poi.groupby(poi_id)[
+                'inner_outer'].agg(lambda x : x.mode()[0]).reset_index()
+
+            # Add IO to poi lookup to spend data
+            spend = pd.merge(spend, poi_io_lookup, how='left', on=poi_id)
+
+        # Join spend data with mcard adjustment data
+        adjustment_factor = pd.read_csv(self.adjustment_factor_dir)
+        # need to merge on inner vs outer too
+        spend = pd.merge(spend, adjustment_factor, how='left',
+                         left_on=['yr', 'month', 'inner_outer'],
+                         right_on=['yr', 'month', 'inner_outer'])
+
+        # If spend data is more recent than Spending Pulse, there will be NaNs.
+        # Fill them with the latest available mcard_adjustment
+        spend = spend.sort_values(by=['inner_outer', date_col])
+        for adj_col in [i for i in spend.columns if i.startswith('adjustment_factor_')]:
+            spend[adj_col] = spend[adj_col].fillna(method='ffill')
+
+        # Adjust for cash-to-card shift and MC market share - create an additional column
+        for col in col_to_adjust:
+            if col == 'txn_amt':
+                spend[col + '_adj'] = spend[col] / spend['adjustment_factor_retail']
+            else:
+                spend[col + '_adj'] = spend[col] / spend[
+                    f'adjustment_factor_{col.split("_")[-1]}']
+
+        if lookup_file is not None:
+            spend.drop(columns=['inner_outer'] + [
+                i for i in spend.columns if i.startswith('adjustment_factor_')],
+                inplace=True)  # remove unecessary columns
+        else:
+            spend.drop(columns=[
+                i for i in spend.columns if i.startswith('adjustment_factor_')],
+                inplace=True)  # remove unecessary columns
+
+        # Adjust for inflation (using subcategory-specific CPI)
+        # import ONS's CPIH table via API
+        api_client = APIClient()
+        cpi_table = api_client.fetch_cpi()
+        txn_cat_cpi_dict = self.sectors_df[
+            ['geo_insights', 'cpi']].set_index('geo_insights').T.to_dict('records')[0]
+
+        for col in col_to_adjust:
+            if col == 'txn_amt':
+                txn_cat = 'retail'
+            else:
+                txn_cat = col.split('_')[-1]  # eating / apparel / retail
+            # using the same inflation adjustment method used for mcard threehourly
+            mcard_transform = McardTransform()
+            # adjust for inflation (subcat specific CPI) - updates adjusted column
+            spend = mcard_transform.inflation_adjust(spend, cpi_table[
+                cpi_table['Aggregate'] == txn_cat_cpi_dict[txn_cat]][
+                    ['yr', 'month', 'Aggregate', 'cpi_index']],
+                reindexing_year=2018, col_to_adjust=[col + '_adj'], date_col=date_col)
+
+            spend[col + '_adj'] = spend[col + '_adj'].round(3)
+
+        spend['yr'] = spend[date_col].dt.isocalendar().year
+        spend.drop(columns=['month'], inplace=True)  # remove unecessary columns
+
+        spend.to_csv(f"{self.base_dir}mastercard/weekly/processed/{filename}.csv",
+                     index=False)
+        # Adding in a function to calculate YoY
+        yoy = spend.copy()
+
+        for col in [i for i in yoy.columns if i.startswith('txn_')]:
+            yoy = self.calculate_yoy_growth_compared_to_2019(yoy, col,
+                                                             f'yoy_{col}',
+                                                             ids=poi_id)
+
+        yoy.to_csv(f"{self.base_dir}mastercard/weekly/processed"
+                   f"/yoy{filename.split('txn')[1]}.csv",
+                   index=False)
+
+        return spend

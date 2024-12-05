@@ -1,6 +1,7 @@
 import logging
 import os
-
+import boto3
+import io
 import geopandas as gpd
 import pandas as pd
 from dotenv import find_dotenv, load_dotenv
@@ -23,6 +24,8 @@ class DataWriter:
         self.lds_api_key = os.getenv("LDS_API_KEY")
         self.base_dir = config.BASE_DIR
         self.base_path = f"{self.base_dir}"
+        self.s3_bucket = config.S3_BUCKET
+        self.s3_client = boto3.client("s3")
         # Create a database connection
         self.engine = create_engine(
             f"postgresql+psycopg2://{self.username}:{self.password}@"
@@ -40,25 +43,115 @@ class DataWriter:
         except Exception as e:
             logging.error(f"Error while loading data to CSV: {e}")
 
+    def write_threehourly_hs_to_s3(self, data, data_source):
+        """
+        Writes a DataFrame to an S3 bucket as a CSV file based on
+        the first column's name and data type.
+
+        Args:
+            data (pandas.DataFrame): The DataFrame to be exported.
+            data_source (str): The type of data ("mastercard_3hourly" or "bt").
+
+        Raises:
+            ValueError: If the data source is invalid.
+            Exception: For any other unexpected errors during the export process.
+        """
+        try:
+            if data_source in self.hs_file_path:
+                first_column_name = data.columns[0]
+                if first_column_name in [
+                    "highstreet_id",
+                    "tc_id",
+                    "bespoke_area_id",
+                    "bid_id",
+                    "msoa_id",
+                    "lsoa_id",
+                ]:
+                    directory_name = {
+                        "highstreet_id": "highstreet",
+                        "tc_id": "towncentre",
+                        "bespoke_area_id": "bespoke",
+                        "bid_id": "bid",
+                        "msoa_id": "msoa",
+                        "lsoa_id": "lsoa",
+                    }[first_column_name]
+                    start_date = data["count_date"].min().strftime("%Y-%m-%d")
+                    end_date = data["count_date"].max().strftime("%Y-%m-%d")
+
+                    if first_column_name not in ["msoa_id", "lsoa_id"]:
+                        data["hours"] = "'" + data["hours"]
+                        modify_in_place = True
+                    else:
+                        modify_in_place = False
+
+                    # Determine filename based on data source and first column
+                    if first_column_name in ["msoa_id", "lsoa_id"]:
+                        filename = (f"{directory_name}_hourly_"
+                                    f"counts_{start_date}_{end_date}.csv")
+                    else:
+                        if data_source == "mastercard_3hourly":
+                            filename = (f"{directory_name}_3hourly"
+                                        f"_txn_{start_date}_{end_date}.csv")
+                        else:
+                            filename = (f"{directory_name}_3hourly"
+                                        f"_counts_{start_date}_{end_date}.csv")
+
+                    # Construct the S3 key (path within the bucket)
+                    s3_key = (f"{self.hs_file_path[data_source]}"
+                              f"{directory_name}/{filename}")
+                    s3_key = s3_key.replace("\\", "/")  # Ensure forward slashes
+                    print(s3_key)
+
+                    # Debug logging to confirm paths
+                    logging.debug(f"S3 bucket: {self.s3_bucket}")
+                    logging.debug(f"S3 directory path: {self.hs_file_path[data_source]}")
+                    logging.debug(f"S3 subdirectory (directory_name): {directory_name}")
+                    logging.debug(f"S3 key (final path): {s3_key}")
+
+                    # Convert DataFrame to CSV and upload to S3
+                    with io.StringIO() as csv_buffer:
+                        data.to_csv(csv_buffer, index=False)
+                        self.s3_client.put_object(
+                            Bucket=self.s3_bucket,
+                            Key=s3_key,
+                            Body=csv_buffer.getvalue()
+                        )
+
+                    if modify_in_place:
+                        data["hours"] = data["hours"].str.strip("'")
+
+                    logging.info(f"Data successfully written to S3: {s3_key}")
+                else:
+                    logging.error(f"Invalid column name: {first_column_name}")
+            else:
+                raise ValueError("Invalid data_source. Supported values"
+                                 " are 'mastercard_3hourly' and 'bt'.")
+        except self.s3_client.exceptions.NoSuchBucket as e:
+            logging.error(f"S3 Bucket not found: {e}")
+        except self.s3_client.exceptions.ClientError as e:
+            logging.error(f"S3 Client error: {e}")
+        except Exception as e:
+            logging.error(f"Error while uploading data to S3: {e}")
+
     def table_exists(self, table_name):
         return self.engine.dialect.has_table(self.engine.connect(), table_name)
 
-    def append_data_to_postgres(self, data, table_name):
+    def append_data_to_postgres(self, data, table_name, date_column="count_date"):
         # Check if the table exists in the database
         if self.table_exists(table_name):
             try:
                 # Get the max date in the table
                 max_date = pd.read_sql_query(
-                    text(f"SELECT MAX(count_date) FROM {table_name}"),  # noqa: S608
+                    text(f"SELECT MAX({date_column}) FROM {table_name}"),  # noqa: S608
                     self.engine.connect(),
                 )["max"][0]
 
                 max_date = pd.to_datetime(max_date)
                 # Convert date column to Date object
-                data["count_date"] = pd.to_datetime(data["count_date"])
+                data[date_column] = pd.to_datetime(data[date_column])
 
                 # Filter the DataFrame to include only rows after the max date
-                df_to_append = data[data["count_date"] > max_date]
+                df_to_append = data[data[date_column] > max_date]
 
                 # Check if there are rows to append
                 if len(df_to_append) > 0:

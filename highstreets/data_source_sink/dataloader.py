@@ -479,8 +479,7 @@ class DataLoader:
 
     def mcard_3hourly_latest_data_read(self, mcard_source_path):
         mcard_source_path = (
-            f"{self.base_dir}/Projects/2019-20/Covid-19 Busyness/"
-            "data/mastercard/sharefile_3hr_timeslot"
+            f"{self.base_dir}mastercard/mrli_3hourly/raw"
         )
         try:
             latest_date_range = None

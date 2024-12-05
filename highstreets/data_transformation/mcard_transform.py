@@ -29,8 +29,7 @@ class McardTransform:
 
     def preprocess_mcard_data(self, data):
         mcard_grid_to_ldn_ref_lookup = pd.read_csv(
-            f"{self.base_dir}/Projects/2019-20/Covid-19 Busyness/"
-            "data/reference_data/mcard_grid_to_ldn_ref_lookup.csv"
+            f"{self.base_dir}reference_data/mcard_grid_to_ldn_ref_lookup.csv"
         )
         # data manipulation
         data = data[(data["geo_name"] == "London") & (data["segment"] == "Overall")]
