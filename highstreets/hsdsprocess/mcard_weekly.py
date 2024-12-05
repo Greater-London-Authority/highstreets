@@ -7,6 +7,8 @@ from highstreets.data_transformation.mcard_transform import McardTransform
 
 base_dir = config.BASE_DIR
 
+a = base_dir
+
 # instantiate the classes
 data_loader = DataLoader()
 data_writer = DataWriter()
