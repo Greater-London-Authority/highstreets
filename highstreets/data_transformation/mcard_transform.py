@@ -186,7 +186,7 @@ class McardTransform:
             f"{self.base_dir}reference_data/Highstreets_quad_lookup.csv"
         )
         data = (
-            Highstreets_quad_lookup.drop_duplicates(subset="quad_id")
+            Highstreets_quad_lookup
             .merge(data, left_on="quad_id", right_on="quad_id", how="right")
             .dropna(subset=["highstreet_id"])
             .groupby(
@@ -215,7 +215,7 @@ class McardTransform:
             f"{self.base_dir}reference_data/TownCentres_quad_lookup.csv"
         )
         data = (
-            TownCentres_quad_lookup.drop_duplicates(subset="quad_id")
+            TownCentres_quad_lookup
             .merge(data, left_on="quad_id", right_on="quad_id", how="right")
             .dropna(subset=["tc_id"])
             .groupby(["tc_id", "tc_name", "count_date", "hours", "borough", "x", "y"])
@@ -234,7 +234,7 @@ class McardTransform:
             f"{self.base_dir}reference_data/BIDS_quad_lookup.csv"
         )
         data = (
-            BIDS_quad_lookup.drop_duplicates(subset="quad_id")
+            BIDS_quad_lookup
             .merge(data, left_on="quad_id", right_on="quad_id", how="right")
             .dropna(subset=["bid_id"])
             .groupby(["bid_id", "bid_name", "count_date", "hours"])

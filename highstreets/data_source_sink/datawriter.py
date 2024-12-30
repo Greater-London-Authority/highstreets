@@ -1,6 +1,7 @@
 import logging
 import os
 import boto3
+import fsspec
 import io
 import geopandas as gpd
 import pandas as pd
@@ -432,7 +433,7 @@ class DataWriter:
                             )
                     file_path = os.path.join(
                         self.hs_file_path[data_source], directory_name, filename
-                    )
+                    ).replace("\\", "/")
                     if modify_in_place:
                         pd.DataFrame(data).to_csv(file_path, index=False)
                         data["hours"] = data["hours"].str.strip("'")
@@ -562,7 +563,8 @@ class DataWriter:
 
         if file_path is not None and df is None:
             # Read the file into a DataFrame
-            df = pd.read_csv(file_path)
+            with fsspec.open(file_path, mode="rt") as file:
+                df = pd.read_csv(file)
             if custom_date_column not in df.columns:
                 raise ValueError(
                     f"Date column {custom_date_column!r} not found in the file."
@@ -578,13 +580,13 @@ class DataWriter:
         if file_path is None:
             if source == 'mastercard_3hourly':
                 file_path = (
-                    f"{self.base_path}mastercard/mrli_3hourly/Processed/{poi_type}/"
+                    f"{self.base_path}mastercard/mrli_3hourly/processed/{poi_type}/"
                     f"{file_name}_{temporal_coverage_from}"
                     f"_{temporal_coverage_to}.csv"
                 )
-            elif source == 'BT':
+            elif source == 'bt':
                 file_path = (
-                    f"{self.base_path}{source}/Processed/{poi_type}/"
+                    f"{self.base_path}{source}/processed/{poi_type}/"
                     f"{file_name}_{temporal_coverage_from}"
                     f"_{temporal_coverage_to}.csv"
                 )
