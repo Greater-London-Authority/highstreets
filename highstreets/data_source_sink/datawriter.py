@@ -313,23 +313,38 @@ class DataWriter:
 
     def write_to_csv_by_year_half(self, data, output_dir, custom_file_name=None):
         """
-        Writes DataFrame to CSV files by year, with each year split into two
-        6-month CSV files.
+            Writes a DataFrame to CSV files by year, with each year split into two
+            6-month CSV files. Handles both local and S3 file systems.
 
-        Args:
-            data (pandas.DataFrame): The DataFrame to be exported.
-            output_dir (str): The directory to save the CSV files.
-            custom_file_name (str, optional): Custom file name prefix. Defaults to None.
+            Args:
+                data (pandas.DataFrame): The DataFrame to be exported.
+                output_dir (str): The directory to save the CSV files (local or S3).
+                custom_file_name (str, optional): Custom file name prefix.
+                Defaults to None.
         """
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
+        # Check if the path is S3 or local
+        if output_dir.startswith("s3://"):
+            fs = fsspec.filesystem("s3")
+        else:
+            fs = fsspec.filesystem("file")
+        # Ensure output_dir exists
+        # fs = fsspec.filesystem("file" if output_dir.startswith("/") else "s3")
+        # if not fs.exists(output_dir):
+        #     fs.makedirs(output_dir)
+        #     logging.info(f"Created output directory: {output_dir}")
+
+        data = data.copy()  # Avoid modifying the original DataFrame
 
         data["count_date"] = pd.to_datetime(data["count_date"])
 
+        # Add prefix modifications based on file name type
         if custom_file_name == "hex_3hourly_counts":
             data["time_indicator"] = "'" + data["time_indicator"]
         elif custom_file_name == "MRLI_3yr_compressed":
             data["hours"] = "'" + data["hours"]
+
+        # Create output directory if it doesn't exist
+        # fs = fsspec.filesystem("file" if output_dir.startswith("/") else "s3")
 
         for year, group in data.groupby(data["count_date"].dt.year):
             # Split data into two halves
@@ -338,25 +353,29 @@ class DataWriter:
 
             if custom_file_name:
                 file_name_first_half = os.path.join(
-                    output_dir, f"{custom_file_name}_{year}_H1.csv")
+                    output_dir, f"{custom_file_name}_{year}_H1.csv").replace("\\", "/")
                 file_name_second_half = os.path.join(
-                    output_dir, f"{custom_file_name}_{year}_H2.csv")
+                    output_dir, f"{custom_file_name}_{year}_H2.csv").replace("\\", "/")
             else:
                 file_name_first_half = os.path.join(
-                    output_dir, f"hex_3hourly_counts_{year}_H1.csv")
+                    output_dir, f"hex_3hourly_counts_{year}_H1.csv").replace("\\", "/")
                 file_name_second_half = os.path.join(
-                    output_dir, f"hex_3hourly_counts_{year}_H2.csv")
+                    output_dir, f"hex_3hourly_counts_{year}_H2.csv").replace("\\", "/")
 
             # Write to CSV only if there's data
             if not first_half.empty:
-                first_half.to_csv(file_name_first_half, index=False)
+                with fs.open(file_name_first_half, "w") as f:
+                    first_half.to_csv(f, index=False)
+                # first_half.to_csv(file_name_first_half, index=False)
                 logging.info(f"Saved {file_name_first_half}")
             else:
                 logging.info(f"No data for first half of "
                              f"{year}, skipping {file_name_first_half}")
 
             if not second_half.empty:
-                second_half.to_csv(file_name_second_half, index=False)
+                with fs.open(file_name_second_half, "w") as f:
+                    second_half.to_csv(f, index=False)
+                # second_half.to_csv(file_name_second_half, index=False)
                 logging.info(f"Saved {file_name_second_half}")
             else:
                 logging.info(f"No data for second"

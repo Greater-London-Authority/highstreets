@@ -7,6 +7,7 @@ import geopandas as gpd
 from datetime import datetime
 from highstreets import config
 from highstreets.api.clientbase import APIClient
+from sqlalchemy import create_engine, text
 from highstreets.data_transformation.mcard_transform import McardTransform
 from glob import glob
 import logging
@@ -23,6 +24,15 @@ class FileProcessor:
         self.dir_path = dir_path
         self.new_files = []
         self.existing_files = []
+        self.database = os.getenv("PG_DATABASE")
+        self.username = os.getenv("PG_USER")
+        self.password = os.getenv("PG_PASSWORD")
+        self.host = os.getenv("PG_HOST")
+        self.port = os.getenv("PG_PORT")
+        self.engine = create_engine(
+            f"postgresql+psycopg2://{self.username}:{self.password}@"
+            f"{self.host}:{self.port}/{self.database}"
+        )
         logging.info("FileProcessor initialized.")
 
     @staticmethod
@@ -333,6 +343,7 @@ class FileProcessor:
 
         # Join spend data with mcard adjustment data
         adjustment_factor = pd.read_csv(self.adjustment_factor_dir)
+
         # need to merge on inner vs outer too
         spend = pd.merge(spend, adjustment_factor, how='left',
                          left_on=['yr', 'month', 'inner_outer'],
@@ -395,6 +406,87 @@ class FileProcessor:
             yoy = self.calculate_yoy_growth_compared_to_2019(yoy, col,
                                                              f'yoy_{col}',
                                                              ids=poi_id)
+
+        # -----------------------------------------------------------------------------
+        # Additional code to get YOY file in correct format - before saving to CSV
+        # -----------------------------------------------------------------------------
+
+        # Filter for 2019 onwards
+        yoy = yoy[yoy['yr'] >= 2019]
+
+        # For HS / TC  areas add in centroid x,y and borough columns
+
+        if poi_id == 'highstreet_name':
+            # Get borough for each area
+
+            query = "select * from econ_busyness_mcard_Highstreets_quad_lookup"
+
+            hs_bor_lookup = pd.read_sql(
+                text(query), self.engine.connect())
+
+            hs_bor_lookup = hs_bor_lookup[
+                ['highstreet_id',
+                 'highstreet_name',
+                 'x',
+                 'y',
+                 'borough']].drop_duplicates()
+            hs_bor_lookup['highstreet_id'] = hs_bor_lookup[
+                'highstreet_id'].astype('int64')
+
+            yoy['highstreet_id'] = yoy['highstreet_id'].astype('Int64')
+
+            yoy = pd.merge(
+                yoy, hs_bor_lookup, on=['highstreet_id', 'highstreet_name'], how='left')
+
+        elif poi_id == 'tc_name':
+
+            query = "select * from econ_busyness_mcard_TownCentres_quad_lookup"
+
+            tc_bor_lookup = pd.read_sql(
+                text(query), self.engine.connect()
+            )
+
+            tc_bor_lookup = tc_bor_lookup[
+                ['tc_id', 'tc_name', 'x', 'y', 'borough']].drop_duplicates()
+            tc_bor_lookup['tc_id'] = tc_bor_lookup['tc_id'].astype('int64')
+
+            yoy['tc_id'] = yoy['tc_id'].astype('Int64')
+
+            yoy = pd.merge(yoy, tc_bor_lookup, on=['tc_id', 'tc_name'], how='left')
+
+        # Get all columns before txn_amt ones
+        id_cols = list(yoy.loc[:, :'txn_amt_wd_eating'].columns[:-1])
+
+        # Drop txn_ cols
+        yoy = yoy.drop(columns=[i for i in yoy.columns if i.startswith('txn_')]).round(3)
+
+        # Put columns in correct format/order
+
+        if poi_id == 'highstreet_name' or poi_id == 'tc_name':
+
+            yoy = yoy[id_cols + ['x', 'y', 'borough'] + [
+                'yoy_txn_amt_wd_eating', 'yoy_txn_amt_we_eating',
+                'yoy_txn_amt_wd_apparel', 'yoy_txn_amt_we_apparel',
+                'yoy_txn_amt_wd_retail', 'yoy_txn_amt_we_retail',
+                'yoy_txn_cnt_wd_eating', 'yoy_txn_cnt_we_eating',
+                'yoy_txn_cnt_wd_apparel', 'yoy_txn_cnt_we_apparel',
+                'yoy_txn_cnt_wd_retail', 'yoy_txn_cnt_we_retail',
+                'yoy_txn_amt_wd_eating_adj', 'yoy_txn_amt_we_eating_adj',
+                'yoy_txn_amt_wd_apparel_adj', 'yoy_txn_amt_we_apparel_adj',
+                'yoy_txn_amt_wd_retail_adj', 'yoy_txn_amt_we_retail_adj']]
+
+        else:
+            yoy = yoy[id_cols + [
+                'yoy_txn_amt_wd_eating', 'yoy_txn_amt_we_eating',
+                'yoy_txn_amt_wd_apparel', 'yoy_txn_amt_we_apparel',
+                'yoy_txn_amt_wd_retail', 'yoy_txn_amt_we_retail',
+                'yoy_txn_cnt_wd_eating', 'yoy_txn_cnt_we_eating',
+                'yoy_txn_cnt_wd_apparel', 'yoy_txn_cnt_we_apparel',
+                'yoy_txn_cnt_wd_retail', 'yoy_txn_cnt_we_retail',
+                'yoy_txn_amt_wd_eating_adj', 'yoy_txn_amt_we_eating_adj',
+                'yoy_txn_amt_wd_apparel_adj', 'yoy_txn_amt_we_apparel_adj',
+                'yoy_txn_amt_wd_retail_adj', 'yoy_txn_amt_we_retail_adj']]
+        # -----------------------------------------------------------------------------------------
 
         yoy.to_csv(f"{self.base_dir}mastercard/weekly/processed"
                    f"/yoy{filename.split('txn')[1]}.csv",

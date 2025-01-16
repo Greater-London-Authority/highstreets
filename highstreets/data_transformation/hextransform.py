@@ -161,14 +161,24 @@ class HexTransform(DataLoader):
         return transformed_data
 
     def highstreet_threehourly_transform(self, transformed_data):
-        Highstreets_quad_lookup = pd.read_csv(
-            f"{self.base_dir}"
-            "reference_data/Highstreets_quad_lookup.csv"
-        )
-        hex_highstreet_lookup = pd.read_csv(
-            f"{self.base_dir}"
-            "reference_data/hex_highstreet_lookup.csv"
-        )
+        data_loader = DataLoader()
+        Highstreets_quad_lookup = data_loader.get_full_data(
+            'econ_busyness_mcard_Highstreets_quad_lookup')
+        Highstreets_quad_lookup["highstreet_id"] = Highstreets_quad_lookup[
+            "highstreet_id"].astype('Int64')
+        hex_highstreet_lookup = data_loader.get_full_data(
+            'econ_busyness_hex_highstreet_lookup')
+        hex_highstreet_lookup["highstreet_id"] = hex_highstreet_lookup[
+            "highstreet_id"].astype('Int64')
+        # Highstreets_quad_lookup = pd.read_csv(
+        #     f"{self.base_dir}"
+        #     "reference_data/Highstreets_quad_lookup.csv"
+        # )
+        # hex_highstreet_lookup = pd.read_csv(
+        #     f"{self.base_dir}"
+        #     "reference_data/hex_highstreet_lookup.csv"
+        # )
+
         transformed_data = hex_highstreet_lookup.merge(
             transformed_data, left_on="hex_id", right_on="hex_id", how="right"
         )
@@ -265,14 +275,23 @@ class HexTransform(DataLoader):
         return transformed_data
 
     def towncentre_threehourly_transform(self, transformed_data):
-        TownCentres_quad_lookup = pd.read_csv(
-            f"{self.base_dir}"
-            "reference_data/TownCentres_quad_lookup.csv"
-        )
-        hex_towncentre_lookup = pd.read_csv(
-            f"{self.base_dir}"
-            "reference_data/hex_towncentre_lookup.csv"
-        )
+        data_loader = DataLoader()
+        TownCentres_quad_lookup = data_loader.get_full_data(
+            'econ_busyness_mcard_TownCentres_quad_lookup')
+        TownCentres_quad_lookup["tc_id"] = TownCentres_quad_lookup[
+            "tc_id"].astype('Int64')
+        hex_towncentre_lookup = data_loader.get_full_data(
+            'econ_busyness_hex_towncentre_lookup')
+        hex_towncentre_lookup["tc_id"] = hex_towncentre_lookup[
+            "tc_id"].astype('Int64')
+        # TownCentres_quad_lookup = pd.read_csv(
+        #     f"{self.base_dir}"
+        #     "reference_data/TownCentres_quad_lookup.csv"
+        # )
+        # hex_towncentre_lookup = pd.read_csv(
+        #     f"{self.base_dir}"
+        #     "reference_data/hex_towncentre_lookup.csv"
+        # )
         transformed_data = hex_towncentre_lookup.merge(
             transformed_data, left_on="hex_id", right_on="hex_id", how="right"
         )
@@ -363,14 +382,23 @@ class HexTransform(DataLoader):
         return transformed_data
 
     def bid_threehourly_transform(self, transformed_data):
-        BIDS_quad_lookup = pd.read_csv(
-            f"{self.base_dir}"
-            "reference_data/BIDS_quad_lookup.csv"
-        )
-        hex_bid_lookup = pd.read_csv(
-            f"{self.base_dir}"
-            "reference_data/hex_bid_lookup.csv"
-        )
+        data_loader = DataLoader()
+        BIDS_quad_lookup = data_loader.get_full_data(
+            'econ_busyness_mcard_BIDs_quad_lookup')
+        BIDS_quad_lookup["bid_id"] = BIDS_quad_lookup[
+            "bid_id"].astype('Int64')
+        hex_bid_lookup = data_loader.get_full_data(
+            'econ_busyness_hex_bid_lookup')
+        hex_bid_lookup["bid_id"] = hex_bid_lookup[
+            "bid_id"].astype('Int64')
+        # BIDS_quad_lookup = pd.read_csv(
+        #     f"{self.base_dir}"
+        #     "reference_data/BIDS_quad_lookup.csv"
+        # )
+        # hex_bid_lookup = pd.read_csv(
+        #     f"{self.base_dir}"
+        #     "reference_data/hex_bid_lookup.csv"
+        # )
         transformed_data = hex_bid_lookup.merge(
             transformed_data, left_on="hex_id", right_on="hex_id", how="right"
         )
@@ -455,14 +483,23 @@ class HexTransform(DataLoader):
         return transformed_data
 
     def bespoke_threehourly_transform(self, transformed_data):
-        bespoke_quad_lookup = pd.read_csv(
-            f"{self.base_dir}"
-            "reference_data/bespoke_quad_lookup.csv"
-        )
-        hex_bespoke_lookup = pd.read_csv(
-            f"{self.base_dir}"
-            "reference_data/hex_bespoke_lookup.csv"
-        )
+        data_loader = DataLoader()
+        bespoke_quad_lookup = data_loader.get_full_data(
+            'econ_busyness_mcard_bespoke_quad_lookup')
+        bespoke_quad_lookup["bespoke_area_id"] = bespoke_quad_lookup[
+            "bespoke_area_id"].astype('Int64')
+        hex_bespoke_lookup = data_loader.get_full_data(
+            'econ_busyness_hex_bespoke_lookup')
+        hex_bespoke_lookup["bespoke_area_id"] = hex_bespoke_lookup[
+            "bespoke_area_id"].astype('Int64')
+        # bespoke_quad_lookup = pd.read_csv(
+        #     f"{self.base_dir}"
+        #     "reference_data/bespoke_quad_lookup.csv"
+        # )
+        # hex_bespoke_lookup = pd.read_csv(
+        #     f"{self.base_dir}"
+        #     "reference_data/hex_bespoke_lookup.csv"
+        # )
         transformed_data = hex_bespoke_lookup.merge(
             transformed_data, left_on="hex_id", right_on="hex_id", how="right"
         )
