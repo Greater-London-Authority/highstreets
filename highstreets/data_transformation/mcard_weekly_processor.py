@@ -1,6 +1,7 @@
 # file_processor.py
 import os
 import re
+import fsspec
 import pandas as pd
 import numpy as np
 import geopandas as gpd
@@ -19,6 +20,10 @@ class FileProcessor:
         self.data_writer = data_writer
         self.sectors_df = config.SECTORS_DF
         self.base_dir = config.BASE_DIR
+        self.spending_pulse_filepath_raw = config.SP_DIR
+        self.spending_pulse_filepath_processed = config.SP_FILEPATH_PROCESSED
+        self.mcard_adj_path = config.MCARD_ADJ_PATH
+        self.mcard_adj_path1 = config.MCARD_ADJ_PATH1
         self.adjustment_factor_dir = config.ADJUSTMENT_FACTOR_DIR
         self.inner_outer_quad_dir = config.INNER_OUTER_QUAD_DIR
         self.dir_path = dir_path
@@ -45,6 +50,505 @@ class FileProcessor:
             end_date = datetime.strptime(end_date_str, '%Y%m%d')
             return start_date, end_date
         return None, None
+
+    def create_adjustment_factor(
+            self,
+            table_name='econ_busyness_mcard_raw_18_zoom',
+            rolling_average_months=12,
+            ffill_missing_dates=False):
+        '''
+        Creates adjustment factor using most recent MCard Spending Pulse data and saves
+        to csv file
+        1. Re-formats both weekly and spending pulse data. Creates monthly values for
+        the weekly data
+        2. Smooths both datasets using a 12-month rolling average window
+        3. Uses the smoothed data to calculate the adjustment factor
+        4. Saves output to a csv file
+
+        Parameters
+        ----------
+        table_name: str
+            The name of the spend weekly quad table in the PostgreSQL database.
+        spending_pulse_filepath: str
+            Filepath to where the most recent spending pulse file is saved.
+            These filepaths could be changed to wherever this data is best accessed from.
+        sectors_df: pd.DataFrame
+            Pre-defined dataframe linking GeoInsights, Spending Pulse and CPI sectors
+        rolling_average_months: int
+            Number of months for rolling average
+        ffill_missing_dates: bool
+            Whether to forward fill missing Spending Pulsedates
+
+        Returns
+        --------
+        csv file with a monthly inner and outer London adjustment factor for
+        different sectors (total, eating, apparel)
+
+        '''
+
+        # Load data
+        logging.info("Starting create_adjustment_factor")
+        logging.info("Loading and formatting MC weekly data")
+        weekly_quad, txn_inner_outer = self.load_and_format_mc_weekly(
+            table_name=table_name)
+        logging.info("Formatting and updating spending pulse data")
+        self.format_and_update_spending_pulse(
+            # spending_pulse_raw,
+            # new_spending_pulse_filename,
+            self.spending_pulse_filepath_processed)
+        pulse_all = pd.read_csv(self.spending_pulse_filepath_processed)
+
+        # GeoInsights data formatting
+        logging.info("Formatting GeoInsights data")
+        txn_inner_outer['week_start'] = pd.to_datetime(txn_inner_outer['week_start'])
+        txn_inner_outer['inner_outer'] = txn_inner_outer[
+            'inner_outer'].replace({'Inner': 'Inner London',
+                                    'Outer': 'Outer London'})
+        txn_inner_outer = txn_inner_outer.rename(columns={'week_start': 'startDate',
+                                                          'inner_outer': 'geography'})
+        txn_inner_outer['month'] = txn_inner_outer['startDate'].dt.month
+        txn_inner_outer['yr'] = txn_inner_outer['startDate'].dt.year
+        txn_inner_outer = txn_inner_outer.sort_values(by=['geography', 'startDate'])
+
+        # Spending Pulse data formatting
+        # pulse_all['startDate'] = pd.to_datetime(pulse_all['startDate'],dayfirst=True)
+        # pulse_all['startDate'] = pd.to_datetime(pulse_all['startDate'],
+        # format='%m/%d/%Y')
+        pulse_all['startDate'] = pd.to_datetime(pulse_all['startDate'])
+        pulse_all['endDate'] = pd.to_datetime(pulse_all['endDate'])
+
+        # Filter only for rows were there's a full month of data
+        pulse_all = pulse_all[pulse_all['endDate'].dt.is_month_end]
+        sp_max_full_month_date = pulse_all['endDate'].max()
+        pulse_all['month'] = pulse_all['startDate'].dt.month
+        pulse_all['yr'] = pulse_all['startDate'].dt.year
+        pulse_all = pulse_all.sort_values(by=['geography', 'sector', 'startDate'])
+
+        # Get the sector names
+        txn_to_sp_sector_dict = self.sectors_df[
+            ['geo_insights', 'spending_pulse']].set_index(
+                'geo_insights').T.to_dict('records')[0]
+        sectors = self.sectors_df['geo_insights'].to_list()
+
+        # Filter the raw weekly data also to the same date as the SP
+        txn_inner_outer = txn_inner_outer[
+            txn_inner_outer['startDate'] <= sp_max_full_month_date]
+
+        # Weekly data -> monthly average
+        txn_io_monthly = txn_inner_outer.groupby(['geography', 'yr', 'month'])[
+            [f"txn_amt_wd_{i}" for i in sectors] + [
+                f"txn_amt_we_{i}" for i in sectors]].mean().reset_index()
+        txn_io_monthly = txn_io_monthly.sort_values(by=['geography', 'yr', 'month'])
+
+        # Create 12-month rolling averages for both datasets
+        txn_io_monthly_c, pulse_all_c = self.rolling_average_and_normalise(
+            txn_io_monthly, pulse_all, sectors,
+            rolling_average_months=12, rolling_av_centered=True)
+        txn_io_monthly_nonc, pulse_all_nonc = self.rolling_average_and_normalise(
+            txn_io_monthly, pulse_all, sectors,
+            rolling_average_months=12, rolling_av_centered=False)
+        # This is so the adjustment factor won't change over time
+        # it only takes historical data into account
+
+        # Concatenate different types of rolling average
+        pulse_all = pd.concat(
+            [pulse_all_c[pulse_all_c['date'] < '2023-11-01'],
+             pulse_all_nonc[pulse_all_nonc['date'] >= '2023-11-01']])
+
+        txn_io_monthly = pd.concat(
+            [txn_io_monthly_c[txn_io_monthly_c['date'] < '2023-11-01'],
+             txn_io_monthly_nonc[txn_io_monthly_nonc['date'] >= '2023-11-01']])
+
+        pulse_all.drop(columns=['date'],
+                       inplace=True)
+        txn_io_monthly.drop(columns=['date'],
+                            inplace=True)
+
+        # Re-structure the pulse data
+        pulse_pivot = (pd.pivot_table(
+            pulse_all,
+            index=['geography', 'yr', 'month', 'startDate'],
+            columns='sector',
+            values=f'Sales_inStore_rolling_{rolling_average_months}mo_change_from_2018')
+        ).reset_index()
+        # Merge
+        merged = pd.merge(
+            txn_io_monthly,
+            pulse_pivot,
+            on=['geography', 'yr', 'month'],
+            how='left')
+
+        # Calculate the adjustment and add as new column
+        for sector in sectors:
+            merged[
+                f'adjustment_factor_{sector}'] = (
+                    (merged[f'txn_amt_wd_{sector}_rolling'
+                            f'_{rolling_average_months}mo_change_from_2018']) / (
+                                merged[txn_to_sp_sector_dict[sector]]))
+        merged = merged.sort_values(by=['geography', 'yr', 'month'])
+        merged[[f'adjustment_factor_{i}' for i in sectors]] = merged[
+            [f'adjustment_factor_{i}' for i in sectors]].fillna(method='ffill')
+
+        # Format for output / csv file
+        adj_factor = merged[['geography', 'yr', 'month'] + [
+            f'adjustment_factor_{i}' for i in sectors]]
+        adj_factor = adj_factor.rename(columns={'geography': 'inner_outer'})
+        adj_factor['inner_outer'].replace(
+            {'Inner London': 'Inner', 'Outer London': 'Outer'}, inplace=True)
+
+        # If true
+        if ffill_missing_dates:
+            # This forward fills the adjustment
+            adj_factor['date'] = pd.to_datetime(dict(year=adj_factor['yr'],
+                                                     month=adj_factor['month'],
+                                                     day=1))
+
+            # Groupby inner_outer and reindex dates
+            adj_factor = adj_factor.groupby(
+                'inner_outer').apply(
+                    self.reindex_by_date).reset_index(0, drop=True).reset_index()
+            adj_factor['yr'] = adj_factor['index'].dt.year
+            adj_factor['month'] = adj_factor['index'].dt.month
+            adj_factor.drop(columns=['index'], inplace=True)
+
+        # Save to CSV
+        adj_factor.to_csv(self.mcard_adj_path, index=False)
+        adj_factor.to_csv(self.mcard_adj_path1, index=False)
+
+    def get_most_recent_file(self, directory, fs=None):
+        """
+        Fetches the most recent CSV file from the given directory.
+
+        Args:
+            directory (str): The directory containing the CSV files.
+            fs (fsspec.AbstractFileSystem, optional): The file system to use.
+            Defaults to None.
+
+        Returns:
+            str: The path to the most recent CSV file.
+        """
+        logging.info(f"Getting the most recent file in {directory}")
+        try:
+            if fs is None:
+                fs = fsspec.filesystem('file')
+
+            # List all files in the directory
+            files = fs.ls(directory)
+            logging.info(f"Found {len(files)} files in the directory.")
+
+            # Regular expression to match the file name pattern
+            pattern = re.compile(r'SpendingPulse_London_YTD(\d{4})_(\w+)')
+
+            # Dictionary to store file paths and their corresponding dates
+            file_dates = {}
+
+            for file in files:
+                file_name = os.path.basename(file)
+                match = pattern.match(file_name)
+                if match:
+                    year = int(match.group(1))
+                    month = match.group(2)
+                    # Convert month name to month number
+                    month_number = datetime.strptime(month, '%B').month
+                    file_date = datetime(year, month_number, 1)
+                    file_dates[file] = file_date
+
+            if not file_dates:
+                logging.error("No files matched the expected pattern.")
+                return None
+
+            # Find the most recent file
+            most_recent_file = max(file_dates, key=file_dates.get)
+            logging.info(f"The most recent file is: {most_recent_file}")
+
+            return most_recent_file
+
+        except Exception as e:
+            logging.error(f"An error occurred: {e}")
+            return None
+
+    def format_and_update_spending_pulse(self, spending_pulse_filepath):
+        """
+        Parameters
+        ---------
+        spending_pulse_raw: str
+            Filepath to folder containing raw/received spending pulse files
+        new_spending_pulse_filename: str
+            Filename of the new Spending Pulse file
+        spending_pulse_filepath: str
+            Filepath to the existing combined Spending Pulse data to be updated
+        ----------
+        Saves an updated version of Spending Pulse to the filepath specified
+        May need to check date formatting in the new data
+        """
+        fs = fsspec.filesystem('s3') if self.spending_pulse_filepath_raw.startswith(
+            's3://') else fsspec.filesystem('file')
+
+        most_recent_file = self.get_most_recent_file(
+            self.spending_pulse_filepath_raw, fs)
+        # Read in new data and format date columns
+        new_sp = pd.read_csv(most_recent_file)
+        new_sp['startDate'] = pd.to_datetime(new_sp['startDate'], dayfirst=True)
+        # new_sp['startDate'] = pd.to_datetime(new_sp['startDate'],format='%m/%d/%Y')
+        # sometimes this column is in a different format
+        new_sp['endDate'] = pd.to_datetime(new_sp['endDate'])
+        new_sp = new_sp[new_sp['endDate'].dt.is_month_end]
+
+        # Read in 'master' data and format date columns
+        sp = pd.read_csv(spending_pulse_filepath)
+        sp['startDate'] = pd.to_datetime(sp['startDate'])
+        sp['endDate'] = pd.to_datetime(sp['endDate'])
+        sp = sp[sp['endDate'].dt.is_month_end]
+
+        # Get max dates in each
+        max_date_current = sp['startDate'].max()
+        max_date_new = new_sp['startDate'].max()
+
+        # If max date in new data is more recent than current
+        # 'master' data -> concatenate new data
+        if max_date_new > max_date_current:
+            updated = pd.concat([sp,
+                                new_sp[new_sp['startDate'] > max_date_current]])
+            updated = updated.sort_values(by=['geography', 'sector', 'startDate'])
+        else:
+            updated = sp
+
+        # Save back to 'master' CSV file
+        updated.to_csv(spending_pulse_filepath, index=False)
+
+    def reindex_by_date(self, df):
+        logging.info("Reindexing by date")
+        # For reindexing based on first date of every month until the current month
+        dates = pd.date_range(df['date'].min(),
+                              datetime.today().replace(day=1), freq='MS')
+        return df.set_index('date').reindex(dates).ffill()
+
+    # Create 12-month centered rolling average for both datasets
+    def rolling_average_and_normalise(self,
+                                      txn_io_monthly,
+                                      pulse_all,
+                                      sectors,
+                                      rolling_average_months=12,
+                                      rolling_av_centered=True):
+        """
+        Calculate rolling averages and normalise
+
+        Parameters
+        ------------
+        txn_io_monthly: pd.DataFrame
+            Monthly spend df
+        pulse_all: pd.DataFrame
+            Monthly Spending Pulse df
+        sectors: list
+            List of sectors
+        rolling_average_months: int
+            Number of months for rolling average
+        rolling_av_centered: bool
+            Whether to centre the rolling average
+
+        Returns
+        ------------
+        DataFrames with normalised rolling average columns
+
+        """
+        logging.info("Calculating rolling averages and normalising")
+        txn_io_monthly = txn_io_monthly.copy()
+        pulse_all = pulse_all.copy()
+        wd_cols = [f"txn_amt_wd_{i}" for i in sectors]
+        for col in wd_cols + [f"txn_amt_we_{i}" for i in sectors]:
+            txn_io_monthly = txn_io_monthly.groupby(
+                'geography').apply(
+                    lambda x : self.calculate_rolling_average(
+                        x, col, rolling_average_months, centered=rolling_av_centered))
+        pulse_all = pulse_all.groupby(
+            ['geography', 'sector']).apply(lambda x : self.calculate_rolling_average(
+                x, 'Sales_inStore', rolling_average_months,
+                centered=rolling_av_centered))
+
+        # 2018==1 adjustment on smoothed data
+        txn_io_monthly = txn_io_monthly.sort_values(
+            by=['geography', 'yr', 'month'])
+        for col in [
+            f"txn_amt_wd_{i}_rolling_{rolling_average_months}mo" for i in sectors] + [
+                f"txn_amt_we_{i}_rolling_{rolling_average_months}mo" for i in sectors]:
+            txn_io_monthly = txn_io_monthly.groupby(['geography']).apply(
+                lambda x: self.calculate_change_with_year_average(x,
+                                                                  yr_to_average=2018,
+                                                                  col=col))
+        pulse_all = pulse_all.groupby(
+            ['geography', 'sector']).apply(
+                lambda x: self.calculate_change_with_year_average(
+                    x, yr_to_average=2018,
+                    col=f'Sales_inStore_rolling_{rolling_average_months}mo'))
+        pulse_all['date'] = pd.to_datetime(
+            dict(year=pulse_all.yr, month=pulse_all.month, day=1))
+        txn_io_monthly['date'] = pd.to_datetime(
+            dict(year=txn_io_monthly.yr, month=txn_io_monthly.month, day=1))
+
+        return txn_io_monthly, pulse_all
+
+    def calculate_rolling_average(self, df, col, months, centered=True):
+        """
+        Calculate rolling average of a dataframe column
+
+        Parameters
+        -----------
+        df: pd.DataFrame
+        col: str
+            Column name to generate rolling average for
+        months: int
+            Number of months to use for the rolling average
+        centered: bool
+            Whether rolling average is centered or not
+
+        Returns
+        -----------
+        df: pd.DataFrame
+            df with additional rolling average column
+
+        """
+        logging.info('Calculating rolling average for the columns')
+        df = df.sort_values(by=['yr', 'month'])
+
+        if centered:
+            if months % 2 == 0 :
+                # if months is odd
+                # Because pandas.rolling() doesn't calculate a centered rolling average
+                # correctly with an even size window
+                df[f"{col}_rolling_{months}mo_step1"] = df[col].rolling(
+                    months, min_periods=1, center=True).mean()
+                df[f"{col}_rolling_{months}mo_step2"] = df[
+                    f"{col}_rolling_{months}mo_step1"].rolling(
+                        2, min_periods=1).mean().shift(-1)
+                # fill in final value with first step rolling (because you have to shift
+                # everything)
+                df[f"{col}_rolling_{months}mo_step2"] = np.where(
+                    df[f"{col}_rolling_{months}mo_step2"].isnull(),
+                    df[f"{col}_rolling_{months}mo_step1"],
+                    df[f"{col}_rolling_{months}mo_step2"])
+                df = df.rename(
+                    columns={
+                        f"{col}_rolling_{months}mo_step2": f"{col}_rolling_{months}mo"})
+                df.drop(columns=[f"{col}_rolling_{months}mo_step1"], inplace=True)
+            else:  # if odd
+                df[f"{col}_rolling_{months}mo"] = df[col].rolling(
+                    months, min_periods=1, center=True).mean()
+        else:
+            df[f"{col}_rolling_{months}mo"] = df[col].rolling(
+                months, min_periods=1).mean()
+        return df
+
+    def calculate_change_with_year_average(self, df, yr_to_average=2018, col='Sales'):
+        """
+        Normalise DF column so that 1 = the monthly average of a specified year
+
+        Parameters
+        -----------
+        df: pd.DataFrame
+        yr_to_average: int
+        col: str
+            Name of column to normalise
+
+        Returns
+        -----------
+        df: pd.DataFrame
+            df with additional normalised column
+
+        """
+
+        df[f'{col}_change_from_{yr_to_average}'] = df[col] / df[
+            (df['yr'] == yr_to_average)][col].mean()
+        # divide by monthly average of the yr specified
+
+        return df
+
+    def load_and_format_mc_weekly(self, table_name='econ_busyness_mcard_raw_18_zoom'):
+        '''
+        Loads most recent raw weekly data and converts into the same format as processed
+        weekly files (keeps total retail, eating and apparel industries)
+        Generates quad and inner/outer level datasets for txn_amt
+
+        Parameters
+        -----------
+        table_name: str
+            The name of the table in the PostgreSQL database.
+        sectors_df: pd.DataFrame
+            DataFrame with sector names and relationships between the different datasets
+
+        Returns
+        --------
+        mcard_weekly_quad: pd.Dataframe
+            Formatted txn_amt data for weekday/weekend total retail, eating and apparel
+            at quad level
+        mcard_weekly_io: pd.Dataframe
+            Formatted txn_amt data for weekday/weekend total retail, eating and apparel
+            at inner/outer London level (includes most recent data and will be used for
+            Spending Pulse adjustment calculation)
+
+        '''
+        # Finds the most recent week in inner-outer csv
+        txn_inner_outer = self.data_loader.get_full_data(
+            'econ_busyness_mcard_inner_outer_txn')
+        txn_inner_outer['week_start'] = pd.to_datetime(txn_inner_outer['week_start'])
+        txn_inner_outer['month'] = txn_inner_outer['week_start'].dt.month
+        io_max_yr = txn_inner_outer['yr'].max()
+        io_max_wk = txn_inner_outer[txn_inner_outer['yr'] == io_max_yr]['wk'].max()
+
+        # Loads and formats the weekly quad data (gets the most recent data only)
+        mcard_weekly_quad = self.data_loader.get_partial_data(
+            table_name,
+            columns=('geo_name, segment, yr, wk, quad_id, weekday_weekend,'
+                     'industry, txn_amt'),
+            where_clause=f"((yr >= {io_max_yr} AND wk > {io_max_wk})"
+            f" OR ( yr>{io_max_yr})) AND industry IN('Total Retail','Eating Places',"
+            f"'Total Apparel') AND segment = 'Overall' AND geo_name='London'")
+        mcard_weekly_quad[['yr', 'wk']] = mcard_weekly_quad[['yr', 'wk']].astype(int)
+        # convert to a date column. The additional '1' sets the date as a Monday
+        Yw = mcard_weekly_quad['yr'].astype(str) + mcard_weekly_quad[
+            'wk'].astype(str) + '1'
+        mcard_weekly_quad['week_start'] = pd.to_datetime(Yw, format='%Y%U%w')
+        mcard_weekly_quad['quad_id'] = mcard_weekly_quad['quad_id'].astype('Int64')
+
+        # Pivot -> we/wd and industries are in separate columns
+        raw_to_weekly_sector_dict = self.sectors_df[
+            ['geo_insights_raw', 'geo_insights']].set_index(
+                'geo_insights_raw').T.to_dict('records')[0]
+        mcard_weekly_quad['industry'].replace(raw_to_weekly_sector_dict, inplace=True)
+        mcard_weekly_quad['weekday_weekend'].replace(
+            {'weekdays': 'wd', 'weekends': 'we'}, inplace=True)
+        mcard_weekly_quad = mcard_weekly_quad.pivot_table(
+            index=['yr', 'wk', 'week_start', 'quad_id'],
+            columns=['weekday_weekend', 'industry'],
+            values='txn_amt')
+        mcard_weekly_quad.columns = [
+            'txn_amt_' + '_'.join(
+                col).strip() for col in mcard_weekly_quad.columns.values]
+        mcard_weekly_quad.reset_index(inplace=True)
+
+        # Aggregate to inner/outer level
+        inner_outer_quad = self.data_loader.get_full_data(
+            'econ_busyness_mcard_Inner_Outer_quad_lookup')
+        inner_outer_quad = inner_outer_quad.sort_values(
+            by='inner_outer').drop_duplicates(subset='quad_id', keep='last')
+        # where a quad is assigned both Inner and Outer - keep Outer
+        mcard_weekly_io = pd.merge(mcard_weekly_quad,
+                                   inner_outer_quad,
+                                   on=['quad_id'],
+                                   how='left')
+        mcard_weekly_io = mcard_weekly_io.groupby(
+            ['yr', 'wk', 'week_start', 'inner_outer'])[
+                [i for i in mcard_weekly_io.columns if i.startswith('txn_amt')]].sum(
+                    min_count=1).reset_index()
+
+        # Append new mcard_weekly_io to txn_inner_outer
+        mcard_weekly_io = pd.concat([txn_inner_outer,
+                                    mcard_weekly_io])
+        mcard_weekly_io = mcard_weekly_io[
+            ['yr', 'wk', 'week_start', 'inner_outer'] + [
+                i for i in mcard_weekly_io.columns if i.startswith(
+                    'txn_amt_') and not i.endswith('_adj')]]
+
+        return mcard_weekly_quad, mcard_weekly_io
 
     def process_borough_hs_lookup(self, data_loader):
         context_areas = data_loader.get_query_context(layers=[

@@ -365,6 +365,36 @@ class DataLoader:
             self.logger.error(f"An unexpected error occurred: {str(e)}")
             raise DataLoaderException("An unexpected error occurred.") from None
 
+    def get_partial_data(self, table_name, columns, where_clause):
+        """
+        Retrieve partial data from a PostgreSQL table into a DataFrame.
+
+        Parameters:
+            table_name (str): The name of the table in the PostgreSQL database.
+            columns (list): Columns to load from table.
+            where_clause (str): SQL where clause of subset of data to load.
+
+        Returns:
+            pandas.DataFrame: The DataFrame containing required data from the table.
+        """
+        logging.info("Getting partial data from mc weekly zoom 18 in PG")
+        try:
+            # Establish a connection to the PostgreSQL database using SQLAlchemy engine.
+            with self.engine.connect() as connection:
+                # Query to retrieve all data from the specified table.
+                query = f"SELECT {columns} FROM {table_name} WHERE {where_clause}"  # noqa: S608 E501
+
+                # Execute the query and fetch the data into a Pandas DataFrame.
+                data_df = pd.read_sql(text(query), connection)
+
+                # Return the DataFrame containing the full data.
+                return data_df
+        except Exception as e:
+            # Handle any potential errors gracefully.
+            print(f"An error occurred while fetching data: {e}")
+
+        return None
+
     def get_bt_daily_aggregate_customer_shapes(self, date_from, date_to):
         params = {"date_from": date_from, "date_to": date_to}
 

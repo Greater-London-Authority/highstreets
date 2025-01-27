@@ -27,6 +27,7 @@ class DataWriter:
         self.base_path = f"{self.base_dir}"
         self.s3_bucket = config.S3_BUCKET
         self.s3_client = boto3.client("s3")
+        self.fs = self._get_filesystem(config.BASE_DIR)
         # Create a database connection
         self.engine = create_engine(
             f"postgresql+psycopg2://{self.username}:{self.password}@"
@@ -36,6 +37,12 @@ class DataWriter:
             "mastercard_3hourly": f"{self.base_path}mastercard/mrli_3hourly/processed/",
             "bt": f"{self.base_path}bt/processed/",
         }
+
+    def _get_filesystem(self, directory):
+        if directory.startswith('s3://'):
+            return fsspec.filesystem('s3')
+        else:
+            return fsspec.filesystem('file')
 
     def load_data_to_csv(self, data, file_path):
         try:
@@ -286,30 +293,37 @@ class DataWriter:
             output_dir (str): The directory to save the CSV files.
             custom_file_name (str, optional): Custom file name prefix. Defaults to None.
         """
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
+        try:
+            # Ensure the output directory exists
+            if not self.fs.exists(output_dir):
+                self.fs.makedirs(output_dir, exist_ok=True)
 
-        data["count_date"] = pd.to_datetime(data["count_date"])
+            data["count_date"] = pd.to_datetime(data["count_date"])
 
-        if custom_file_name == "hex_3hourly_counts":
-            # the line below added to add double quotes around hours
-            # because excel autoformats it to date
-            data["time_indicator"] = "'" + data["time_indicator"]
-        elif custom_file_name == "MRLI_3yr_compressed":
-            data["hours"] = "'" + data["hours"]
+            if custom_file_name == "hex_3hourly_counts":
+                # the line below added to add double quotes around hours
+                # because excel autoformats it to date
+                data["time_indicator"] = "'" + data["time_indicator"]
+            elif custom_file_name == "MRLI_3yr_compressed":
+                data["hours"] = "'" + data["hours"]
 
-        for year, group in data.groupby(data["count_date"].dt.year):
-            if custom_file_name:
-                file_name = os.path.join(output_dir, f"{custom_file_name}_{year}.csv")
-            else:
-                file_name = os.path.join(output_dir, f"hex_3hourly_counts_{year}.csv")
-            group.to_csv(file_name, index=False)
-        # Revert modifications after writing to csv
-        if custom_file_name == "hex_3hourly_counts":
-            data["time_indicator"] = data["time_indicator"].str.strip("'")
-        elif custom_file_name == "MRLI_3yr_compressed":
-            data["hours"] = data["hours"].str.strip("'")
-            logging.info(f"Saved {file_name}")
+            for year, group in data.groupby(data["count_date"].dt.year):
+                if custom_file_name:
+                    file_name = os.path.join(
+                        output_dir, f"{custom_file_name}_{year}.csv").replace("\\", "/")
+                else:
+                    file_name = os.path.join(
+                        output_dir, f"hex_3hourly_counts_{year}.csv").replace("\\", "/")
+                with self.fs.open(file_name, 'w', encoding='utf-8', newline="") as f:
+                    group.to_csv(f, index=False)
+            # Revert modifications after writing to csv
+            if custom_file_name == "hex_3hourly_counts":
+                data["time_indicator"] = data["time_indicator"].str.strip("'")
+            elif custom_file_name == "MRLI_3yr_compressed":
+                data["hours"] = data["hours"].str.strip("'")
+                logging.info(f"Saved {file_name}")
+        except Exception as e:
+            logging.error(f"An error occurred while writing CSV files: {e}")
 
     def write_to_csv_by_year_half(self, data, output_dir, custom_file_name=None):
         """

@@ -16,9 +16,12 @@ PG11_PASSWORD = os.getenv("PG11_PASSWORD")
 PG11_HOST = os.getenv("PG11_HOST")
 PG11_PORT = os.getenv("PG11_PORT")
 
-# ==================== AWS CONFIG ========================================
-
+# ==================== BASE DIRECTORY and AWS CONFIG =================================
 S3_BUCKET = 'hsds-data'
+# BASE_DIR = "Z:/HSDS/data/"
+# BASE_DIR = "/mnt/q"
+BASE_DIR = f"s3://{S3_BUCKET}/"
+
 
 # ================ MCARD CONFIG ===============================================
 YOY_FILE = os.getenv("YOY_FILE")
@@ -28,10 +31,16 @@ CPI_API_ENDPOINT = "https://api.beta.ons.gov.uk/v1/datasets/cpih01"
 #                          "SpendingPulse/mcard_adjustment_factor.csv")
 # INNER_OUTER_QUAD_DIR = ("//onelondon.tfl.local/gla/INTELLIGENCE/Projects/2019-20/"
 #                         "Covid-19 Busyness/data/mastercard/
-#                         "Inner_outer_quad_lookup.csv")
-ADJUSTMENT_FACTOR_DIR = ("Z:/HSDS/data/mastercard/SpendingPulse/"
+#                        "Inner_outer_quad_lookup.csv")
+# SPENDING PULSE
+SP_DIR = (f"{BASE_DIR}mastercard/spendingpulse/received/")
+SP_FILEPATH_PROCESSED = (f"{BASE_DIR}mastercard/spendingpulse/"
+                         f"SpendingPulse - London - 2018-2024.csv")
+MCARD_ADJ_PATH = (f"{BASE_DIR}mastercard/spendingpulse/mcard_adjustment_factor.csv")
+MCARD_ADJ_PATH1 = (f"{BASE_DIR}reference_data/mcard_adjustment_factor.csv")
+ADJUSTMENT_FACTOR_DIR = ("Z:/HSDS/data/mastercard/spendingpulse/"
                          "mcard_adjustment_factor.csv")
-INNER_OUTER_QUAD_DIR = ("Z:/HSDS/data/mastercard/SpendingPulse/"
+INNER_OUTER_QUAD_DIR = ("Z:/HSDS/data/mastercard/spendingpulse/"
                         "Inner_outer_quad_lookup.csv")
 SECTORS_DF = pd.DataFrame({'spending_pulse': [
                            'Total Retail (excl. Auto)', 'Apparel', 'Restaurants'],
@@ -72,9 +81,6 @@ BT_TFL_HEX_DAILY_PREFIX = "tfl_hex_daily_agg"
 BT_TFL_HEX_MONTHLY_PREFIX = "tfl_hex_monthly_agg"
 BT_MSOA_FOOTFALL_HIST_PREFIX = "msoa_footfall_hist"
 
-# BASE_DIR = "Z:/HSDS/data/"
-# BASE_DIR = "/mnt/q"
-BASE_DIR = f"s3://{S3_BUCKET}/"
 BT_HEX_API_ENDPOINT = (
     "https://api.business.bt.com/v1/footfall/reports/hex-grid/tfl?agg=time_indicator"
 )
