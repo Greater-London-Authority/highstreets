@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 
 from highstreets import config
+from highstreets.data_source_sink.dataloader import DataLoader
 from highstreets.api.clientbase import APIClient
 
 
@@ -182,9 +183,15 @@ class McardTransform:
         return spend
 
     def mcard_highstreet_threehourly_transform(self, data):
-        Highstreets_quad_lookup = pd.read_csv(
-            f"{self.base_dir}reference_data/Highstreets_quad_lookup.csv"
-        )
+        data_loader = DataLoader()
+        Highstreets_quad_lookup = data_loader.get_full_data(
+            'econ_busyness_mcard_Highstreets_quad_lookup')
+        Highstreets_quad_lookup["quad_id"] = Highstreets_quad_lookup[
+            "quad_id"].astype('Int64')
+        data["quad_id"] = data["quad_id"].astype('Int64')
+        # Highstreets_quad_lookup = pd.read_csv(
+        #     f"{self.base_dir}reference_data/Highstreets_quad_lookup.csv"
+        # )
         data = (
             Highstreets_quad_lookup
             .merge(data, left_on="quad_id", right_on="quad_id", how="right")
@@ -202,7 +209,8 @@ class McardTransform:
             )
             .aggregate(
                 txn_amt=("txn_amt", lambda x: round(x.sum(), 2)),
-                txn_amt_adj=("txn_amt_adj", lambda x: round(x.sum(), 2))
+                txn_amt_adj=("txn_amt_adj", lambda x: round(x.sum(), 2)),
+                txn_cnt=("txn_cnt", lambda x: round(x.sum(), 2))
             )
             .reset_index()
         )
@@ -211,9 +219,15 @@ class McardTransform:
         return data
 
     def mcard_towncentre_threehourly_transform(self, data):
-        TownCentres_quad_lookup = pd.read_csv(
-            f"{self.base_dir}reference_data/TownCentres_quad_lookup.csv"
-        )
+        data_loader = DataLoader()
+        TownCentres_quad_lookup = data_loader.get_full_data(
+            'econ_busyness_mcard_TownCentres_quad_lookup')
+        TownCentres_quad_lookup["quad_id"] = TownCentres_quad_lookup[
+            "quad_id"].astype('Int64')
+        data["quad_id"] = data["quad_id"].astype('Int64')
+        # TownCentres_quad_lookup = pd.read_csv(
+        #     f"{self.base_dir}reference_data/TownCentres_quad_lookup.csv"
+        # )
         data = (
             TownCentres_quad_lookup
             .merge(data, left_on="quad_id", right_on="quad_id", how="right")
@@ -221,7 +235,8 @@ class McardTransform:
             .groupby(["tc_id", "tc_name", "count_date", "hours", "borough", "x", "y"])
             .aggregate(
                 txn_amt=("txn_amt", lambda x: round(x.sum(), 2)),
-                txn_amt_adj=("txn_amt_adj", lambda x: round(x.sum(), 2))
+                txn_amt_adj=("txn_amt_adj", lambda x: round(x.sum(), 2)),
+                txn_cnt=("txn_cnt", lambda x: round(x.sum(), 2))
             )
             .reset_index()
         )
@@ -230,9 +245,11 @@ class McardTransform:
         return data
 
     def mcard_bid_threehourly_transform(self, data):
-        BIDS_quad_lookup = pd.read_csv(
-            f"{self.base_dir}reference_data/BIDS_quad_lookup.csv"
-        )
+        data_loader = DataLoader()
+        BIDS_quad_lookup = data_loader.get_full_data(
+            'econ_busyness_mcard_BIDs_quad_lookup')
+        BIDS_quad_lookup["quad_id"] = BIDS_quad_lookup["quad_id"].astype('Int64')
+        data["quad_id"] = data["quad_id"].astype('Int64')
         data = (
             BIDS_quad_lookup
             .merge(data, left_on="quad_id", right_on="quad_id", how="right")
@@ -240,7 +257,8 @@ class McardTransform:
             .groupby(["bid_id", "bid_name", "count_date", "hours"])
             .aggregate(
                 txn_amt=("txn_amt", lambda x: round(x.sum(), 2)),
-                txn_amt_adj=("txn_amt_adj", lambda x: round(x.sum(), 2))
+                txn_amt_adj=("txn_amt_adj", lambda x: round(x.sum(), 2)),
+                txn_cnt=("txn_cnt", lambda x: round(x.sum(), 2))
             )
             .reset_index()
         )
@@ -249,9 +267,15 @@ class McardTransform:
         return data
 
     def mcard_bespoke_threehourly_transform(self, data):
-        bespoke_quad_lookup = pd.read_csv(
-            f"{self.base_dir}reference_data/bespoke_quad_lookup.csv"
-        )
+        data_loader = DataLoader()
+        bespoke_quad_lookup = data_loader.get_full_data(
+            'econ_busyness_mcard_bespoke_quad_lookup')
+        bespoke_quad_lookup["quad_id"] = bespoke_quad_lookup[
+            "quad_id"].astype('Int64')
+        data["quad_id"] = data["quad_id"].astype('Int64')
+        # bespoke_quad_lookup = pd.read_csv(
+        #     f"{self.base_dir}reference_data/bespoke_quad_lookup.csv"
+        # )
         data = (
             bespoke_quad_lookup.merge(
                 data, left_on="quad_id", right_on="quad_id", how="right"
@@ -260,7 +284,8 @@ class McardTransform:
             .groupby(["bespoke_area_id", "name", "count_date", "hours"])
             .aggregate(
                 txn_amt=("txn_amt", lambda x: round(x.sum(), 2)),
-                txn_amt_adj=("txn_amt_adj", lambda x: round(x.sum(), 2))
+                txn_amt_adj=("txn_amt_adj", lambda x: round(x.sum(), 2)),
+                txn_cnt=("txn_cnt", lambda x: round(x.sum(), 2))
             )
             .reset_index()
         )

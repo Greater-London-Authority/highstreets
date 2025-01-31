@@ -14,6 +14,9 @@ from highstreets import config
 
 load_dotenv(find_dotenv())
 
+# Suppress botocore checksum validation logs
+logging.getLogger("botocore.httpchecksum").setLevel(logging.ERROR)
+
 
 class DataWriter:
     def __init__(self):
