@@ -2,9 +2,11 @@ import logging
 import os
 import boto3
 import fsspec
+import psycopg2
 import io
 import geopandas as gpd
 import pandas as pd
+from datetime import date
 from dotenv import find_dotenv, load_dotenv
 from glapy import lds
 from glapy.database.utils import fast_write
@@ -327,6 +329,92 @@ class DataWriter:
                 logging.info(f"Saved {file_name}")
         except Exception as e:
             logging.error(f"An error occurred while writing CSV files: {e}")
+
+    def export_table_by_year_half_to_s3(self, table_name, date_column, s3_base_path,
+                                        file_prefix=None):
+        """
+        Exports data from a PostgreSQL table into half-year partitions
+        as CSV files on S3.
+
+        Parameters:
+        table_name (str): The name of the PostgreSQL table.
+        date_column (str): The column in the table containing the date/timestamp
+        for partitioning.
+        s3_base_path (str): The base S3 path where the CSV files will be written
+        (e.g., "s3://your-bucket/path/to/chunks").
+        file_prefix (str): The prefix to use for CSV filenames (default is None).
+
+        The function:
+        1. Determines the full date range from the table.
+        2. Partitions the data by year and by half-year:
+            - H1: January 1 to June 30
+            - H2: July 1 to December 31
+        3. Uses PostgreSQL's COPY command to stream each partition directly to S3.
+        """
+        # Connect to PostgreSQL using credentials from environment variables.
+        conn = psycopg2.connect(
+            dbname=self.database,
+            host=self.host,
+            user=self.username,
+            password=self.password,
+            port=self.port
+        )
+        cur = conn.cursor()
+
+        # Determine the full date range for the provided date column.
+        query = f"SELECT MIN({date_column}), MAX({date_column}) FROM {table_name};"
+        cur.execute(query)
+        min_date, max_date = cur.fetchone()
+
+        if not min_date or not max_date:
+            raise ValueError("Table is empty or the date column is not populated.")
+
+        start_year = min_date.year
+        end_year = max_date.year
+
+        # Initialize S3 filesystem via fsspec.
+        fs = fsspec.filesystem("s3")
+
+        # Loop over each year in the range.
+        for year in range(start_year, end_year + 1):
+            # Define the two half-year date ranges.
+            h1_start = date(year, 1, 1)
+            h1_end = date(year, 6, 30)
+            h2_start = date(year, 7, 1)
+            h2_end = date(year, 12, 31)
+
+            partitions = [
+                {"label": "H1", "start": h1_start, "end": h1_end},
+                {"label": "H2", "start": h2_start, "end": h2_end},
+            ]
+
+            for part in partitions:
+                # Construct the file name.
+                file_name = f"{file_prefix}_{year}_{part['label']}.csv"
+                s3_file_path = f"{s3_base_path.rstrip('/')}/{file_name}"
+
+                # Build the COPY command query.
+                copy_sql = f"""
+                    COPY (
+                        SELECT *
+                        FROM {table_name}
+                        WHERE {date_column} >= '{part['start']}'
+                        AND {date_column} <= '{part['end']}'
+                    ) TO STDOUT WITH CSV HEADER;
+                """
+
+                logging.info(f"Exporting data for {year} {part['label']}"
+                             f" to {s3_file_path}...")
+
+                # Open the S3 file for writing and stream the data.
+                with fs.open(s3_file_path, 'w') as s3_file:
+                    cur.copy_expert(copy_sql, s3_file)
+
+                logging.info(f"Exported: {file_name}")
+
+        # Clean up the connection.
+        cur.close()
+        conn.close()
 
     def write_to_csv_by_year_half(self, data, output_dir, custom_file_name=None):
         """
