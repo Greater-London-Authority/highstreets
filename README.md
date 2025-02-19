@@ -1,5 +1,5 @@
-<div align="center">
-  <img src="banner.png" alt="London High Streets Banner" width="100%">
+<!-- <div align="center">
+  <img src="banner.png" alt="London High Streets Banner" width="100%"> -->
   
   # London High Streets
   ### Analysis and Modeling of London High Street Profiles
