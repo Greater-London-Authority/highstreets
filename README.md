@@ -1,66 +1,241 @@
-![Banner](<banner.png>)
-<!-- See https://github.com/rmariuzzo/github-banner -->
-
 <div align="center">
-<h1> London High Streets </h1>
-<h4> Analysis and modeling of London high street profiles </h4>
+  <img src="banner.png" alt="London High Streets Banner" width="100%">
+  
+  # London High Streets
+  ### Analysis and Modeling of London High Street Profiles
+  
+  [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+  [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+  [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 </div>
 
-<!-- <a href="#top">""</a> -->
-
----
-
-Author: Conor Dempsey & Tabby Duenger
-
-
-
 <p align="center">
-  <a href="#how-to-use">How To Use</a> •
-  <a href="#roadmap">Roadmap</a> •
-  <a href="#contribute">Contribute</a> •
+  <a href="#overview">Overview</a> •
+  <a href="#key-features">Key Features</a> •
+  <a href="#installation">Installation</a> •
+  <a href="#usage">Usage</a> •
+  <a href="#documentation">Documentation</a> •
+  <a href="#contributing">Contributing</a> •
   <a href="#contact">Contact</a>
 </p>
 
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+## Overview
 
----
+The London High Streets package is a comprehensive Python toolkit for processing, analyzing, and managing footfall and transaction data across London's high streets, town centers, and business improvement districts (BIDs). This project supports evidence-based decision-making for urban planning and economic development in London.
 
-## How To Use
-[(Back to top)](#how-to-use)
+## Key Features
 
-To clone and run you'll need [Git](https://git-scm.com) and [poetry](https://python-poetry.org/docs/master/#installing-with-the-official-installerl) installed.
+🔄 **Data Integration**
+- BT footfall sensor data processing
+- Mastercard transaction data analysis
+- Multi-level geographic data integration
+- Temporal and spatial aggregations
+
+📊 **Analytics & Metrics**
+- Footfall patterns and trends
+- Transaction volume analysis
+- Visitor demographics and behavior
+- Economic performance indicators
+
+🗺️ **Geographic Processing**
+- Hex grid data management (350m/400m)
+- Administrative boundary integration
+- Spatial analysis and mapping
+- GIS data compatibility
+
+🔍 **Quality Assurance**
+- Automated data validation
+- Schema enforcement
+- Outage detection
+- Missing data handling
+
+## Installation
+
+### Prerequisites
+- [Git](https://git-scm.com)
+- [Poetry](https://python-poetry.org/docs/master/#installing-with-the-official-installer)
+- Python 3.8+
+
+### Setup
 
 ```bash
-# Clone this repository (you'll need your GlA github login - your username and a personal access token)
-$ git clone https://github.com/Greater-London-Authority/highstreets
+# Clone the repository
+git clone https://github.com/Greater-London-Authority/highstreets
 
-# Go into the repository
-$ cd highstreets
+# Navigate to project directory
+cd highstreets
 
-# Install dependencies and create the environment for the project
-$ poetry install
+# Install dependencies
+poetry install
 
-# Activate the virtual environment
-$ poetry shell
+# Activate virtual environment
+poetry shell
 ```
 
-A good place to start is notebooks/exploratory which contains Jupyter notebooks that demonstrate the analyses that have been done so far. Note: if you are editing the package files and you want these changes to be automatically registered in any Jupyter notebooks then put following command at the top of your notebook:
+### Environment Configuration
 
+Create a `.env` file with the following credentials:
+```env
+# Database
+POSTGRES_USER=your_username
+POSTGRES_PASSWORD=your_password
+POSTGRES_HOST=your_host
+POSTGRES_DB=your_database
+
+# AWS
+AWS_ACCESS_KEY_ID=your_access_key
+AWS_SECRET_ACCESS_KEY=your_secret_key
+AWS_REGION=your_region
+
+# API Keys
+API_KEY=your_api_key
 ```
-%load_ext autoreload
-%autoreload 2
-```
 
-There are currently two data files needed to run these analyses. The paths to these files should be specified in a .env file in the project's root directory and can be obtained from the shared drives (contact Conor for more info).
+# Highstreets Package
 
-* yoy_highstreets.csv
-* highstreet_profiles_updated.xlsx
+A Python package for processing, analyzing and managing footfall and transaction data for London's high streets, town centers, and business improvement districts (BIDs).
+
+## Core Functionality
+
+### 1. Data Processing & Integration
+
+- Processes footfall data from BT sensors
+- Handles transaction data from Mastercard 
+- Integrates data for:
+  - High streets
+  - Town centers
+  - Business Improvement Districts (BIDs)
+  - Custom/bespoke areas
+  - Inner/Outer London regions
+  - MSOAs (Middle Super Output Areas)
+  - LSOAs (Lower Super Output Areas)
+
+### 2. Data Transformations
+
+- Performs temporal aggregations:
+  - 3-hourly counts
+  - Daily aggregates
+  - Weekly summaries
+- Handles spatial aggregations across different geographic units
+- Applies inflation adjustments to transaction data
+- Calculates year-over-year growth metrics
+
+### 3. Data Quality & Validation
+
+- Schema validation for different data types
+- Data type enforcement and conversion
+- Handling of missing values
+- Date range validation
+- Outage detection and tracking
+
+### 4. Geographic Processing
+
+- Processes hex grid data (350m and 400m grids)
+- Spatial joins with various administrative boundaries
+- Creation and maintenance of geographic lookups
+- Integration with GIS data
+
+### 5. Data Storage & Distribution
+
+- PostgreSQL database integration
+- S3 bucket storage management
+- CSV file generation and management
+- API integration for data retrieval
+- London Datastore integration for public data sharing
+
+## Key Components
+
+### Data Sources
+- BT footfall data
+- Mastercard transaction data
+- Geographic boundary data
+- CPI (Consumer Price Index) data
+
+### Geographic Units
+- High streets
+- Town centers
+- Business Improvement Districts
+- Bespoke areas
+- MSOAs/LSOAs
+- Inner/Outer London
+
+### Metrics
+- Footfall counts
+- Transaction amounts
+- Transaction counts
+- Visitor types (residents, workers, international visitors)
+- Dwell time
+- Loyalty percentages
+
+## Technical Features
+
+### AWS Integration
+- S3 storage management
+- Pipeline automation
+- Data versioning
+
+### Database Management
+- PostgreSQL integration
+- Table creation and maintenance
+- Data append and update operations
+- Change tracking
+
+### API Integration
+- Data retrieval from external APIs
+- OAuth authentication handling
+- Rate limiting and error handling
+
+### Data Export
+- CSV generation
+- London Datastore uploads
+- Custom data formats for partners
+
+## Use Cases
+
+1. Economic Analysis
+   - Retail performance monitoring
+   - Visitor behavior analysis
+   - Economic impact assessment
+
+2. Urban Planning
+   - High street performance tracking
+   - Visitor flow analysis
+   - Area comparison studies
+
+3. Business Intelligence
+   - Footfall trends
+   - Transaction patterns
+   - International visitor tracking
+
+4. Policy Making
+   - Evidence-based decision support
+   - Impact assessment
+   - Performance monitoring
+
+## Dependencies
+
+- pandas
+- geopandas
+- numpy
+- sqlalchemy
+- psycopg2
+- boto3
+- requests
+- fsspec
+
+## Environment Setup
+
+Requires environment variables for:
+- PostgreSQL credentials
+- AWS credentials
+- API authentication
+- File path configurations
 
 
 ## Contribute
 [(Back to top)](#how-to-use)
 
-Contact Conor Dempsey to be added to the repo as a contributor.
+Contact Anupam Bose to be added to the repo as a contributor.
 
 If you are contributing to the repo please use pre-commit using the pre-commit-config.yaml included here.
 
@@ -77,31 +252,7 @@ pre-commit install
 Now when you commit code various linters and other pre-commit checks will be run against your staged changes. All of these tests have to pass sucessfully before the commit will be accepted.
 
 
-<!-- ROADMAP -->
-## Roadmap
-[(Back to top)](#how-to-use)
-
-- [ ] Sense check the lack of correlation between mean/slope and size of highstreet - compare to data Paul shared.
-- [ ] Try classification approaches where the labels are mean/slope groups.
-- [ ] Run MoE models - using a hand-picked gating structure and then using a full MoE setup. Start with mixture of linear models.
-- [ ] Depending on linear MoE results try other more nonlinear approaches - a small NN maybe?
-- [ ] Look at other data that might be included if slope/mean grouping seems difficult to predict. O2 footfall data for example.
-- [ ] Look at models that are less ad-hoc, in the sense that the fit parameters are not treated as a separate set of parameters to be fit and then treated as regression targets.
-- [ ] Quantify/visualise/describe relationship between 2020 and 2021 parameters
-- [ ] Visualise change of parameters from 2020 to 2021. Cluster highstreets based on the direction and magnitude of this change?
-- [ ] Compare the results of our clustering with Amanda's, at a granular level, to see if the results are reasonably well aligned.
-- [ ] Add pipeline to produce yoy data from raw data
-- [x] Make ordered profile plots for 2020, 2021, full period, sorted by mean and fit slope
-- [x] Add scripts to produce figures of all HSs w fits
-- [x] Compare results of different clustering approaches (k-means on full time series, k-means on fit parameters, k-means with DTW, hierarchical clustering)
-- [x] Sample from hierarchical regression models to see what features, if any, can predict differences in recovery profile.
-- [x] Consider different methods for dealing with missing data
-
-## Credit
-
-A very useful primer on Bayesian hierarchical linear regressions can be found [here](https://docs.pymc.io/en/v3/pymc-examples/examples/case_studies/multilevel_modeling.html).
-
 ## Contact
 [(Back to top)](#v)
 
-Conor Dempsey - conor.dempsey@london.gov.uk
+Anupam Bose - anupam.bose@london.gov.uk

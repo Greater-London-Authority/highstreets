@@ -169,18 +169,11 @@ SELECT
 FROM week_data
 GROUP BY tc_id, tc_name, yr, wk, week_start, segment
 ORDER BY yr, wk; """
-# query = """
-#     SELECT main.yr, main.wk, main.industry, main.segment, main.geo_name, main.quad_id, main.txn_amt, main.txn_cnt, main.weekday_weekend, lookup.tc_id, lookup.tc_name
-#     FROM econ_busyness_mcard_raw_18_zoom AS main
-#     JOIN econ_busyness_mcard_towncentres_quad_lookup AS lookup ON main.quad_id = lookup.quad_id
-#     WHERE main.industry = 'Total Retail'
-#       AND main.segment = 'International'
-#       AND main.geo_name = 'London';
-# """
- 
+
 # Load the query result into a DataFrame
 tc_weekly = pd.read_sql_query(query, conn)
-tc_weekly.to_csv(f"{base_dir}mastercard/weekly/processed/mcard_weekly_towncentre_international_txn.csv", index=False)
+tc_weekly.to_csv(f"{base_dir}mastercard/weekly/processed/"
+                 f"mcard_weekly_towncentre_international_txn.csv", index=False)
 
 # SQL Query for fetching required data
 query = """ WITH week_data AS (
