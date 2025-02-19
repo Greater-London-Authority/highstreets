@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+import fsspec
 from datetime import datetime, timedelta
 import requests
 import psycopg2
@@ -508,27 +509,70 @@ class DataLoader:
             return lookup_table
 
     def mcard_3hourly_latest_data_read(self, mcard_source_path):
-        mcard_source_path = (
-            f"{self.base_dir}mastercard/mrli_3hourly/raw"
-        )
+        """Read latest Mastercard 3-hourly transaction data from a directory.
+
+        Scans a directory for CSV files containing Mastercard transaction data,
+        identifies the most recent file based on date ranges in filenames, and loads
+        that data. Files should have names containing date ranges in format
+        YYYYMMDD_YYYYMMDD. The data is validated against an expected schema of
+        transaction metrics.
+
+        Parameters
+        ----------
+        mcard_source_path : str
+            Path to directory containing CSV files. Can be local filesystem path or
+            remote path (s3://, gs://, etc.) supported by fsspec.
+
+        Returns
+        -------
+        pandas.DataFrame
+            DataFrame containing the latest Mastercard transaction data.
+
+        Raises
+        ------
+        DateRangeError
+            If no valid date ranges are found in the filenames.
+        SchemaMismatchError
+            If loaded data does not match expected schema.
+        """
+        """Read latest Mastercard 3-hourly data from any filesystem supported by fsspec
+
+        Args:
+            mcard_source_path: Path to directory containing CSV files
+                             (local, s3://, gs://, etc.)
+        """
         try:
             latest_date_range = None
             latest_filename = None
 
-            for filename in os.listdir(mcard_source_path):
-                if filename.endswith(".csv"):
-                    date_match = re.search(r"(\d{8})_(\d{8})", filename)
-                    if date_match:
-                        (start_date_str, end_date_str) = (
-                            date_match.group(1),
-                            date_match.group(2),
-                        )
-                        start_date = datetime.strptime(start_date_str, "%Y%m%d")
-                        end_date = datetime.strptime(end_date_str, "%Y%m%d")
+            # Get filesystem based on protocol in path
+            fs = fsspec.filesystem(fsspec.utils.get_protocol(mcard_source_path))
 
-                        if not latest_date_range or end_date > latest_date_range[1]:
-                            latest_date_range = (start_date, end_date)
-                            latest_filename = filename
+            # List all files in directory
+            files = fs.glob(f"{mcard_source_path}*.csv")
+
+            for filepath in files:
+                filename = os.path.basename(filepath)
+                # Print filename for debugging
+                self.logger.debug(f"Found file: {filename}")
+
+                # Update regex to handle both date formats
+                date_match = re.search(r"(\d{8})(?:_(\d{8})|$)", filename)
+                if date_match:
+                    start_date_str = date_match.group(1)
+                    # If end date not in filename, use start date
+                    end_date_str = (date_match.group(2) if date_match.group(2)
+                                    else start_date_str)
+                    start_date = datetime.strptime(start_date_str, "%Y%m%d")
+                    end_date = datetime.strptime(end_date_str, "%Y%m%d")
+
+                    # Log dates for debugging
+                    self.logger.debug(f"File {filename}: {start_date} - {end_date}")
+
+                    if not latest_date_range or end_date > latest_date_range[1]:
+                        latest_date_range = (start_date, end_date)
+                        latest_filename = filename
+                        self.logger.debug(f"New latest file: {filename}")
 
             if not latest_date_range:
                 raise DateRangeError("No valid date range found in filenames")
@@ -538,44 +582,30 @@ class DataLoader:
                 f" from {latest_filename}"
             )
 
-            filepath = os.path.join(mcard_source_path, latest_filename)
+            # Read CSV using fsspec
+            with fs.open(os.path.join(mcard_source_path, latest_filename)) as f:
+                df = pd.read_csv(f, sep="|")
 
-            # Load CSV data and validate schema
-            df = pd.read_csv(filepath, sep="|")
+            # Validate schema
             expected_columns = [
-                "yr",
-                "txn_date",
-                "time_slot",
-                "industry",
-                "segment",
-                "geo_type",
-                "geo_name",
-                "quad_id",
-                "central_latitude",
-                "central_longitude",
-                "bounding_box",
-                "txn_amt",
-                "txn_cnt",
-                "acct_cnt",
-                "avg_ticket",
-                "avg_freq",
-                "avg_spend_amt",
-                "yoy_txn_amt",
-                "yoy_txn_cnt",
+                "yr", "txn_date", "time_slot", "industry", "segment",
+                "geo_type", "geo_name", "quad_id", "central_latitude",
+                "central_longitude", "bounding_box", "txn_amt", "txn_cnt",
+                "acct_cnt", "avg_ticket", "avg_freq", "avg_spend_amt",
+                "yoy_txn_amt", "yoy_txn_cnt",
             ]
 
             if list(df.columns) != expected_columns:
                 raise SchemaMismatchError("CSV schema does not match expected columns")
 
-            # Convert 'txn_date' column to datetime and validate date range
+            # Convert and validate dates
             df["txn_date"] = pd.to_datetime(df["txn_date"])
             date_mask = (df["txn_date"] < latest_date_range[0]) | (
                 df["txn_date"] > latest_date_range[1]
             )
             if date_mask.any():
                 raise DateRangeError(
-                    "CSV data contains dates outside the specified range"
-                )
+                    "CSV data contains dates outside the specified range")
 
             return df
 

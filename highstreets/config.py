@@ -38,9 +38,9 @@ SP_FILEPATH_PROCESSED = (f"{BASE_DIR}mastercard/spendingpulse/"
                          f"SpendingPulse - London - 2018-2024.csv")
 MCARD_ADJ_PATH = (f"{BASE_DIR}mastercard/spendingpulse/mcard_adjustment_factor.csv")
 MCARD_ADJ_PATH1 = (f"{BASE_DIR}reference_data/mcard_adjustment_factor.csv")
-ADJUSTMENT_FACTOR_DIR = ("Z:/HSDS/data/mastercard/spendingpulse/"
+ADJUSTMENT_FACTOR_DIR = (f"{BASE_DIR}mastercard/spendingpulse/"
                          "mcard_adjustment_factor.csv")
-INNER_OUTER_QUAD_DIR = ("Z:/HSDS/data/mastercard/spendingpulse/"
+INNER_OUTER_QUAD_DIR = (f"{BASE_DIR}mastercard/spendingpulse/"
                         "Inner_outer_quad_lookup.csv")
 SECTORS_DF = pd.DataFrame({'spending_pulse': [
                            'Total Retail (excl. Auto)', 'Apparel', 'Restaurants'],

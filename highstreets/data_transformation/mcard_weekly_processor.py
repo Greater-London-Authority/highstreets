@@ -287,6 +287,10 @@ class FileProcessor:
         most_recent_file = self.get_most_recent_file(
             self.spending_pulse_filepath_raw, fs)
         # Read in new data and format date columns
+        # Add s3:// prefix if using S3 filesystem
+        if self.spending_pulse_filepath_raw.startswith('s3://'):
+            most_recent_file = f"s3://{most_recent_file}"
+
         new_sp = pd.read_csv(most_recent_file)
         new_sp['startDate'] = pd.to_datetime(new_sp['startDate'], dayfirst=True)
         # new_sp['startDate'] = pd.to_datetime(new_sp['startDate'],format='%m/%d/%Y')
@@ -407,7 +411,6 @@ class FileProcessor:
             df with additional rolling average column
 
         """
-        logging.info('Calculating rolling average for the columns')
         df = df.sort_values(by=['yr', 'month'])
 
         if centered:

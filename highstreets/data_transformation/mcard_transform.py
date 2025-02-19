@@ -131,9 +131,14 @@ class McardTransform:
         --------
         Dataframe with additional adjusted spend column (e.g. txn_amt_adj)
         '''
-
+        data_loader = DataLoader()
+        # adjustment_factor = data_loader.get_full_data(
+        # "econ_busyness_mcard_adjustment_factor")
+        inner_outer_quad = data_loader.get_full_data(
+            "econ_busyness_mcard_Inner_Outer_quad_lookup")
+        inner_outer_quad["quad_id"] = inner_outer_quad["quad_id"].astype('Int64')
         adjustment_factor = pd.read_csv(self.adjustment_factor_dir)
-        inner_outer_quad = pd.read_csv(self.inner_outer_quad_dir)
+        # inner_outer_quad = pd.read_csv(self.inner_outer_quad_dir)
         # where a quad is assigned both Inner and Outer - keep Outer
         inner_outer_quad = inner_outer_quad.sort_values(
             by='inner_outer').drop_duplicates(subset='quad_id', keep='last')
