@@ -91,6 +91,16 @@ data_writer.upload_data_to_lds(
 
 data_writer.upload_data_to_lds(
     slug="spend-mastercard-retail-index-3-hourly",
+    resource_title="MRLI_3yr_compressed_2025.csv",
+    file_path=(
+        f"{base_dir}"
+        f"mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/"
+        f"MRLI_3yr_compressed_2025.csv"
+    ),
+)
+
+data_writer.upload_data_to_lds(
+    slug="spend-mastercard-retail-index-3-hourly",
     resource_title="MRLI_3yr_compressed_adj_2022.csv",
     file_path=(
         f"{base_dir}"
@@ -116,6 +126,16 @@ data_writer.upload_data_to_lds(
         f"{base_dir}"
         f"mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/"
         f"MRLI_3yr_compressed_adj_2024.csv"
+    ),
+)
+
+data_writer.upload_data_to_lds(
+    slug="spend-mastercard-retail-index-3-hourly",
+    resource_title="MRLI_3yr_compressed_adj_2025.csv",
+    file_path=(
+        f"{base_dir}"
+        f"mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/"
+        f"MRLI_3yr_compressed_adj_2025.csv"
     ),
 )
 
@@ -208,8 +228,8 @@ data_writer.upload_data_to_lds(
     resource_title="Mastercard_3hourly_2022.csv",
     file_path=(
         f"{base_dir}"
-        f"mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/"
-        f"MRLI_3yr_compressed_adj_2022.csv"
+        f"mastercard/mrli_3hourly/processed/"
+        f"MRLI_3yr_compressed/MRLI_3yr_compressed_adj_2022.csv"
     ),
 )
 
@@ -270,10 +290,7 @@ data_writer.upload_data_to_lds(
 fitzrovia_ids = [21, 77]
 knightsbridge_ids = [64, 69]
 
-BIDS_quad_lookup = pd.read_csv(
-    f"{base_dir}"
-    "reference_data/BIDS_quad_lookup.csv"
-)
+BIDS_quad_lookup = data_loader.get_full_data("econ_busyness_mcard_BIDs_quad_lookup")
 
 fitzrovia_mrli = spend_adj_full_range.merge(
     BIDS_quad_lookup[BIDS_quad_lookup["bid_id"].isin(fitzrovia_ids)],
@@ -335,150 +352,8 @@ data_writer.upload_data_to_lds(
     df=knightsbridge_mrli[columns_mrli_bid],
     file_path=(
         f"{base_dir}"
-        "/mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/knightsbridge/"
+        "mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/knightsbridge/"
         "Knightsbridge_mcard_quad_3hourly_txn.csv"
-    ),
-)
-
-# sublicense - rendle intel harrow
-rendl_intel_harrow_ids = [31]
-
-rendl_intel_harrow_mrli = spend_adj_full_range.merge(
-    BIDS_quad_lookup[BIDS_quad_lookup["bid_id"].isin(rendl_intel_harrow_ids)],
-    left_on="quad_id",
-    right_on="quad_id",
-    how="right",
-)
-
-rendl_intel_harrow_mrli[columns_mrli_bid].assign(hours=lambda x: "'" + x["hours"])[
-    columns_mrli_bid
-].to_csv(
-    f"{base_dir}"
-    "mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/rendle_intel_harrow/"
-    "rendle_intel_mcard_quad_3hourly_txn.csv",
-    index=False,
-)
-
-# Offloading rendle intel harrow data to datastore
-data_writer.upload_data_to_lds(
-    slug="rendle-intelligence-for-harrow-bid",
-    resource_title="rendle_intel_mcard_quad_3hourly_txn.csv",
-    file_path=(
-        f"{base_dir}"
-        "mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/rendle_intel_harrow/"
-        "rendle_intel_mcard_quad_3hourly_txn.csv"
-    ),
-)
-
-# filtering rendle intel harrow sublicense bids footfall data and writing it to csv
-mrli_bid_full_range[
-    mrli_bid_full_range["bid_id"].isin(rendl_intel_harrow_ids)
-].assign(hours=lambda x: "'" + x["hours"]).to_csv(
-    f"{base_dir}"
-    "mastercard/mrli_3hourly/processed/bid/"
-    "rendle_intel_harrow/"
-    "rendle_intel_bid_mcard_3hourly_txn.csv",
-    index=False,
-)
-# Offloading rendle intel harrow 3hourly txn data to datastore
-data_writer.upload_data_to_lds(
-    slug="rendle-intelligence-for-harrow-bid",
-    resource_title="rendle_intel_bid_mcard_3hourly_txn.csv",
-    file_path=(
-        f"{base_dir}"
-        "mastercard/mrli_3hourly/processed/bid/"
-        "rendle_intel_harrow/"
-        "rendle_intel_bid_mcard_3hourly_txn.csv"
-    ),
-)
-
-# Sublicenses - South Bank (quads - full range)
-
-southbank_ids = [35]
-
-southbank_mrli = spend_adj_full_range.merge(
-    BIDS_quad_lookup[BIDS_quad_lookup["bid_id"].isin(southbank_ids)],
-    left_on="quad_id",
-    right_on="quad_id",
-    how="right",
-)
-southbank_mrli = southbank_mrli[southbank_mrli['ldn_ref'].notna()]
-
-southbank_mrli[columns_mrli_bid].assign(hours=lambda x: "'" + x["hours"])[
-    columns_mrli_bid
-].to_csv(
-    f"{base_dir}"
-    "mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/southbank/"
-    "southbank_mcard_quad_3hourly_txn.csv",
-    index=False,
-)
-
-# Offloading southbank quad 3hourly txn data to datastore
-data_writer.upload_data_to_lds(
-    slug="-rendle-intelligence-for-southbank-bid",
-    resource_title="southbank_mcard_quad_3hourly_txn.csv",
-    df=southbank_mrli[columns_mrli_bid],
-    file_path=(
-        f"{base_dir}"
-        "mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/southbank/"
-        "southbank_mcard_quad_3hourly_txn.csv"
-    ),
-)
-# sub-licensing agreement for south bank - holba all sites
-
-southbank_holba_ids = [197]
-
-# filtering all holba site footfall data and writing it to csv
-mrli_bespoke_full_range[
-    mrli_bespoke_full_range["bespoke_area_id"].isin(southbank_holba_ids)
-].assign(hours=lambda x: "'" + x["hours"]).to_csv(
-    f"{base_dir}"
-    "mastercard/mrli_3hourly/processed/bespoke/"
-    "southbank/"
-    "southbank_holba_mcard_3hourly_txn.csv",
-    index=False,
-)
-# Offloading south bank Holba all Site 3hourly txn data to datastore
-data_writer.upload_data_to_lds(
-    slug="-rendle-intelligence-for-southbank-bid",
-    resource_title="southbank_holba_mcard_3hourly_txn.csv",
-    df=mrli_bespoke_full_range[
-        mrli_bespoke_full_range["bespoke_area_id"].isin(southbank_holba_ids)
-    ],
-    file_path=(
-        f"{base_dir}"
-        "mastercard/mrli_3hourly/processed/bespoke/"
-        "southbank/"
-        "southbank_holba_mcard_3hourly_txn.csv"
-    ),
-)
-
-# sub-licensing agreement for south bank - bids
-
-southbank_bid_ids = [35, 23, 16, 24]
-
-# filtering southbank sublicense bids footfall data and writing it to csv
-mrli_bid_full_range[
-    mrli_bid_full_range["bid_id"].isin(southbank_bid_ids)
-].assign(hours=lambda x: "'" + x["hours"]).to_csv(
-    f"{base_dir}"
-    "mastercard/mrli_3hourly/processed/bid/"
-    "southbank/"
-    "southbank_bids_mcard_3hourly_txn.csv",
-    index=False,
-)
-# Offloading southbank sublicense bids 3hourly txn data to datastore
-data_writer.upload_data_to_lds(
-    slug="-rendle-intelligence-for-southbank-bid",
-    resource_title="southbank_bids_mcard_3hourly_txn.csv",
-    df=mrli_bid_full_range[
-        mrli_bid_full_range["bid_id"].isin(southbank_bid_ids)
-    ],
-    file_path=(
-        f"{base_dir}"
-        "mastercard/mrli_3hourly/processed/bid/"
-        "southbank/"
-        "southbank_bids_mcard_3hourly_txn.csv"
     ),
 )
 
@@ -522,6 +397,9 @@ aveson_young_tc_ids = [23, 33, 29, 37, 28, 46, 31]
 # )
 TownCentres_quad_lookup = data_loader.get_full_data(
     "econ_busyness_mcard_TownCentres_quad_lookup")
+TownCentres_quad_lookup['tc_id'] = TownCentres_quad_lookup['tc_id'].astype('Int64')
+TownCentres_quad_lookup['quad_id'] = TownCentres_quad_lookup['quad_id'].astype('Int64')
+
 aveson_young_tc = spend_adj_full_range.merge(
     TownCentres_quad_lookup[TownCentres_quad_lookup["tc_id"].isin(aveson_young_tc_ids)],
     left_on="quad_id",
@@ -564,6 +442,9 @@ aveson_young_bespoke_ids = [249]
 
 bespoke_quad_lookup = data_loader.get_full_data(
     "econ_busyness_mcard_bespoke_quad_lookup")
+bespoke_quad_lookup['quad_id'] = bespoke_quad_lookup['quad_id'].astype('Int64')
+bespoke_quad_lookup['bespoke_area_id'] = bespoke_quad_lookup[
+    'bespoke_area_id'].astype('Int64')
 # bespoke_quad_lookup = pd.read_csv(
 #     f"{base_dir}"
 #     "reference_data/bespoke_quad_lookup.csv"

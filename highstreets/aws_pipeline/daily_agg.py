@@ -45,14 +45,6 @@ data_writer.write_hex_to_csv_by_year(
     custom_file_name="BT_daily_agg_counts",
 )
 
-# sublicense - southbank BID
-data_daily_full_range[
-    (data_daily_full_range['poi_type'] == 'bids') & (
-        data_daily_full_range['poi_name'] == 'South Bank BID')].to_csv(
-    f"{base_dir}bt/processed/daily/southbank/southbank_bt_daily_agg_counts.csv",
-    index=False
-)
-
 # sublicense - colliers
 data_daily_full_range[(data_daily_full_range['poi_type'] == 'bids') & (
     data_daily_full_range['poi_name'] == 'Heart of London')].to_csv(
@@ -68,17 +60,6 @@ data_writer.upload_data_to_lds(
         f"{base_dir}"
         f"bt/processed/daily/"
         f"Colliers agreement - Holba sites/colliers_bt_daily_agg_counts.csv"
-    ),
-)
-
-# offloading to London datastore
-data_writer.upload_data_to_lds(
-    slug="-rendle-intelligence-for-southbank-bid",
-    custom_date_column="count_date",
-    resource_title="southbank_bt_daily_agg_counts.csv",
-    file_path=(
-        f"{base_dir}"
-        "bt/processed/daily/southbank/southbank_bt_daily_agg_counts.csv"
     ),
 )
 

@@ -428,58 +428,6 @@ data_writer.upload_data_to_lds(
     ),
 )
 
-# South bank sublicense - HOLBA - All Sites
-# South Bank
-southbank_holba_ids = [197]
-# filtering south bank sublicense footfall data and writing it to csv
-bespoke_full_range[bespoke_full_range["bespoke_area_id"].isin(
-    southbank_holba_ids)].assign(hours=lambda x: "'" + x["hours"]).to_csv(
-    f"{base_dir}"
-    "bt/processed/bespoke/"
-    "southbank/southbank_holba_bt_footfall_3hourly_counts.csv",
-    index=False,
-)
-
-# South Bank
-southbank_ids = [35, 23, 16, 24]
-# filtering south bank sublicense bids footfall data and writing it to csv
-bid_full_range[
-    bid_full_range["bid_id"].isin(southbank_ids)
-    & pd.to_datetime(bid_full_range["count_date"], errors='coerce').notna()
-].assign(count_date=lambda x: pd.to_datetime(x["count_date"]),
-         hours=lambda x: "'" + x["hours"]).to_csv(
-    f"{base_dir}"
-    "bt/processed/bid/"
-    "southbank/southbank_bids_bt_footfall_3hourly_counts.csv",
-    index=False,
-)
-
-# Offloading south bank - all holba sites data to datastore
-data_writer.upload_data_to_lds(
-    slug="-rendle-intelligence-for-southbank-bid",
-    resource_title="southbank_holba_bt_footfall_3hourly_counts.csv",
-    df=bespoke_full_range[bespoke_full_range["bespoke_area_id"].isin(
-        southbank_holba_ids)],
-    file_path=(
-        f"{base_dir}"
-        "bt/processed/bespoke/"
-        "southbank/"
-        "southbank_holba_bt_footfall_3hourly_counts.csv"
-    ),
-)
-
-# Offloading south bank sublicense bid data to datastore
-data_writer.upload_data_to_lds(
-    slug="-rendle-intelligence-for-southbank-bid",
-    resource_title="southbank_bids_bt_footfall_3hourly_counts.csv",
-    file_path=(
-        f"{base_dir}"
-        "bt/processed/bid/"
-        "southbank/"
-        "southbank_bids_bt_footfall_3hourly_counts.csv"
-    ),
-)
-
 # sublicnese - aveson young
 
 
@@ -658,16 +606,6 @@ southbank_hex.assign(hours=lambda x: "'" + x["time_indicator"])[columns_hex_bid]
 # Offloading Southbank bid 3hourly hex counts data to southbank datastore page
 data_writer.upload_data_to_lds(
     slug="southbank-centre",
-    resource_title="Southbank_bt_hex_3hourly_counts.csv",
-    df=southbank_hex,
-    file_path=(
-        f"{base_dir}"
-        "bt/processed/hex_grid/southbank/Southbank_bt_hex_3hourly_counts.csv"
-    ),
-)
-
-data_writer.upload_data_to_lds(
-    slug="-rendle-intelligence-for-southbank-bid",
     resource_title="Southbank_bt_hex_3hourly_counts.csv",
     df=southbank_hex,
     file_path=(

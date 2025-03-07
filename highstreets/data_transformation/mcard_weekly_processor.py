@@ -686,6 +686,10 @@ class FileProcessor:
 
         df_clean = df_raw.drop(
             columns=["file_name", "central_latitude", "central_longitude"])
+        # Complete missing combinations and fill with zeros
+        df_clean = df_clean.set_index(
+            ["yr", "wk", "industry", "quad_id", "weekday_weekend"]).unstack(
+                fill_value=0).stack().reset_index()
         df_clean['yr'] = df_clean['yr'].astype('Int64')
         df_clean['wk'] = df_clean['wk'].astype('Int64')
         df_clean = df_clean.merge(dates, on=["yr", "wk", "weekday_weekend"], how="inner")

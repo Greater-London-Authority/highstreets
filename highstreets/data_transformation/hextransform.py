@@ -2,8 +2,12 @@ import logging
 
 import numpy as np
 import pandas as pd
+from sqlalchemy import text
+from datetime import datetime
 
 from highstreets import config
+from highstreets.core.sql_manager import SQLManager
+from highstreets.core.logger import setup_logger
 from highstreets.data_source_sink.dataloader import DataLoader
 
 
@@ -21,6 +25,9 @@ class HexTransform(DataLoader):
         """
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.INFO)
+        super().__init__()
+        self.sql_manager = SQLManager()
+        self.logger = setup_logger(__name__)
         self.logger.addHandler(logging.StreamHandler())
         self.base_dir = config.BASE_DIR
 
@@ -590,3 +597,96 @@ class HexTransform(DataLoader):
         transformed_data = transformed_data.astype(column_types)
         transformed_data = transformed_data.rename(columns={"time_indicator": "hours"})
         return transformed_data
+
+    def fetch_and_transform_hex_data(
+        self,
+        transform_layer: str,
+        table_name: str,
+        truncate: bool = False,
+        load_to_db: bool = True
+    ) -> None:
+        """
+        Transform and load hex data using highly optimized bulk insert.
+
+        Args:
+            transform_layer: Name of the transformation query file
+            table_name: Target table name to load data into
+            truncate: Whether to truncate the target table first
+            load_to_db: Whether to execute the load
+        """
+        try:
+            # Get transformation query
+            transform_query = self.sql_manager.get_query(transform_layer)
+
+            if load_to_db:
+                # Construct the loading query with maximum performance optimizations
+                load_query = f"""
+                -- Start transaction
+                BEGIN;
+
+                -- Maximize performance settings
+                SET LOCAL maintenance_work_mem = '2GB';
+                SET LOCAL work_mem = '1GB';
+                SET LOCAL temp_buffers = '1GB';
+                SET LOCAL synchronous_commit = OFF;
+                SET LOCAL join_collapse_limit = 8;
+                SET LOCAL from_collapse_limit = 8;
+
+                -- Disable autovacuum during load
+                ALTER TABLE {table_name} SET (autovacuum_enabled = false);
+
+                -- Truncate if requested
+                {f'TRUNCATE TABLE {table_name};' if truncate else ''}
+
+                -- Create unlogged temp table with transformed data
+                CREATE UNLOGGED TABLE temp_transformed AS
+                {transform_query};
+
+                -- Create index on temp table for faster joining
+                CREATE INDEX ON temp_transformed (count_date, hours);
+
+                -- Bulk insert from temp table
+                INSERT INTO {table_name}
+                SELECT * FROM temp_transformed;
+
+                -- Cleanup
+                DROP TABLE temp_transformed;
+
+                -- Reset table settings and analyze
+                ALTER TABLE {table_name} SET (autovacuum_enabled = true);
+                ANALYZE {table_name};
+
+                -- Commit transaction
+                COMMIT;
+                """
+
+                with self.engine.connect().execution_options(
+                    isolation_level="AUTOCOMMIT"
+                ) as connection:
+                    start_time = datetime.now()
+                    connection.execute(text(load_query))
+
+                    # Log load statistics
+                    stats = connection.execute(text(f"""
+                        SELECT
+                            COUNT(*) as row_count,
+                            MIN(count_date)::DATE as min_date,
+                            MAX(count_date)::DATE as max_date
+                        FROM {table_name}
+                    """)).fetchone()
+
+                    end_time = datetime.now()
+                    duration = (end_time - start_time).total_seconds()
+                    rows_per_second = stats.row_count / duration if duration > 0 else 0
+
+                    self.logger.info(
+                        f"Successfully loaded {stats.row_count:,}"
+                        f" rows into {table_name}\n"
+                        f"Date range: {stats.min_date} to {stats.max_date}\n"
+                        f"Duration: {duration:.2f} seconds\n"
+                        f"Performance: {rows_per_second:,.0f} rows/second"
+                    )
+
+        except Exception as e:
+            self.logger.error(f"Error in fetch_and_transform_hex_data: {str(e)}")
+            raise

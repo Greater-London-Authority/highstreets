@@ -330,6 +330,93 @@ class DataWriter:
         except Exception as e:
             logging.error(f"An error occurred while writing CSV files: {e}")
 
+    def export_table_by_year_to_s3(self, table_name, date_column, s3_base_path,
+                                   file_prefix=None, latest=False):
+        """
+        Exports data from a PostgreSQL table into yearly partitions as CSV files on S3.
+
+        Parameters:
+        table_name (str): The name of the PostgreSQL table.
+        date_column (str): The column in the table containing the date/timestamp for
+        partitioning.
+        s3_base_path (str): The base S3 path where the CSV files will be written
+                            (e.g., "s3://your-bucket/path/to/chunks").
+        file_prefix (str): The prefix to use for CSV filenames (default is
+        "hex_3hourly_counts").
+        latest (bool): If True, only exports the latest year's data. Default is False.
+
+        The function:
+        1. Determines the full date range from the table.
+        2. Partitions the data by year (or just latest year if latest=True).
+        3. Uses PostgreSQL's COPY command to stream each partition directly to S3.
+        """
+        try:
+            # Set default file prefix if none provided
+            if file_prefix is None:
+                file_prefix = "hex_3hourly_counts"
+
+            # Connect to PostgreSQL using credentials from environment variables
+            conn = psycopg2.connect(
+                dbname=self.database,
+                host=self.host,
+                user=self.username,
+                password=self.password,
+                port=self.port
+            )
+            cur = conn.cursor()
+
+            # Determine the full date range for the provided date column
+            query = f"SELECT MIN({date_column}), MAX({date_column}) FROM {table_name};"
+            cur.execute(query)
+            min_date, max_date = cur.fetchone()
+
+            if not min_date or not max_date:
+                raise ValueError("Table is empty or the date column is not populated.")
+
+            start_year = max_date.year if latest else min_date.year
+            end_year = max_date.year
+
+            # Initialize S3 filesystem via fsspec
+            fs = fsspec.filesystem("s3")
+
+            # Loop over each year in the range
+            for year in range(start_year, end_year + 1):
+                # Construct the file name
+                file_name = f"{file_prefix}_{year}.csv"
+                s3_file_path = f"{s3_base_path.rstrip('/')}/{file_name}"
+
+                # Build the COPY command query with optimized date filtering
+                copy_sql = f"""
+                    COPY (
+                        SELECT *
+                        FROM {table_name}
+                        WHERE {date_column} >= '{year}-01-01'::date
+                        AND {date_column} < '{year+1}-01-01'::date
+                        ORDER BY {date_column}
+                    ) TO STDOUT WITH CSV HEADER;
+                """
+
+                logging.info(f"Exporting data for year {year} to {s3_file_path}...")
+
+                try:
+                    # Open the S3 file for writing and stream the data
+                    with fs.open(s3_file_path, 'w') as s3_file:
+                        cur.copy_expert(copy_sql, s3_file)
+                    logging.info(f"Successfully exported: {file_name}")
+                except Exception as e:
+                    logging.error(f"Error exporting {file_name}: {str(e)}")
+                    continue
+
+        except Exception as e:
+            logging.error(f"Error in export_table_by_year_to_s3: {str(e)}")
+        finally:
+            # Clean up the connection
+            if 'cur' in locals():
+                cur.close()
+            if 'conn' in locals():
+                conn.close()
+            logging.info("Database connection closed")
+
     def export_table_by_year_half_to_s3(self, table_name, date_column, s3_base_path,
                                         file_prefix=None):
         """
@@ -757,3 +844,69 @@ class DataWriter:
                 f"Failed to upload data to LDS for resource '"
                 f"{resource_title}: {str(e)}"
             )
+
+    def export_table_to_s3(self, table_name: str, s3_base_path: str, file_prefix: str):
+        """
+        Exports entire data from a PostgreSQL table as a single CSV file to S3.
+
+        Parameters:
+        table_name (str): The name of the PostgreSQL table.
+        s3_base_path (str): The base S3 path where the CSV file will be written
+                            (e.g., "s3://your-bucket/path/to/data").
+        file_prefix (str): The prefix to use for CSV filename.
+
+        Example:
+        export_table_to_s3("my_table", "s3://bucket/folder", "my_data")
+        -> Creates: s3://bucket/folder/my_data.csv
+        """
+        try:
+            # Construct the file name
+            file_name = f"{file_prefix}.csv"
+            s3_file_path = f"{s3_base_path.rstrip('/')}/{file_name}"
+
+            # Connect to PostgreSQL
+            conn = psycopg2.connect(
+                dbname=self.database,
+                host=self.host,
+                user=self.username,
+                password=self.password,
+                port=self.port
+            )
+            cur = conn.cursor()
+
+            logging.info(f"Exporting data to {s3_file_path}...")
+
+            # Build the COPY command query
+            copy_sql = f"""
+                COPY (
+                    SELECT *
+                    FROM {table_name}
+                    ORDER BY 1
+                ) TO STDOUT WITH CSV HEADER;
+            """
+
+            try:
+                # Initialize S3 filesystem via fsspec
+                fs = fsspec.filesystem("s3")
+
+                # Open the S3 file for writing and stream the data
+                with fs.open(s3_file_path, 'w') as s3_file:
+                    cur.copy_expert(copy_sql, s3_file)
+
+                logging.info(f"Successfully exported data to: {s3_file_path}")
+
+            except Exception as e:
+                logging.error(f"Error exporting to {s3_file_path}: {str(e)}")
+                raise
+
+        except Exception as e:
+            logging.error(f"Error in export_table_to_s3: {str(e)}")
+            raise
+
+        finally:
+            # Clean up the database connection
+            if 'cur' in locals():
+                cur.close()
+            if 'conn' in locals():
+                conn.close()
+            logging.info("Database connection closed")
