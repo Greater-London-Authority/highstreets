@@ -253,6 +253,16 @@ data_writer.upload_data_to_lds(
     ),
 )
 
+data_writer.upload_data_to_lds(
+    slug="westminster-university",
+    resource_title="Mastercard_3hourly_2025.csv",
+    file_path=(
+        f"{base_dir}"
+        f"mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/"
+        f"MRLI_3yr_compressed_adj_2025.csv"
+    ),
+)
+
 
 # sub-licensing agreement for colliers
 # process HSDS data for the HOLBA sites

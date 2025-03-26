@@ -673,9 +673,10 @@ class FileProcessor:
         dates['wk'] = dates['wk'].astype('Int64')
         dates['week_start'] = dates.apply(lambda row: self.data_loader.get_week_start(
             row['yr'], row['wk']), axis=1)
-
-        locs = df_raw[
-            ["quad_id", "central_latitude", "central_longitude"]].drop_duplicates()
+        locs = self.data_loader.get_full_data(
+            'econ_busyness_mcard_quad_coordinates_lookup')
+        # locs = df_raw[
+        #     ["quad_id", "central_latitude", "central_longitude"]].drop_duplicates()
 
         files = df_raw["file_name"].unique()
         if any("12Apr2021_18Apr2021" in file for file in files):

@@ -11,7 +11,7 @@ WITH combined_data AS (
         worker,
         ave_loyalty_percentage,
         ave_dwell_time
-    FROM aws_econ_busyness_bt_highstreets_3hourly_counts
+    FROM econ_busyness_bt_highstreets_3hourly_counts
 
     UNION ALL
 
@@ -27,7 +27,7 @@ WITH combined_data AS (
         worker,
         ave_loyalty_percentage,
         ave_dwell_time
-    FROM aws_econ_busyness_bt_towncentres_3hourly_counts
+    FROM econ_busyness_bt_towncentres_3hourly_counts
 
     UNION ALL
 
@@ -43,7 +43,7 @@ WITH combined_data AS (
         worker,
         ave_loyalty_percentage,
         ave_dwell_time
-    FROM aws_econ_busyness_bt_bids_3hourly_counts
+    FROM econ_busyness_bt_bids_3hourly_counts
 
     UNION ALL
 
@@ -59,7 +59,7 @@ WITH combined_data AS (
         worker,
         ave_loyalty_percentage,
         ave_dwell_time
-    FROM aws_econ_busyness_bt_bespokes_3hourly_counts
+    FROM econ_busyness_bt_bespokes_3hourly_counts
 )
 SELECT 
     count_date,
