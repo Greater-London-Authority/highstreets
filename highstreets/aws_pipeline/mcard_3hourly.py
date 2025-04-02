@@ -301,6 +301,8 @@ fitzrovia_ids = [21, 77]
 knightsbridge_ids = [64, 69]
 
 BIDS_quad_lookup = data_loader.get_full_data("econ_busyness_mcard_BIDs_quad_lookup")
+BIDS_quad_lookup['bid_id'] = BIDS_quad_lookup['bid_id'].astype('Int64')
+BIDS_quad_lookup['quad_id'] = BIDS_quad_lookup['quad_id'].astype('Int64')
 
 fitzrovia_mrli = spend_adj_full_range.merge(
     BIDS_quad_lookup[BIDS_quad_lookup["bid_id"].isin(fitzrovia_ids)],

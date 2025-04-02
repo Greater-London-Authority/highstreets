@@ -12,6 +12,7 @@ from sqlalchemy import create_engine, text
 from highstreets.data_transformation.mcard_transform import McardTransform
 from glob import glob
 import logging
+from itertools import product
 
 
 class FileProcessor:
@@ -646,12 +647,12 @@ class FileProcessor:
 
         if clean_table_name in recent_dates:
             last_yr, last_wk = recent_dates[clean_table_name]
-            logging.info(f"Existing data found in {clean_table_name}."
-                         f" Processing raw data from year {last_yr}, week {last_wk}.")
+            print(f"Existing data found in {clean_table_name}."
+                  f" Processing raw data from year {last_yr}, week {last_wk}.")
         else:
             last_yr, last_wk = None, None
-            logging.info(f"No existing data in {clean_table_name}."
-                         f" Processing all raw data.")
+            print(f"No existing data in {clean_table_name}."
+                  f" Processing all raw data.")
 
         # Retrieve raw data
         df_raw = self.data_loader.query_mcard_raw_since(
@@ -663,21 +664,38 @@ class FileProcessor:
             geo_name) if last_yr else self.data_loader.query_mcard_weekly_raw(zoom, cols)
 
         if df_raw.empty:
-            logging.info(f"Most recent data already exists in {clean_table_name}."
-                         f" No new data to process.")
+            print(f"Most recent data already exists in {clean_table_name}."
+                  f" No new data to process.")
             return
+
+        # First, let's check the raw counts before any processing
+        raw_counts = df_raw[df_raw['txn_amt'] != 0].groupby('industry').size()
+        print("Original raw counts per industry:")
+        print(raw_counts)
 
         # Clean the data
         dates = df_raw[["yr", "wk", "weekday_weekend"]].drop_duplicates()
-        dates['yr'] = dates['yr'].astype('Int64')
-        dates['wk'] = dates['wk'].astype('Int64')
+        dates['yr'] = dates['yr'].astype(int)
+        dates['wk'] = dates['wk'].astype(int)
         dates['week_start'] = dates.apply(lambda row: self.data_loader.get_week_start(
             row['yr'], row['wk']), axis=1)
+
+        # Get all quads from both the lookup table AND the raw data
         locs = self.data_loader.get_full_data(
             'econ_busyness_mcard_quad_coordinates_lookup')
-        # locs = df_raw[
-        #     ["quad_id", "central_latitude", "central_longitude"]].drop_duplicates()
+        lookup_quads = set(locs["quad_id"].unique())
+        raw_quads = set(df_raw["quad_id"].unique())
 
+        # Check if there are quads in raw data but not in lookup
+        missing_quads = raw_quads - lookup_quads
+        if missing_quads:
+            print(f"WARNING: Found {len(missing_quads)} quad_ids in raw"
+                  f" data that don't exist in lookup table")
+
+        # Use ALL quads from both sources
+        all_quads = list(lookup_quads.union(raw_quads))
+
+        # Apply your specific data filters
         files = df_raw["file_name"].unique()
         if any("12Apr2021_18Apr2021" in file for file in files):
             df_raw = df_raw[~((df_raw["yr"] == 2021) & (df_raw["wk"] == 15) & df_raw[
@@ -685,21 +703,105 @@ class FileProcessor:
         df_raw = df_raw[~((df_raw["yr"] == 2020) & (df_raw["wk"] == 49) & df_raw[
             "file_name"].str.contains("Nov"))]
 
+        # After filtering, check counts again
+        filtered_counts = df_raw[df_raw['txn_amt'] != 0].groupby('industry').size()
+        print("Counts after filtering:")
+        print(filtered_counts)
+
+        # Get all unique values for other dimensions
+        all_years = df_raw["yr"].unique()
+        all_weeks = df_raw["wk"].unique()
+        all_industries = df_raw["industry"].unique()
+        all_weekday_weekend = df_raw["weekday_weekend"].unique()
+
+        print(f"Creating complete grid with"
+              f" {len(all_years)} years × {len(all_weeks)} weeks × "
+              f"{len(all_industries)} industries × {len(all_quads)} quads × "
+              f"{len(all_weekday_weekend)} weekday/weekend options")
+
+        # Complete missing combinations and fill with zeros
         df_clean = df_raw.drop(
             columns=["file_name", "central_latitude", "central_longitude"])
-        # Complete missing combinations and fill with zeros
-        df_clean = df_clean.set_index(
-            ["yr", "wk", "industry", "quad_id", "weekday_weekend"]).unstack(
-                fill_value=0).stack().reset_index()
-        df_clean['yr'] = df_clean['yr'].astype('Int64')
-        df_clean['wk'] = df_clean['wk'].astype('Int64')
-        df_clean = df_clean.merge(dates, on=["yr", "wk", "weekday_weekend"], how="inner")
-        df_clean = df_clean.merge(locs, on="quad_id", how="left")
 
-        logging.info("Data cleaned successfully.")
+        # Create a complete cartesian product of all dimension combinations
+        batch_size = 10000  # Adjust based on memory constraints
+        complete_dfs = []
+
+        quad_batches = [
+            all_quads[i:i + batch_size]
+            for i in range(0, len(all_quads), batch_size)
+        ]
+        for quad_batch in quad_batches:
+            batch_combinations = list(product(
+                all_years, all_weeks, all_industries, quad_batch, all_weekday_weekend
+            ))
+
+            batch_df = pd.DataFrame(
+                batch_combinations,
+                columns=["yr", "wk", "industry", "quad_id", "weekday_weekend"]
+            )
+            complete_dfs.append(batch_df)
+
+        # Combine all batches
+        complete_df = pd.concat(complete_dfs, ignore_index=True)
+
+        # Merge with the original data to get values where they exist
+        df_complete = complete_df.merge(
+            df_clean,
+            on=["yr", "wk", "industry", "quad_id", "weekday_weekend"],
+            how="left"
+        )
+
+        # Fill NaN values with zeros for numeric columns
+        numeric_cols = df_complete.select_dtypes(include=['number']).columns
+        df_complete[numeric_cols] = df_complete[numeric_cols].fillna(0)
+
+        # Merge with dates
+        df_complete['yr'] = df_complete['yr'].astype('Int64')
+        df_complete['wk'] = df_complete['wk'].astype('Int64')
+        df_complete = df_complete.merge(dates, on=[
+            "yr", "wk", "weekday_weekend"], how="left")
+
+        # Merge with location data (including all quads from lookup table)
+        # Use left join to keep all records even if location data is missing
+        df_complete = df_complete.merge(locs, on="quad_id", how="left")
+
+        # Remove any duplicates that might have been introduced during processing
+        before_dedup = len(df_complete)
+        df_complete = df_complete.drop_duplicates(
+            subset=['yr', 'wk', 'industry', 'quad_id', 'weekday_weekend'],
+            keep='first'
+        )
+        after_dedup = len(df_complete)
+
+        if before_dedup > after_dedup:
+            print(f"Removed {before_dedup - after_dedup} duplicate records")
+
+        # Record counts per industry in the complete dataset
+        completeness_count = df_complete.groupby('industry').size()
+        print("Record counts per industry (should all be identical):")
+        print(completeness_count)
+
+        # Final check for non-zero transactions
+        final_counts = df_complete[
+            df_complete['txn_amt'] != 0].groupby('industry').size()
+        print("Final counts for non-zero transactions:")
+        print(final_counts)
+
+        # Verify non-zero counts match filtered data
+        if not filtered_counts.equals(final_counts):
+            print("WARNING: Record counts do not match"
+                  " between filtered raw and final data!")
+            print("Differences:")
+            diff = pd.DataFrame(
+                {'filtered': filtered_counts, 'final': final_counts}).fillna(0)
+            diff['difference'] = diff['final'] - diff['filtered']
+            print(diff[diff['difference'] != 0])
+
+        print("Data cleaned successfully.")
         # Write the cleaned data to the database
-        self.data_writer.append_chunk(df_clean, clean_table_name)
-        logging.info(f"Cleaned data appended to table {clean_table_name}.")
+        self.data_writer.append_chunk(df_complete, clean_table_name)
+        return df_complete
 
     def _process_file(self, file: str, table_name: str):
         day_end = "weekend" if "weekend" in file.lower() else "weekday"
