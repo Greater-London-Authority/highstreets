@@ -240,6 +240,161 @@ class DataWriter:
         else:
             logging.info("The table does not exist")
 
+    def write_quad_lookup_to_postgres(self, df, layer_type):
+        """
+        Write Mastercard quad lookup table to PostgreSQL using high-performance methods.
+
+        Args:
+            df (pandas.DataFrame): DataFrame containing lookup data
+            layer_type (str): Type of layer (e.g., 'borough', 'highstreet', 'bespoke')
+
+        Returns:
+            bool: True if successful, False otherwise
+
+        Raises:
+            ValueError: If an invalid layer_type is provided
+        """
+        import time
+        from io import StringIO
+        from sqlalchemy.exc import (ProgrammingError, OperationalError)
+
+        start_time = time.time()
+
+        # Validate layer_type
+        valid_layer_types = [
+            'borough', 'bespoke', 'highstreet', 'bid',
+            'msoa', 'towncentre', 'caz', 'inner_outer',
+            'BIDs', 'CAZ', 'Highstreets', 'TownCentres',
+            'Boroughs', 'MSOAs', 'london', 'Inner_Outer'
+        ]
+
+        if layer_type not in valid_layer_types:
+            error_msg = (
+                f"Invalid layer_type: {layer_type}. "
+                f"Valid types are: {valid_layer_types}"
+            )
+            logging.error(error_msg)
+            raise ValueError(error_msg)
+
+        # Validate DataFrame
+        required_columns = ['quad_id']
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            error_msg = f"DataFrame missing required columns: {missing_columns}"
+            logging.error(error_msg)
+            raise ValueError(error_msg)
+
+        # Handle empty DataFrame
+        if df.empty:
+            logging.warning(
+                f"Empty DataFrame provided for {layer_type} lookup. No data written."
+            )
+            return False
+
+        # Format the table name according to convention
+        if layer_type == 'inner_outer':
+            table_name = 'test_econ_busyness_mcard_inner_outer_quad_lookup'
+        else:
+            # layer_type_lower = layer_type.lower()
+            table_name = f'test_econ_busyness_mcard_{layer_type}_quad_lookup'
+
+        schema = 'gisapdata'
+        full_table_name = f"{schema}.{table_name}"
+
+        logging.info(f"Writing {len(df):,} rows to {full_table_name}...")
+
+        conn = None
+        success = False
+        max_retries = 3
+        retry_count = 0
+
+        while retry_count <= max_retries:
+            try:
+                # Create a connection from the engine
+                conn = self.engine.raw_connection()
+
+                # Begin a transaction
+                conn.autocommit = False
+                cursor = conn.cursor()
+
+                # Drop the table if it exists (for clean replacement)
+                cursor.execute(f"DROP TABLE IF EXISTS {full_table_name}")
+
+                # Create column definition based on DataFrame dtypes
+                columns = []
+                for col_name, dtype in df.dtypes.items():
+                    if "int" in str(dtype):
+                        columns.append(f"{col_name} INTEGER")
+                    elif "float" in str(dtype):
+                        columns.append(f"{col_name} DOUBLE PRECISION")
+                    elif "datetime" in str(dtype):
+                        columns.append(f"{col_name} TIMESTAMP")
+                    else:
+                        columns.append(f"{col_name} TEXT")
+
+                # Create the table
+                create_stmt = (
+                    f"CREATE TABLE {full_table_name} ({', '.join(columns)})"
+                )
+                cursor.execute(create_stmt)
+
+                # Prepare data as CSV in memory
+                csv_buffer = StringIO()
+                df.to_csv(csv_buffer, index=False, header=True)
+                csv_buffer.seek(0)
+
+                # Skip header row
+                next(csv_buffer)
+
+                # Execute COPY command
+                cursor.copy_expert(
+                    f"COPY {full_table_name} FROM STDIN WITH CSV",
+                    csv_buffer
+                )
+
+                # Commit the transaction
+                conn.commit()
+                success = True
+
+                elapsed_time = time.time() - start_time
+                logging.info(
+                    f"Successfully wrote {len(df):,} rows to {full_table_name} "
+                    f"in {elapsed_time:.2f} seconds"
+                )
+
+                break  # Exit the retry loop on success
+
+            except (ProgrammingError, OperationalError) as e:
+                if conn and not conn.closed:
+                    conn.rollback()
+
+                retry_count += 1
+                if retry_count <= max_retries:
+                    logging.warning(
+                        f"Database error, retrying"
+                        f" ({retry_count}/{max_retries}): {str(e)}"
+                    )
+                    time.sleep(1)  # Add delay before retry
+                else:
+                    logging.error(
+                        f"Failed after {max_retries} attempts: {str(e)}"
+                    )
+                    break
+
+            except Exception as e:
+                if conn and not conn.closed:
+                    conn.rollback()
+                error_msg = f"Error writing to {full_table_name}: {str(e)}"
+                logging.error(error_msg)
+                success = False
+                break
+
+            finally:
+                if conn and not conn.closed:
+                    conn.close()
+
+        return success
+
     def load_hsds_lookup_to_postgres(self):
         # bid
         query = (
