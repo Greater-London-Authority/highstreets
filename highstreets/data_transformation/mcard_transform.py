@@ -3,10 +3,13 @@ import re
 
 import numpy as np
 import pandas as pd
+from sqlalchemy.sql import text
+from datetime import datetime
 
 from highstreets import config
 from highstreets.data_source_sink.dataloader import DataLoader
 from highstreets.api.clientbase import APIClient
+from highstreets.core.sql_manager import SQLManager
 
 
 class McardTransform:
@@ -18,6 +21,11 @@ class McardTransform:
         self.sectors_df = config.SECTORS_DF
         self.adjustment_factor_dir = config.ADJUSTMENT_FACTOR_DIR
         self.inner_outer_quad_dir = config.INNER_OUTER_QUAD_DIR
+        # Add SQL manager
+        self.sql_manager = SQLManager()
+        self.data_loader = DataLoader()
+        # Get database engine from DataLoader
+        self.engine = self.data_loader.engine
 
     def extract_range(self, input_string):
         # Define a regular expression pattern to match the desired range
@@ -363,3 +371,110 @@ class McardTransform:
         except Exception as e:
             # Handle any exceptions here
             self.logger.error(f"An error occurred: {str(e)}")
+
+    def fetch_and_transform_mcard_data(
+        self,
+        transform_layer: str,
+        table_name: str,
+        truncate: bool = False,
+        load_to_db: bool = True
+    ) -> None:
+        """
+        Transform and load Mastercard data using highly optimized bulk insert.
+
+        Args:
+            transform_layer: Name of the transformation query file
+            table_name: Target table name to load data into
+            truncate: Whether to truncate the target table first
+            load_to_db: Whether to execute the load
+        """
+        try:
+            # Get transformation query and ensure it doesn't end with semicolon
+            transform_query = self.sql_manager.get_query(
+                transform_layer, "mcard/threehourly")
+
+            # Remove any trailing semicolons that might cause syntax errors
+            transform_query = transform_query.strip()
+            if transform_query.endswith(';'):
+                transform_query = transform_query[:-1]
+
+            # Check if we have a valid query
+            if not transform_query or len(transform_query.strip()) < 10:
+                raise ValueError(f"Transform query is empty or"
+                                 f" too short: '{transform_query}'")
+
+            self.logger.info(f"Running transformation:"
+                             f" {transform_layer} for table: {table_name}")
+
+            if load_to_db:
+                # Construct the loading query with maximum performance optimizations
+                load_query = f"""
+                -- Start transaction
+                BEGIN;
+
+                -- Maximize performance settings
+                SET LOCAL maintenance_work_mem = '2GB';
+                SET LOCAL work_mem = '1GB';
+                SET LOCAL temp_buffers = '1GB';
+                SET LOCAL synchronous_commit = OFF;
+                SET LOCAL join_collapse_limit = 8;
+                SET LOCAL from_collapse_limit = 8;
+
+                -- Disable autovacuum during load
+                ALTER TABLE {table_name} SET (autovacuum_enabled = false);
+
+                -- Truncate if requested
+                {f'TRUNCATE TABLE {table_name};' if truncate else ''}
+
+                -- Create unlogged temp table with transformed data
+                CREATE UNLOGGED TABLE temp_transformed AS
+                {transform_query};
+
+                -- Create index on temp table for faster joining
+                CREATE INDEX ON temp_transformed (count_date, hours);
+
+                -- Bulk insert from temp table
+                INSERT INTO {table_name}
+                SELECT * FROM temp_transformed;
+
+                -- Cleanup
+                DROP TABLE temp_transformed;
+
+                -- Reset table settings and analyze
+                ALTER TABLE {table_name} SET (autovacuum_enabled = true);
+                ANALYZE {table_name};
+
+                -- Commit transaction
+                COMMIT;
+                """
+
+                with self.engine.connect().execution_options(
+                    isolation_level="AUTOCOMMIT"
+                ) as connection:
+                    start_time = datetime.now()
+                    connection.execute(text(load_query))
+
+                    # Log load statistics
+                    stats = connection.execute(text(f"""
+                        SELECT
+                            COUNT(*) as row_count,
+                            MIN(count_date)::DATE as min_date,
+                            MAX(count_date)::DATE as max_date
+                        FROM {table_name}
+                    """)).fetchone()
+
+                    end_time = datetime.now()
+                    duration = (end_time - start_time).total_seconds()
+                    rows_per_second = stats.row_count / duration if duration > 0 else 0
+
+                    self.logger.info(
+                        f"Successfully loaded {stats.row_count:,}"
+                        f" rows into {table_name}\n"
+                        f"Date range: {stats.min_date} to {stats.max_date}\n"
+                        f"Duration: {duration:.2f} seconds\n"
+                        f"Performance: {rows_per_second:,.0f} rows/second"
+                    )
+
+        except Exception as e:
+            self.logger.error(f"Error in fetch_and_transform_mcard_data: {str(e)}")
+            raise

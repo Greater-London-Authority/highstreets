@@ -8,7 +8,9 @@ from datetime import datetime
 from highstreets import config
 from highstreets.api.clientbase import APIClient
 from sqlalchemy import create_engine, text
+from highstreets.core.logger import setup_logger
 from highstreets.data_transformation.mcard_transform import McardTransform
+from highstreets.core.sql_manager import SQLManager
 from glob import glob
 import logging
 from itertools import product
@@ -29,6 +31,13 @@ class FileProcessor:
         self.dir_path = dir_path
         self.new_files = []
         self.existing_files = []
+        self.sql_manager = SQLManager()
+        self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(logging.INFO)
+        super().__init__()
+        self.sql_manager = SQLManager()
+        self.logger = setup_logger(__name__)
+        self.logger.addHandler(logging.StreamHandler())
         self.database = os.getenv("PG_DATABASE")
         self.username = os.getenv("PG_USER")
         self.password = os.getenv("PG_PASSWORD")
@@ -766,7 +775,7 @@ class FileProcessor:
         })
 
         for i, chunk in enumerate(reader):
-            chunk['weekday_weekend'] = day_end
+            chunk['weekday_weekend'] = "weekends" if day_end == "weekend" else "weekdays"
             chunk['file_name'] = os.path.basename(file)
             self.data_writer.append_chunk(chunk, table_name)
 
@@ -1055,3 +1064,120 @@ class FileProcessor:
                    index=False)
 
         return spend
+
+    def get_inner_outer_weekly_summary(self, since_date=None):
+        """
+        Gets weekly aggregated transaction data by inner/outer London areas.
+
+        Efficiently queries data from econ_busyness_mcard_clean_18_zoom joined with
+        inner/outer lookup table, with specific industry filtering and pivoting.
+
+        Parameters
+        ----------
+        since_date: str, optional
+            Optional date string in format 'YYYY-MM-DD' to filter data since a
+            specific date
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame with columns: week_start, inner_outer, txn_amt_wd_retail,
+            txn_amt_wd_eating, txn_amt_wd_apparel, txn_amt_we_retail,
+            txn_amt_we_eating, txn_amt_we_apparel
+        """
+        query = self.sql_manager.get_query('inner_outer_weekly_summary', 'mcard/weekly')
+
+        # Add date filter if provided
+        if since_date:
+            query = query.replace("WHERE ", f"WHERE c.week_start >= '{since_date}' AND ")
+
+        # Execute the query
+        with self.engine.connect() as conn:
+            df = pd.read_sql(text(query), conn)
+
+        # Convert week_start to datetime for easier manipulation
+        df['week_start'] = pd.to_datetime(df['week_start'])
+
+        # Add month column for potential monthly aggregation
+        df['month'] = df['week_start'].dt.month
+        df['yr'] = df['week_start'].dt.year
+
+        self.logger.info(f"Retrieved {len(df)} rows of inner/outer"
+                         f" weekly transaction data")
+        return df
+
+    def process_inner_outer_weekly_summary(
+            self,
+            target_table='test_econ_busyness_mcard_inner_outer_txn',
+            output_csv=True):
+        """
+        Process and save inner/outer London weekly transaction data.
+
+        Retrieves data using get_inner_outer_weekly_summary and saves to
+        database and/or CSV.
+
+        Parameters
+        ----------
+        target_table: str
+            Target PostgreSQL table name for storing the processed data
+        output_csv: bool
+            Whether to also save the data as CSV
+
+        Returns
+        -------
+        pd.DataFrame
+            The processed dataframe with inner/outer London weekly transaction data
+        """
+        # Get existing data to determine what's already processed
+        try:
+            existing_data = self.data_loader.get_full_data(target_table)
+            if not existing_data.empty:
+                max_date = existing_data['week_start'].max()
+                self.logger.info(f"Found existing data up to {max_date}")
+                since_date = (
+                    pd.to_datetime(max_date) + pd.Timedelta(days=1)).strftime(
+                        '%Y-%m-%d')
+            else:
+                since_date = None
+                self.logger.info("No existing data found, processing all data")
+        except Exception as e:
+            self.logger.warning(f"Error checking existing data: {e}")
+            since_date = None
+
+        # Get the data
+        df = self.get_inner_outer_weekly_summary(since_date)
+
+        if df.empty:
+            self.logger.info("No new data to process")
+            return df
+
+        self.logger.info(f"Processing {len(df)} new rows of inner/outer weekly data")
+
+        # Save to database if we have new data
+        if not df.empty:
+            try:
+                # Use DataWriter to save to PostgreSQL
+                if self.data_writer.table_exists(target_table):
+                    self.data_writer.append_data_to_postgres(df, target_table,
+                                                             date_column="week_start")
+                else:
+                    df.to_sql(
+                        name=target_table,
+                        con=self.engine,
+                        if_exists="replace",
+                        index=False,
+                        schema="gisapdata"
+                    )
+                    self.logger.info(f"Created new table {target_table}")
+
+                # Save to CSV if requested
+                if output_csv:
+                    csv_path = (f"{self.base_dir}mastercard/weekly/"
+                                f"processed/test_inner_outer_weekly_txn.csv")
+                    df.to_csv(csv_path, index=False)
+                    self.logger.info(f"Saved data to CSV: {csv_path}")
+
+            except Exception as e:
+                self.logger.error(f"Error saving data: {e}")
+
+        return df
