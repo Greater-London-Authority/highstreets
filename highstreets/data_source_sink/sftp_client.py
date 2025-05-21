@@ -1,10 +1,11 @@
 import json
 import os
-from io import BytesIO, StringIO
+from io import StringIO
 import tempfile
 import boto3
 import paramiko
 from dotenv import find_dotenv, load_dotenv
+import time
 
 from highstreets.core.logger import setup_logger
 
@@ -297,9 +298,9 @@ class SFTPClient:
 
         return files
 
-    def _process_files(self, sftp, files, s3_bucket=None, s3_prefix=None,
-                       local_dir=None):
-        """Process each file from SFTP server."""
+    def _process_files(self, sftp, files, s3_bucket=None,
+                       s3_prefix=None, local_dir=None):
+        """Process each file from SFTP server using optimized transfer techniques."""
         downloaded_files = []
 
         # Set up S3 client if needed
@@ -313,25 +314,85 @@ class SFTPClient:
         # Process each file
         for file in files:
             self.logger.info(f"Processing file: {file}")
+            start_time = time.time()
+            file_size = sftp.stat(file).st_size
+            file_ext = os.path.splitext(file)[1].lower()
 
-            # Download file to memory
-            remote_file = sftp.open(file, 'rb')
-            data = remote_file.read()
-            remote_file.close()
+            try:
+                # Optimize based on file type and size
+                if local_dir:
+                    local_path = os.path.join(local_dir, file)
 
-            # Process the file data
-            if s3_bucket and s3_prefix:
-                s3_key = f"{s3_prefix.rstrip('/')}/{file}"
-                s3.upload_fileobj(BytesIO(data), s3_bucket, s3_key)
-                downloaded_files.append(f"s3://{s3_bucket}/{s3_key}")
-                self.logger.info(f"Uploaded to S3: s3://{s3_bucket}/{s3_key}")
-            elif local_dir:
-                local_path = os.path.join(local_dir, file)
-                with open(local_path, 'wb') as f:
-                    f.write(data)
-                downloaded_files.append(local_path)
-                self.logger.info(f"Saved locally: {local_path}")
-            else:
-                self.logger.warning(f"No destination specified for {file}, skipping")
+                    # For small files (<10MB), use direct get() which is more efficient
+                    if file_size < 10 * 1024 * 1024:
+                        self.logger.info(f"Using direct transfer for small file: {file}")
+                        sftp.get(file, local_path)
+                        downloaded_files.append(local_path)
+
+                    # For larger files, use optimized buffer sizes based on file type
+                    else:
+                        # Determine optimal buffer size
+                        if file_ext in ['.zip', '.xlsx']:
+                            buffer_size = 262144  # 256KB for binary files
+                        elif file_ext in ['.csv']:
+                            buffer_size = 131072  # 128KB for CSV files
+                        else:
+                            buffer_size = 65536   # 64KB default
+
+                        self.logger.info(f"Using buffered transfer with"
+                                         f" {buffer_size/1024}KB chunks for {file}")
+
+                        with sftp.open(file, 'rb') as remote_file, open(local_path, 'wb') as local_file:  # noqa
+                            # Pre-allocate local file to full size for better performance
+                            try:
+                                os.posix_fallocate(local_file.fileno(), 0, file_size)
+                            except (AttributeError, OSError):
+                                # Not all systems support posix_fallocate, ignore
+                                # if unavailable
+                                pass
+
+                            # Transfer in chunks
+                            total_transferred = 0
+                            buffer = remote_file.read(buffer_size)
+                            while buffer:
+                                local_file.write(buffer)
+                                total_transferred += len(buffer)
+                                buffer = remote_file.read(buffer_size)
+
+                                # Optional: Log progress for very large files
+                                if file_size > 100 * 1024 * 1024 and total_transferred % (10 * 1024 * 1024) < buffer_size:  # noqa
+                                    percent = (total_transferred / file_size) * 100
+                                    self.logger.info(f"Transfer progress: {percent:.1f}%"
+                                                     f" ({total_transferred/(1024*1024):.1f}MB)")  # noqa
+
+                        downloaded_files.append(local_path)
+
+                # S3 uploads
+                elif s3_bucket and s3_prefix:
+                    s3_key = f"{s3_prefix.rstrip('/')}/{file}"
+
+                    # For S3, we can use a memory file object for small files
+                    # or streaming transfer for larger files
+                    with sftp.open(file, 'rb') as remote_file:
+                        s3.upload_fileobj(remote_file, s3_bucket, s3_key)
+
+                    downloaded_files.append(f"s3://{s3_bucket}/{s3_key}")
+
+                # No destination specified
+                else:
+                    self.logger.warning(f"No destination specified for {file}, skipping")
+
+                # Log transfer statistics
+                elapsed = time.time() - start_time
+                transfer_rate = file_size / (elapsed * 1024 * 1024) if elapsed > 0 else 0
+                self.logger.info(
+                    f"Downloaded {file} ({file_size/1024/1024:.2f} MB) "
+                    f"in {elapsed:.2f} seconds ({transfer_rate:.2f} MB/s)"
+                )
+
+            except Exception as e:
+                self.logger.error(f"Error downloading {file}: {str(e)}")
+                import traceback
+                traceback.print_exc()
 
         return downloaded_files

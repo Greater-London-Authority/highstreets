@@ -19,7 +19,7 @@ WITH week_data AS (
             )), 'YYYY-MM-DD') AS week_start
     FROM econ_busyness_mcard_raw_18_zoom AS main
     JOIN econ_busyness_mcard_bids_quad_lookup AS lookup 
-      ON main.quad_id = lookup.quad_id
+      ON main.quad_id::bigint = lookup.quad_id::bigint  
     WHERE main.industry = 'Total Retail'
       AND main.segment = 'International'
       AND main.geo_name = 'London'

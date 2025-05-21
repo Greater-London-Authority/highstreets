@@ -13,6 +13,7 @@ class SQLManager:
         # Define base directories to search for SQL files
         self.search_paths = [
             'queries/bt',
+            'queries/mcard',
             'queries/mcard/weekly',
             'queries/mcard/threehourly',  # Add other paths as needed
         ]

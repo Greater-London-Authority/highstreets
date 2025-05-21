@@ -1089,7 +1089,23 @@ class FileProcessor:
 
         # Add date filter if provided
         if since_date:
-            query = query.replace("WHERE ", f"WHERE c.week_start >= '{since_date}' AND ")
+            # Convert since_date to ISO year and week
+            since_date_dt = pd.to_datetime(since_date)
+            iso_calendar = since_date_dt.isocalendar()
+            filter_year = iso_calendar[0]
+            filter_week = iso_calendar[1]
+
+            # Create a filter based on yr and wk columns instead of week_start
+            filter_clause = f"""
+            AND ((c.yr = {filter_year} AND c.wk >= {filter_week})
+            OR (c.yr > {filter_year}))
+            """
+
+            # Add the filter to the query
+            query = query.replace(
+                "WHERE ",
+                f"WHERE {filter_clause} AND "
+            )
 
         # Execute the query
         with self.engine.connect() as conn:
@@ -1114,7 +1130,7 @@ class FileProcessor:
         Process and save inner/outer London weekly transaction data.
 
         Retrieves data using get_inner_outer_weekly_summary and saves to
-        database and/or CSV.
+        database and/or CSV. Replaces all data in the target table each time.
 
         Parameters
         ----------
@@ -1128,56 +1144,35 @@ class FileProcessor:
         pd.DataFrame
             The processed dataframe with inner/outer London weekly transaction data
         """
-        # Get existing data to determine what's already processed
-        try:
-            existing_data = self.data_loader.get_full_data(target_table)
-            if not existing_data.empty:
-                max_date = existing_data['week_start'].max()
-                self.logger.info(f"Found existing data up to {max_date}")
-                since_date = (
-                    pd.to_datetime(max_date) + pd.Timedelta(days=1)).strftime(
-                        '%Y-%m-%d')
-            else:
-                since_date = None
-                self.logger.info("No existing data found, processing all data")
-        except Exception as e:
-            self.logger.warning(f"Error checking existing data: {e}")
-            since_date = None
-
-        # Get the data
-        df = self.get_inner_outer_weekly_summary(since_date)
+        # Get the data (no need to check existing data since we're refreshing completely)
+        self.logger.info("Processing all inner/outer weekly data")
+        df = self.get_inner_outer_weekly_summary()
 
         if df.empty:
-            self.logger.info("No new data to process")
+            self.logger.info("No data to process")
             return df
 
-        self.logger.info(f"Processing {len(df)} new rows of inner/outer weekly data")
+        self.logger.info(f"Processing {len(df)} rows of inner/outer weekly data")
 
-        # Save to database if we have new data
-        if not df.empty:
-            try:
-                # Use DataWriter to save to PostgreSQL
-                if self.data_writer.table_exists(target_table):
-                    self.data_writer.append_data_to_postgres(df, target_table,
-                                                             date_column="week_start")
-                else:
-                    df.to_sql(
-                        name=target_table,
-                        con=self.engine,
-                        if_exists="replace",
-                        index=False,
-                        schema="gisapdata"
-                    )
-                    self.logger.info(f"Created new table {target_table}")
+        # Save to database
+        try:
+            # Use truncate_and_load_to_postgres to refresh the table
+            self.data_writer.truncate_and_load_to_postgres(
+                df,
+                table_name=target_table,
+                schema="gisapdata",
+                index=False
+            )
+            self.logger.info(f"Refreshed table {target_table} with {len(df)} rows")
 
-                # Save to CSV if requested
-                if output_csv:
-                    csv_path = (f"{self.base_dir}mastercard/weekly/"
-                                f"processed/test_inner_outer_weekly_txn.csv")
-                    df.to_csv(csv_path, index=False)
-                    self.logger.info(f"Saved data to CSV: {csv_path}")
+            # Save to CSV if requested
+            if output_csv:
+                csv_path = (f"{self.base_dir}mastercard/weekly/"
+                            f"processed/test_inner_outer_weekly_txn.csv")
+                df.to_csv(csv_path, index=False)
+                self.logger.info(f"Saved data to CSV: {csv_path}")
 
-            except Exception as e:
-                self.logger.error(f"Error saving data: {e}")
+        except Exception as e:
+            self.logger.error(f"Error saving data: {e}")
 
         return df

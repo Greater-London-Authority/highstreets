@@ -821,40 +821,59 @@ class DataWriter:
             logging.error(f"Error while writing data to CSV: {e}")
 
     def truncate_and_load_to_postgres(
-        self, dataframe, table_name, schema="public", if_exists="replace", index=False
+        self, dataframe, table_name, schema="public", index=False
     ):
         """
         Truncate and load data from a DataFrame into a PostgreSQL table.
+        This preserves the table structure while replacing all data.
 
         Args:
             dataframe (pd.DataFrame): The DataFrame containing the data to be loaded.
             table_name (str): The name of the PostgreSQL table.
             schema (str, optional): The schema where the table resides.
-                                    Default is 'public'.
-            if_exists (str, optional): Action to take if the table already exists (
-                'fail', 'replace', or 'append').
-                Default is 'replace'.
+                                   Default is 'public'.
             index (bool, optional): Whether to include the DataFrame index as a
-                                    column in the table. Default is False.
-            engine (sqlalchemy.engine.Engine, optional): An existing SQLAlchemy engine.
-                                    If None, a new engine will be created.
+                                   column in the table. Default is False.
 
         Returns:
             None
         """
         try:
-            # Truncate the existing table
+            # First check if the table exists
             with self.engine.connect() as connection:
-                connection.execute(text(f"TRUNCATE TABLE {schema}.{table_name}"))
+                result = connection.execute(text(
+                    f"SELECT EXISTS (SELECT FROM information_schema.tables "
+                    f"WHERE table_schema = '{schema}' AND table_name = '{table_name}')"
+                ))
+                table_exists = result.scalar()
 
-            # Load the data from the DataFrame to the PostgreSQL table
-            dataframe.to_sql(
-                table_name,
-                con=self.engine,
-                if_exists=if_exists,
-                schema=schema,
-                index=index,
-            )
+            if table_exists:
+                # If table exists, truncate it first
+                with self.engine.connect() as connection:
+                    connection.execute(text(f"TRUNCATE TABLE {schema}.{table_name}"))
+                    connection.commit()
+
+                # Then append data to the existing (now empty) table structure
+                dataframe.to_sql(
+                    table_name,
+                    con=self.engine,
+                    if_exists="append",  # Changed to append since table
+                                         # structure is preserved
+                    schema=schema,
+                    index=index,
+                    method='multi',  # For better performance
+                    chunksize=5000
+                )
+            else:
+                # If table doesn't exist, create it
+                dataframe.to_sql(
+                    table_name,
+                    con=self.engine,
+                    if_exists="replace",  # Create new table
+                    schema=schema,
+                    index=index
+                )
+
             logging.info(f"Data loaded successfully into {schema}.{table_name}")
 
         except Exception as e:
@@ -862,6 +881,7 @@ class DataWriter:
                 f"An error occurred while loading data into {schema}.{table_name}:"
                 f" {str(e)}"
             )
+            raise  # Re-raise the exception for better error handling
 
     def upload_data_to_lds(
         self,

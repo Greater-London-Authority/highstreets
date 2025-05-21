@@ -478,3 +478,104 @@ class McardTransform:
         except Exception as e:
             self.logger.error(f"Error in fetch_and_transform_mcard_data: {str(e)}")
             raise
+
+    def load_cpi_data_to_postgres(self, truncate=True) -> bool:
+        """
+        Load CPI data from API into the PostgreSQL database using DataWriter methods.
+
+        Args:
+            truncate (bool): Whether to truncate the table before loading data
+
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            # Fetch CPI data from API
+            api_client = APIClient()
+            cpi_data = api_client.fetch_cpi()
+            cpi_data.rename(columns={'Aggregate': 'aggregate'}, inplace=True)
+
+            if cpi_data is None or len(cpi_data) == 0:
+                self.logger.error("Failed to fetch CPI data from API")
+                return False
+
+            # Use DataWriter to handle database operations
+            from highstreets.data_source_sink.datawriter import DataWriter
+            data_writer = DataWriter()
+
+            # If truncate is True, use truncate_and_load_to_postgres
+            if truncate:
+                data_writer.truncate_and_load_to_postgres(
+                    dataframe=cpi_data,
+                    table_name="econ_busyness_mcard_cpi_data",
+                    schema="gisapdata"
+                )
+                self.logger.info("CPI data table truncated and loaded successfully")
+            else:
+                # If not truncating, just append the data
+                data_writer.append_data_without_check(
+                    data=cpi_data,
+                    table_name="econ_busyness_mcard_cpi_data"
+                )
+                self.logger.info("CPI data appended to existing table successfully")
+
+            self.logger.info(f"Successfully loaded {len(cpi_data)} CPI"
+                             f" records into PostgreSQL")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Error loading CPI data to PostgreSQL: {str(e)}")
+            return False
+
+    def adjust_mcard_data_sql(self) -> bool:
+        """
+        Execute SQL-based Mastercard adjustment with optimized performance.
+
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            # Get the optimized SQL query
+            sql_file = "update_mcard_adjustment_no_merge.sql"
+            adjustment_sql = self.sql_manager.get_query(
+                sql_file)
+
+            # Log the start of adjustment process
+            self.logger.info("Starting optimized SQL-based Mastercard adjustment")
+
+            # Get row count to be adjusted (for progress tracking)
+            with self.engine.connect() as conn:
+                row_count = conn.execute(text(
+                    "SELECT COUNT(*) FROM econ_busyness_mrli_3hourly")).scalar()
+
+            start_time = datetime.now()
+            self.logger.info(f"Adjusting {row_count:,} rows...")
+
+            # Execute the SQL with high performance settings
+            with self.engine.connect().execution_options(
+                isolation_level="AUTOCOMMIT"
+            ) as conn:
+                # Set database configuration for better performance
+                conn.execute(text("SET statement_timeout = 0"))  # No timeout
+                conn.execute(text("SET work_mem = '1GB'"))
+                # More memory for sorting/joins
+
+                # Execute the actual adjustment SQL
+                conn.execute(text(adjustment_sql))
+
+            end_time = datetime.now()
+            duration = (end_time - start_time).total_seconds()
+            rows_per_second = row_count / duration if duration > 0 else 0
+
+            # Log performance statistics
+            self.logger.info(
+                f"Successfully adjusted {row_count:,} rows\n"
+                f"Duration: {duration:.2f} seconds\n"
+                f"Performance: {rows_per_second:,.0f} rows/second"
+            )
+
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Error in adjust_mcard_data_sql: {str(e)}")
+            return False

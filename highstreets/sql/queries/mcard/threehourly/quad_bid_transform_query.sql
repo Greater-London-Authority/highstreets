@@ -8,7 +8,7 @@ SELECT
     ROUND(SUM(d.txn_amt_adj)::NUMERIC, 2) as txn_amt_adj,
     ROUND(SUM(d.txn_cnt)::NUMERIC, 2) as txn_cnt
 FROM 
-    econ_busyness_mrli_3hourly_adj d
+    test_econ_busyness_mrli_3hourly_adj d
 JOIN 
     econ_busyness_mcard_BIDs_quad_lookup b
     ON d.quad_id::bigint = b.quad_id::bigint
