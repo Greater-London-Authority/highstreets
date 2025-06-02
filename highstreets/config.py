@@ -17,7 +17,7 @@ PG11_HOST = os.getenv("PG11_HOST")
 PG11_PORT = os.getenv("PG11_PORT")
 
 # ==================== BASE DIRECTORY and AWS CONFIG =================================
-S3_BUCKET = 'hsds-data'
+S3_BUCKET = "hsds-data"
 # BASE_DIR = "Z:/HSDS/data/"
 # BASE_DIR = "/mnt/q"
 BASE_DIR = f"s3://{S3_BUCKET}/"
@@ -33,41 +33,56 @@ CPI_API_ENDPOINT = "https://api.beta.ons.gov.uk/v1/datasets/cpih01"
 #                         "Covid-19 Busyness/data/mastercard/
 #                        "Inner_outer_quad_lookup.csv")
 # SPENDING PULSE
-SP_DIR = (f"{BASE_DIR}mastercard/spendingpulse/received/")
-SP_FILEPATH_PROCESSED = (f"{BASE_DIR}mastercard/spendingpulse/"
-                         f"SpendingPulse - London - 2018-2024.csv")
-MCARD_ADJ_PATH = (f"{BASE_DIR}mastercard/spendingpulse/mcard_adjustment_factor.csv")
-MCARD_ADJ_PATH1 = (f"{BASE_DIR}reference_data/mcard_adjustment_factor.csv")
-ADJUSTMENT_FACTOR_DIR = (f"{BASE_DIR}mastercard/spendingpulse/"
-                         "mcard_adjustment_factor.csv")
-INNER_OUTER_QUAD_DIR = (f"{BASE_DIR}mastercard/spendingpulse/"
-                        "Inner_outer_quad_lookup.csv")
-SECTORS_DF = pd.DataFrame({'spending_pulse': [
-                           'Total Retail (excl. Auto)', 'Apparel', 'Restaurants'],
-                           'geo_insights': ['retail', 'apparel', 'eating'],
-                           'geo_insights_raw': [
-                           'Total Retail', 'Total Apparel', 'Eating Places'],
-                           'cpi': [
-                           'Overall Index', '03 Clothing and footwear',
-                           '11 Restaurants and hotels']
-                           })
-CPI_CATEGORIES = ['Overall Index',
-                  '01 Food and non-alcoholic beverages',
-                  '02 Alcoholic beverages and tobacco',
-                  '03 Clothing and footwear',
-                  '04 Housing, water, electricity, gas and other fuels',
-                  '05 Furniture, household equipment and maintenance',
-                  '05.1 Furniture, furnishings and carpets',
-                  '06 Health',
-                  '07 Transport',
-                  '07.2.2 Fuels and lubricants',
-                  '08 Communication',
-                  '09 Recreation and culture',
-                  '09.1 Audio-visual equipment and related products',
-                  '10 Education',
-                  '11 Restaurants and hotels',
-                  '12 Miscellaneous goods and services',
-                  '12.3.1 Jewellery, clocks and watches']
+SP_DIR = f"{BASE_DIR}mastercard/spendingpulse/received/"
+SP_FILEPATH_PROCESSED = (
+    f"{BASE_DIR}mastercard/spendingpulse/" f"SpendingPulse - London - 2018-2024.csv"
+)
+MCARD_ADJ_PATH = f"{BASE_DIR}mastercard/spendingpulse/mcard_adjustment_factor.csv"
+MCARD_ADJ_PATH1 = f"{BASE_DIR}reference_data/mcard_adjustment_factor.csv"
+MCARD_ADJ_PATH2 = "Z:/HSDS/data/mastercard/spendingpulse/mcard_adjustment_factor.csv"
+MCARD_ADJ_PATH3 = "Z:/HSDS/data/reference_data/mcard_adjustment_factor.csv"
+#  These were for testing
+# MCARD_ADJ_PATH = "Z:/HSDS/data/mastercard/spendingpulse/test/mcard_adjustment_factor.csv"
+# MCARD_ADJ_PATH1 = "Z:/HSDS/data/mastercard/spendingpulse/test/mcard_adjustment_factor.csv"
+
+ADJUSTMENT_FACTOR_DIR = (
+    f"{BASE_DIR}mastercard/spendingpulse/" "mcard_adjustment_factor.csv"
+)
+INNER_OUTER_QUAD_DIR = (
+    f"{BASE_DIR}mastercard/spendingpulse/" "Inner_outer_quad_lookup.csv"
+)
+SECTORS_DF = pd.DataFrame(
+    {
+        "spending_pulse": ["Total Retail (excl. Auto)", "Apparel", "Restaurants"],
+        "geo_insights": ["retail", "apparel", "eating"],
+        "geo_insights_raw": ["Total Retail", "Total Apparel", "Eating Places"],
+        "cpi": [
+            "Overall Index",
+            "03 Clothing and footwear",
+            "11 Restaurants and hotels",
+        ],
+        "adjustment_factor": ["retail", "apparel", "eating"],
+    }
+)
+CPI_CATEGORIES = [
+    "Overall Index",
+    "01 Food and non-alcoholic beverages",
+    "02 Alcoholic beverages and tobacco",
+    "03 Clothing and footwear",
+    "04 Housing, water, electricity, gas and other fuels",
+    "05 Furniture, household equipment and maintenance",
+    "05.1 Furniture, furnishings and carpets",
+    "06 Health",
+    "07 Transport",
+    "07.2.2 Fuels and lubricants",
+    "08 Communication",
+    "09 Recreation and culture",
+    "09.1 Audio-visual equipment and related products",
+    "10 Education",
+    "11 Restaurants and hotels",
+    "12 Miscellaneous goods and services",
+    "12.3.1 Jewellery, clocks and watches",
+]
 
 # ================ BT CONFIG ==================================================
 BT_DIR = os.getenv("BT_DIR")
