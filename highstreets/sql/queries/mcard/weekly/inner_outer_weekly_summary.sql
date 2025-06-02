@@ -1,17 +1,18 @@
 WITH filtered_data AS (
   SELECT 
-    c.week_start,
+    DATE_TRUNC('week', DATE(c.yr || '-01-04')) + INTERVAL '1 week' * (c.wk - 1) AS week_start, -- create week_start column
     c.wk,
     c.industry,
     c.weekday_weekend,
     c.txn_amt,
     l.inner_outer
   FROM 
-    econ_busyness_mcard_clean_18_zoom c
+    econ_busyness_mcard_stg_18_zoom c
   JOIN 
-    econ_busyness_mcard_inner_outer_quad_lookup l ON c.quad_id = l.quad_id
+    econ_busyness_mcard_inner_outer_quad_lookup l ON c.quad_id::BIGINT = l.quad_id::BIGINT
   WHERE 
     c.industry IN ('Total Retail', 'Total Apparel', 'Eating Places')
+    AND c.segment = 'Overall'
 )
 SELECT
   week_start,
