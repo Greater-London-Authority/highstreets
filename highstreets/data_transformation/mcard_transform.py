@@ -579,3 +579,104 @@ class McardTransform:
         except Exception as e:
             self.logger.error(f"Error in adjust_mcard_data_sql: {str(e)}")
             return False
+
+    def concat_and_load_all_mcard_quad_layers(
+        self,
+        query_file: str = 'quad_all_layer_concat_query.sql',
+        target_table: str = 'econ_busyness_mcard_3hourly_txn',
+        truncate: bool = True,
+        load_to_db: bool = True
+    ) -> None:
+        """
+        Concatenate Mastercard 3-hourly data from all layer tables
+        (highstreets, towncentres, bids, bespoke)
+        and load into a combined table using a SQL-based approach for maximum efficiency.
+
+        Args:
+            query_file: Name of the SQL query file that performs the concatenation
+            target_table: Target table to load the concatenated data into
+            truncate: Whether to truncate the target table before loading
+            load_to_db: Whether to execute the load operation
+        """
+        try:
+            # Get the concatenation query
+            concat_query = self.sql_manager.get_query(query_file)
+
+            if load_to_db:
+                # Construct the loading query with performance optimizations
+                load_query = f"""
+                -- Start transaction
+                BEGIN;
+
+                -- Maximize performance settings
+                SET LOCAL maintenance_work_mem = '2GB';
+                SET LOCAL work_mem = '1GB';
+                SET LOCAL temp_buffers = '1GB';
+                SET LOCAL synchronous_commit = OFF;
+                SET LOCAL join_collapse_limit = 8;
+                SET LOCAL from_collapse_limit = 8;
+
+                -- Disable autovacuum during load
+                ALTER TABLE {target_table} SET (autovacuum_enabled = false);
+
+                -- Truncate if requested
+                {f'TRUNCATE TABLE {target_table};' if truncate else ''}
+
+                -- Create unlogged temp table with concatenated data
+                CREATE UNLOGGED TABLE temp_concat_layers AS
+                {concat_query};
+
+                -- Create indexes on temp table for faster loading
+                CREATE INDEX ON temp_concat_layers (count_date, hours);
+                CREATE INDEX ON temp_concat_layers (layer, id);
+
+                -- Bulk insert from temp table
+                INSERT INTO {target_table}
+                SELECT * FROM temp_concat_layers;
+
+                -- Cleanup
+                DROP TABLE temp_concat_layers;
+
+                -- Reset table settings and analyze
+                ALTER TABLE {target_table} SET (autovacuum_enabled = true);
+                ANALYZE {target_table};
+
+                -- Commit transaction
+                COMMIT;
+                """
+
+                with self.engine.connect().execution_options(
+                    isolation_level="AUTOCOMMIT"
+                ) as connection:
+                    start_time = datetime.now()
+                    connection.execute(text(load_query))
+
+                    # Log load statistics
+                    stats = connection.execute(text(f"""
+                        SELECT
+                            COUNT(*) as row_count,
+                            MIN(count_date)::DATE as min_date,
+                            MAX(count_date)::DATE as max_date,
+                            COUNT(DISTINCT layer) as layer_count,
+                            array_agg(DISTINCT layer) as layers
+                        FROM {target_table}
+                    """)).fetchone()
+
+                    end_time = datetime.now()
+                    duration = (end_time - start_time).total_seconds()
+                    rows_per_second = stats.row_count / duration if duration > 0 else 0
+
+                    self.logger.info(
+                        f"Successfully combined {stats.layer_count} layers"
+                        f" into {target_table}:\n"
+                        f"Layers: {stats.layers}\n"
+                        f"Total rows: {stats.row_count:,}\n"
+                        f"Date range: {stats.min_date} to {stats.max_date}\n"
+                        f"Duration: {duration:.2f} seconds\n"
+                        f"Performance: {rows_per_second:,.0f} rows/second"
+                    )
+
+        except Exception as e:
+            self.logger.error(f"Error in concat_and_load_all_mcard_quad_layers:"
+                              f" {str(e)}")
+            raise

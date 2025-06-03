@@ -266,7 +266,7 @@ class LookupManager:
         df['objectid'] = range(1, len(df) + 1)
         df = df[['objectid', 'borough_name', 'borough_code', 'highstreet_name',
                  'highstreet_id', 'bid_name', 'bid_id', 'tc_name',
-                'tc_id', 'bespoke_name', 'bespoke_id']]
+                'tc_id', 'bespoke_id', 'bespoke_name']]
         return df
 
     def query_mcard_grids(self):
@@ -320,7 +320,7 @@ class LookupManager:
             self.layer_lookups[f"{layer}_lookup"] = quads_join
 
             # Save to CSV
-            output_path = f"Z:/HSDS/data/mastercard/lookups/{layer}_quad_lookup.csv"
+            output_path = f"{self.base_dir}mastercard/lookups/{layer}_quad_lookup.csv"
             quads_join.drop(columns=['geometry']).drop_duplicates().to_csv(
                 output_path, index=False)
             self.logger.info(f"Saved {layer} lookup to {output_path}")
@@ -422,7 +422,7 @@ class LookupManager:
                 columns=['geometry', 'index_right']).drop_duplicates()
 
             # Save to CSV
-            output_path = "Z:/HSDS/data/mastercard/lookups/london_quad_lookup.csv"
+            output_path = f"{self.base_dir}mastercard/lookups/london_quad_lookup.csv"
             quads_join.to_csv(output_path, index=False)
             self.logger.info(f"Saved London lookup to {output_path}")
 
@@ -476,7 +476,8 @@ class LookupManager:
                 ['quad_id', 'inner_outer']].drop_duplicates()
 
             # Save to CSV
-            output_path = "Z:/HSDS/data/mastercard/lookups/Inner_Outer_quad_lookup.csv"
+            output_path = (f"{self.base_dir}mastercard/lookups/"
+                           f"Inner_Outer_quad_lookup.csv")
             inner_outer_quad_lookup.to_csv(output_path, index=False)
             self.logger.info(f"Saved Inner/Outer London lookup to {output_path}")
 
@@ -576,7 +577,7 @@ class LookupManager:
             bespoke_lookup = bespoke_lookup.sort_values('bespoke_area_id')
 
             # Save to file
-            output_path = "Z:/HSDS/data/mastercard/lookups/bespoke_quad_lookup.csv"
+            output_path = f"{self.base_dir}mastercard/lookups/bespoke_quad_lookup.csv"
             bespoke_lookup.to_csv(output_path, index=False)
             self.logger.info(f"Saved bespoke areas lookup to {output_path}")
 
@@ -611,7 +612,7 @@ class LookupManager:
             caz_tcs = caz_tcs.sort_values('tc_id')
 
             # Save to CSV
-            output_path = "Z:/HSDS/data/mastercard/lookups/Towncenters_in_caz.csv"
+            output_path = f"{self.base_dir}mastercard/lookups/Towncenters_in_caz.csv"
             caz_tcs.to_csv(output_path, index=False)
             self.logger.info(f"Saved Town Centres in CAZ lookup to {output_path}")
 

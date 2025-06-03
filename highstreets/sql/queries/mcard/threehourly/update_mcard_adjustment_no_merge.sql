@@ -15,12 +15,12 @@ SELECT
             (cpi_index / NULLIF((
                 SELECT AVG(cpi_index) 
                 FROM econ_busyness_mcard_cpi_data 
-                WHERE yr = 2018 AND aggregate = 'retail'
+                WHERE yr = 2018 AND aggregate = 'Overall Index'
             ), 0)) * 100
         ELSE 100
     END::NUMERIC(12,4) AS cpi_index
 FROM econ_busyness_mcard_cpi_data
-WHERE aggregate = 'retail';
+WHERE aggregate = 'Overall Index';
 
 -- Use BIGINT for quad_id since values exceed INTEGER range
 CREATE TEMPORARY TABLE temp_inner_outer AS 
@@ -28,7 +28,8 @@ SELECT
     DISTINCT ON (quad_id)
     quad_id::BIGINT,
     inner_outer 
-FROM econ_busyness_mcard_Inner_Outer_quad_lookup;
+FROM econ_busyness_mcard_Inner_Outer_quad_lookup
+ORDER BY quad_id, inner_outer DESC;
 
 CREATE TEMPORARY TABLE temp_adj_factors AS
 SELECT 
@@ -130,9 +131,9 @@ DO $$
 BEGIN
     -- Check if the table exists and create if needed
     IF NOT EXISTS (SELECT 1 FROM information_schema.tables 
-                   WHERE table_name = 'test_econ_busyness_mrli_3hourly_adj') THEN
+                   WHERE table_name = 'econ_busyness_mrli_3hourly_adj') THEN
         -- Create it if it doesn't exist
-        EXECUTE 'CREATE TABLE test_econ_busyness_mrli_3hourly_adj (
+        EXECUTE 'CREATE TABLE econ_busyness_mrli_3hourly_adj (
             ldn_ref BIGINT,
             quad_id BIGINT,
             count_date DATE,
@@ -142,13 +143,13 @@ BEGIN
             txn_amt_adj NUMERIC(12,4)
         )';
         
-        EXECUTE 'CREATE INDEX idx_test_mrli_3hourly_adj_quadid 
-                 ON test_econ_busyness_mrli_3hourly_adj(quad_id, count_date, hours)';
+        EXECUTE 'CREATE INDEX idx_mrli_3hourly_adj_quadid 
+                 ON econ_busyness_mrli_3hourly_adj(quad_id, count_date, hours)';
     END IF;
 END $$;
 
 -- Perform efficient merge - only update existing records - using test table
-UPDATE test_econ_busyness_mrli_3hourly_adj a
+UPDATE econ_busyness_mrli_3hourly_adj a
 SET txn_amt_adj = n.txn_amt_adj
 FROM econ_busyness_mrli_3hourly_adj_new n
 WHERE 
@@ -157,7 +158,7 @@ WHERE
     a.hours = n.hours;
 
 -- Insert records that don't exist in the target test table
-INSERT INTO test_econ_busyness_mrli_3hourly_adj (
+INSERT INTO econ_busyness_mrli_3hourly_adj (
     ldn_ref, quad_id, count_date, hours, txn_amt, txn_cnt, txn_amt_adj
 )
 SELECT 
@@ -165,7 +166,7 @@ SELECT
 FROM 
     econ_busyness_mrli_3hourly_adj_new n
 LEFT JOIN 
-    test_econ_busyness_mrli_3hourly_adj a ON 
+    econ_busyness_mrli_3hourly_adj a ON 
         n.quad_id = a.quad_id AND
         n.count_date = a.count_date AND
         n.hours = a.hours

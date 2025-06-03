@@ -293,10 +293,10 @@ class DataWriter:
 
         # Format the table name according to convention
         if layer_type == 'inner_outer':
-            table_name = 'test_econ_busyness_mcard_inner_outer_quad_lookup'
+            table_name = 'econ_busyness_mcard_inner_outer_quad_lookup'
         else:
             # layer_type_lower = layer_type.lower()
-            table_name = f'test_econ_busyness_mcard_{layer_type}_quad_lookup'
+            table_name = f'econ_busyness_mcard_{layer_type}_quad_lookup'
 
         schema = 'gisapdata'
         full_table_name = f"{schema}.{table_name}"
@@ -1020,7 +1020,14 @@ class DataWriter:
                 f"{resource_title}: {str(e)}"
             )
 
-    def export_table_to_s3(self, table_name: str, s3_base_path: str, file_prefix: str):
+    def export_table_to_s3(
+        self,
+        table_name: str,
+        s3_base_path: str,
+        file_prefix: str,
+        add_date_range_to_filename: bool = False,
+        date_column: str = None
+    ):
         """
         Exports entire data from a PostgreSQL table as a single CSV file to S3.
 
@@ -1029,14 +1036,33 @@ class DataWriter:
         s3_base_path (str): The base S3 path where the CSV file will be written
                             (e.g., "s3://your-bucket/path/to/data").
         file_prefix (str): The prefix to use for CSV filename.
+        add_date_range_to_filename (bool): If True, appends _startdate_enddate to
+        filename.
+        date_column (str): The name of the date column to use for min/max date.
 
         Example:
-        export_table_to_s3("my_table", "s3://bucket/folder", "my_data")
-        -> Creates: s3://bucket/folder/my_data.csv
+        export_table_to_s3("my_table", "s3://bucket/folder", "my_data", True, "count_date") # noqa
+        -> Creates: s3://bucket/folder/my_data_2022-01-01_2024-12-31.csv
         """
         try:
+            # Optionally fetch min/max date for filename
+            date_range_str = ""
+            if add_date_range_to_filename and date_column:
+                with self.engine.connect() as conn:
+                    result = conn.execute(
+                        text(f"SELECT MIN({date_column}) AS min_date, MAX({date_column})"
+                             f" AS max_date FROM {table_name}")
+                    ).fetchone()
+                    min_date = result.min_date
+                    max_date = result.max_date
+                    if min_date and max_date:
+                        # Format as YYYY-MM-DD to remove time part
+                        min_date_str = min_date.strftime("%Y-%m-%d")
+                        max_date_str = max_date.strftime("%Y-%m-%d")
+                        date_range_str = f"_{min_date_str}_{max_date_str}"
+
             # Construct the file name
-            file_name = f"{file_prefix}.csv"
+            file_name = f"{file_prefix}{date_range_str}.csv"
             s3_file_path = f"{s3_base_path.rstrip('/')}/{file_name}"
 
             # Connect to PostgreSQL

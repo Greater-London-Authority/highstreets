@@ -1124,7 +1124,7 @@ class FileProcessor:
 
     def process_inner_outer_weekly_summary(
             self,
-            target_table='test_econ_busyness_mcard_inner_outer_txn',
+            target_table='econ_busyness_mcard_inner_outer_txn',
             output_csv=True):
         """
         Process and save inner/outer London weekly transaction data.
@@ -1168,7 +1168,7 @@ class FileProcessor:
             # Save to CSV if requested
             if output_csv:
                 csv_path = (f"{self.base_dir}mastercard/weekly/"
-                            f"processed/test_inner_outer_weekly_txn.csv")
+                            f"processed/inner_outer_weekly_txn.csv")
                 df.to_csv(csv_path, index=False)
                 self.logger.info(f"Saved data to CSV: {csv_path}")
 
@@ -1176,3 +1176,79 @@ class FileProcessor:
             self.logger.error(f"Error saving data: {e}")
 
         return df
+
+    def incremental_refresh_mcard_stg_18_zoom(self):
+        """
+        Performs an efficient incremental refresh of the existing staging table.
+        Only loads new data since the last high watermark.
+        """
+        self.logger.info(
+            "Starting incremental refresh of econ_busyness_mcard_stg_18_zoom")
+
+        try:
+            with self.engine.begin() as conn:
+                # Step 1: Determine high watermark from existing table - FIXED QUERY
+                high_watermark_result = conn.execute(text("""
+                    -- Get the true latest data point by ordering by year and week
+                    WITH ranked_dates AS (
+                        SELECT
+                            yr,
+                            wk,
+                            ROW_NUMBER() OVER (ORDER BY yr DESC, wk DESC) as rn
+                        FROM econ_busyness_mcard_stg_18_zoom
+                        GROUP BY yr, wk
+                    )
+                    SELECT yr, wk
+                    FROM ranked_dates
+                    WHERE rn = 1;
+                """)).fetchone()
+
+                if high_watermark_result:
+                    max_yr = high_watermark_result[0]
+                    max_wk = high_watermark_result[1]
+                    self.logger.info(
+                        f"Found existing data up to Year {max_yr}, Week {max_wk}")
+                else:
+                    # If table is empty, set default values
+                    max_yr = 2010
+                    max_wk = 1
+                    self.logger.info(
+                        "No existing data found, starting from Year 2010, Week 1")
+
+                # Step 2: Insert only new records directly
+                insert_result = conn.execute(text("""
+                    INSERT INTO econ_busyness_mcard_stg_18_zoom
+                    SELECT DISTINCT ON (
+                        yr, wk, industry, segment, geo_name, quad_id, weekday_weekend
+                    )
+                        yr, wk, industry, segment, geo_name, quad_id, txn_amt,
+                        txn_cnt, weekday_weekend
+                    FROM econ_busyness_mcard_raw_18_zoom raw
+                    WHERE industry IN ('Total Retail', 'Total Apparel', 'Eating Places')
+                      AND segment IN ('International', 'Overall')
+                      AND geo_name = 'London'
+                      AND (raw.yr > :max_yr OR (raw.yr = :max_yr AND raw.wk > :max_wk))
+                    ORDER BY yr, wk, industry, segment, geo_name, quad_id,
+                        weekday_weekend, txn_amt;
+                """), {"max_yr": max_yr, "max_wk": max_wk})
+
+                new_record_count = insert_result.rowcount
+
+                self.logger.info(
+                    f"Added {new_record_count} new records to staging table")
+
+                # Step 3: Update statistics if we added records
+                if new_record_count > 0:
+                    conn.execute(text("""
+                        -- Update statistics for query planner
+                        ANALYZE econ_busyness_mcard_stg_18_zoom;
+                    """))
+
+                return new_record_count
+
+        except Exception as e:
+            self.logger.error(f"Error during incremental refresh: {e}")
+            # Log the full traceback for debugging
+            import traceback
+            self.logger.error(traceback.format_exc())
+            raise
