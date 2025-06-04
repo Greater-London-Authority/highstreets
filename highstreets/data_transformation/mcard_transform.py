@@ -521,60 +521,59 @@ class McardTransform:
             self.logger.error(f"Error in fetch_and_transform_mcard_data: {str(e)}")
             raise
 
+    def adjust_mcard_data_sql(
+        self,
+        query="update_mcard_adjustment_no_merge.sql",
+        table_name="econ_busyness_mrli_3hourly",
+    ) -> bool:
+        """
+        Execute SQL-based Mastercard adjustment with optimized performance.
 
-def adjust_mcard_data_sql(
-    self,
-    query="update_mcard_adjustment_no_merge.sql",
-    table_name="econ_busyness_mrli_3hourly",
-) -> bool:
-    """
-    Execute SQL-based Mastercard adjustment with optimized performance.
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            # Get the optimized SQL query
+            sql_file = query
+            adjustment_sql = self.sql_manager.get_query(sql_file)
 
-    Returns:
-        bool: True if successful, False otherwise
-    """
-    try:
-        # Get the optimized SQL query
-        sql_file = query
-        adjustment_sql = self.sql_manager.get_query(sql_file)
+            # Log the start of adjustment process
+            self.logger.info("Starting optimized SQL-based Mastercard adjustment")
 
-        # Log the start of adjustment process
-        self.logger.info("Starting optimized SQL-based Mastercard adjustment")
+            # Get row count to be adjusted (for progress tracking)
+            with self.engine.connect() as conn:
+                row_count = conn.execute(
+                    text(f"SELECT COUNT(*) FROM {table_name}")
+                ).scalar()
 
-        # Get row count to be adjusted (for progress tracking)
-        with self.engine.connect() as conn:
-            row_count = conn.execute(
-                text(f"SELECT COUNT(*) FROM {table_name}")
-            ).scalar()
+            start_time = datetime.now()
+            self.logger.info(f"Adjusting {row_count:,} rows...")
 
-        start_time = datetime.now()
-        self.logger.info(f"Adjusting {row_count:,} rows...")
+            # Execute the SQL with high performance settings
+            with self.engine.connect().execution_options(
+                isolation_level="AUTOCOMMIT"
+            ) as conn:
+                # Set database configuration for better performance
+                conn.execute(text("SET statement_timeout = 0"))  # No timeout
+                conn.execute(text("SET work_mem = '1GB'"))
+                # More memory for sorting/joins
 
-        # Execute the SQL with high performance settings
-        with self.engine.connect().execution_options(
-            isolation_level="AUTOCOMMIT"
-        ) as conn:
-            # Set database configuration for better performance
-            conn.execute(text("SET statement_timeout = 0"))  # No timeout
-            conn.execute(text("SET work_mem = '1GB'"))
-            # More memory for sorting/joins
+                # Execute the actual adjustment SQL
+                conn.execute(text(adjustment_sql))
 
-            # Execute the actual adjustment SQL
-            conn.execute(text(adjustment_sql))
+            end_time = datetime.now()
+            duration = (end_time - start_time).total_seconds()
+            rows_per_second = row_count / duration if duration > 0 else 0
 
-        end_time = datetime.now()
-        duration = (end_time - start_time).total_seconds()
-        rows_per_second = row_count / duration if duration > 0 else 0
+            # Log performance statistics
+            self.logger.info(
+                f"Successfully adjusted {row_count:,} rows\n"
+                f"Duration: {duration:.2f} seconds\n"
+                f"Performance: {rows_per_second:,.0f} rows/second"
+            )
 
-        # Log performance statistics
-        self.logger.info(
-            f"Successfully adjusted {row_count:,} rows\n"
-            f"Duration: {duration:.2f} seconds\n"
-            f"Performance: {rows_per_second:,.0f} rows/second"
-        )
+            return True
 
-        return True
-
-    except Exception as e:
-        self.logger.error(f"Error in adjust_mcard_data_sql: {str(e)}")
-        return False
+        except Exception as e:
+            self.logger.error(f"Error in adjust_mcard_data_sql: {str(e)}")
+            return False
