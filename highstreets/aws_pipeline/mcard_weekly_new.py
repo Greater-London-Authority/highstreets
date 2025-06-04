@@ -127,8 +127,13 @@ for agg in aggregation_ids_dict.keys():
 # Adjust the aggregated data
 # --------------------------------------------------
 
+
 for agg in aggregation_ids_dict.keys():
     print(agg)
+    if agg in ["highstreet", "bid", "towncentre", "msoa", "borough"]:
+        save_name = f"{agg}s"
+    else:
+        save_name = agg
 
     adjusted_data = mcard_weekly.mcard_adjust_weekly(
         pd.read_csv(weekly_txn_dir + f"mcard_weekly_{agg}_txn.csv"),
@@ -145,7 +150,7 @@ for agg in aggregation_ids_dict.keys():
         lookup_file="econ_busyness_mcard_inner_outer_quad_lookup",
         quad_lookup_file=aggregation_ids_dict[agg]["quad_area_lookup"],
         poi_id=aggregation_ids_dict[agg]["poi_id"],
-        filename=f"txn_{agg}",
+        filename=f"txn_{save_name}",
     )
 
 
