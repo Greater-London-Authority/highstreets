@@ -1,5 +1,6 @@
-import pandas as pd
-
+from highstreets.core.utils import list_files
+import os
+import re
 from highstreets import config
 from highstreets.data_source_sink.dataloader import DataLoader
 from highstreets.data_source_sink.datawriter import DataWriter
@@ -23,158 +24,122 @@ data_writer.append_data_to_postgres(
 # Retrieve full range mastercard 3hrly quad data from PostgreSQL and write to CSV
 mrli_full_range_df = data_loader.get_full_data("econ_busyness_mrli_3hourly")
 
-# Transform full range mastercard 3hrly data with added txn adjusted column
-spend_adj_full_range = mcard_transform.mcard_adjust(
-    mrli_full_range_df, col_to_adjust='txn_amt',
-    adj_col='adjustment_factor_retail', date_col='count_date')
-spend_adj_full_range = spend_adj_full_range[
-    ['ldn_ref', 'quad_id', 'count_date', 'hours', 'txn_amt', 'txn_cnt', 'txn_amt_adj']]
-adjustment_factor = pd.read_csv(config.ADJUSTMENT_FACTOR_DIR)
+cpi_success = mcard_transform.load_cpi_data_to_postgres(truncate=True)
+if not cpi_success:
+    raise Exception("Failed to load CPI data")
 
-# Find the maximum year and month in mastercard ajustment data
-max_year = adjustment_factor['yr'].max()
-max_month = adjustment_factor[adjustment_factor['yr'] == max_year]['month'].max()
+adjustment_success = mcard_transform.adjust_mcard_data_sql()
+if not adjustment_success:
+    raise Exception("Failed to adjust Mastercard data")
 
-# Find cut-off date for the month (last day of the month)
-cutoff_date = pd.Timestamp(
-    year=max_year, month=max_month, day=1) + pd.offsets.MonthEnd(0)
 
-# filtering spend data until the maximum month and year in spend pulse data
-spend_adj_full_range = spend_adj_full_range[
-    spend_adj_full_range['count_date'] <= cutoff_date]
-
-data_writer.append_data_to_postgres(
-    spend_adj_full_range, "econ_busyness_mrli_3hourly_adj")
-
-data_writer.write_hex_to_csv_by_year(
-    spend_adj_full_range,
-    output_dir=f"{base_dir}"
-    "mastercard/mrli_3hourly/processed/MRLI_3yr_compressed",
-    custom_file_name="MRLI_3yr_compressed_adj",
+data_writer.export_table_by_year_to_s3(
+    table_name='econ_busyness_mrli_3hourly_adj',
+    date_column='count_date',
+    s3_base_path=f"{base_dir}mastercard/mrli_3hourly/processed/MRLI_3yr_compressed",
+    file_prefix='MRLI_3yr_compressed_adj',
+    latest=True
 )
 
-data_writer.write_hex_to_csv_by_year(
-    mrli_full_range_df,
-    output_dir=f"{base_dir}"
-    "mastercard/mrli_3hourly/processed/MRLI_3yr_compressed",
-    custom_file_name="MRLI_3yr_compressed",
-)
-data_writer.upload_data_to_lds(
-    slug="spend-mastercard-retail-index-3-hourly",
-    resource_title="MRLI_3yr_compressed_2022.csv",
-    file_path=(
-        f"{base_dir}"
-        f"mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/"
-        f"MRLI_3yr_compressed_2022.csv"
-    ),
+# add here to offload hex data to s3
+data_writer.export_table_by_year_to_s3(
+    table_name='econ_busyness_mrli_3hourly',
+    date_column='count_date',
+    s3_base_path=f"{base_dir}mastercard/mrli_3hourly/processed/MRLI_3yr_compressed",
+    file_prefix='MRLI_3yr_compressed',
+    latest=True
 )
 
-data_writer.upload_data_to_lds(
-    slug="spend-mastercard-retail-index-3-hourly",
-    resource_title="MRLI_3yr_compressed_2023.csv",
-    file_path=(
-        f"{base_dir}"
-        f"mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/"
-        f"MRLI_3yr_compressed_2023.csv"
-    ),
+# automatic upload for Mastercard 3-hourly data to London Datastore
+
+# Base paths for regular and adjusted files
+base_path = f"{base_dir}mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/"
+
+# Pattern for file types to upload
+file_patterns = [
+    "MRLI_3yr_compressed_\\d{4}\\.csv",
+    "MRLI_3yr_compressed_adj_\\d{4}\\.csv"
+]
+
+for pattern in file_patterns:
+    # Get files matching the current pattern
+    matching_files = list_files(base_path, pattern)
+
+    for file_path in matching_files:
+        # Extract filename from full path
+        file_name = os.path.basename(file_path)
+
+        # Extract year from filename using regex
+        year_match = re.search(r'(\d{4})\.csv$', file_name)
+        if year_match:
+            year = year_match.group(1)
+
+            data_writer.upload_data_to_lds(
+                slug="spend-mastercard-retail-index-3-hourly",
+                resource_title=file_name,
+                file_path=f"s3://{file_path}"
+            )
+            print(f"Uploaded {file_name} for year {year}")
+
+
+mcard_transform.fetch_and_transform_mcard_data(
+    transform_layer='quad_hs_transform_query.sql',
+    table_name='econ_busyness_mcard_highstreets_3hourly_txn',
+    truncate=True
+)
+mcard_transform.fetch_and_transform_mcard_data(
+    transform_layer='quad_tc_transform_query.sql',
+    table_name='econ_busyness_mcard_towncentres_3hourly_txn',
+    truncate=True
+)
+mcard_transform.fetch_and_transform_mcard_data(
+    transform_layer='quad_bid_transform_query.sql',
+    table_name='econ_busyness_mcard_bids_3hourly_txn',
+    truncate=True
+)
+mcard_transform.fetch_and_transform_mcard_data(
+    transform_layer='quad_bespoke_transform_query.sql',
+    table_name='econ_busyness_mcard_bespokes_3hourly_txn',
+    truncate=True
 )
 
-data_writer.upload_data_to_lds(
-    slug="spend-mastercard-retail-index-3-hourly",
-    resource_title="MRLI_3yr_compressed_2024.csv",
-    file_path=(
-        f"{base_dir}"
-        f"mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/"
-        f"MRLI_3yr_compressed_2024.csv"
-    ),
-)
 
-data_writer.upload_data_to_lds(
-    slug="spend-mastercard-retail-index-3-hourly",
-    resource_title="MRLI_3yr_compressed_2025.csv",
-    file_path=(
-        f"{base_dir}"
-        f"mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/"
-        f"MRLI_3yr_compressed_2025.csv"
-    ),
-)
+data_writer.export_table_to_s3(table_name='econ_busyness_mcard_bids_3hourly_txn',
+                               s3_base_path=(f"{base_dir}mastercard/mrli_3hourly/"
+                                             f"processed""/bid"),
+                               file_prefix='bid_3hourly_txn',
+                               add_date_range_to_filename=True,
+                               date_column='count_date')
+data_writer.export_table_to_s3(table_name='econ_busyness_mcard_highstreets_3hourly_txn',
+                               s3_base_path=(f"{base_dir}mastercard/mrli_3hourly/"
+                                             f"processed""/highstreet"),
+                               file_prefix='highstreet_3hourly_txn',
+                               add_date_range_to_filename=True,
+                               date_column='count_date')
+data_writer.export_table_to_s3(table_name='econ_busyness_mcard_towncentres_3hourly_txn',
+                               s3_base_path=(f"{base_dir}mastercard/mrli_3hourly/"
+                                             f"processed""/towncentre"),
+                               file_prefix='towncentre_3hourly_txn',
+                               add_date_range_to_filename=True,
+                               date_column='count_date')
+data_writer.export_table_to_s3(table_name='econ_busyness_mcard_bespokes_3hourly_txn',
+                               s3_base_path=(f"{base_dir}mastercard/mrli_3hourly/"
+                                             f"processed""/bespoke"),
+                               file_prefix='bespoke_3hourly_txn',
+                               add_date_range_to_filename=True,
+                               date_column='count_date')
 
-data_writer.upload_data_to_lds(
-    slug="spend-mastercard-retail-index-3-hourly",
-    resource_title="MRLI_3yr_compressed_adj_2022.csv",
-    file_path=(
-        f"{base_dir}"
-        f"mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/"
-        f"MRLI_3yr_compressed_adj_2022.csv"
-    ),
-)
 
-data_writer.upload_data_to_lds(
-    slug="spend-mastercard-retail-index-3-hourly",
-    resource_title="MRLI_3yr_compressed_adj_2023.csv",
-    file_path=(
-        f"{base_dir}"
-        f"mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/"
-        f"MRLI_3yr_compressed_adj_2023.csv"
-    ),
-)
-
-data_writer.upload_data_to_lds(
-    slug="spend-mastercard-retail-index-3-hourly",
-    resource_title="MRLI_3yr_compressed_adj_2024.csv",
-    file_path=(
-        f"{base_dir}"
-        f"mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/"
-        f"MRLI_3yr_compressed_adj_2024.csv"
-    ),
-)
-
-data_writer.upload_data_to_lds(
-    slug="spend-mastercard-retail-index-3-hourly",
-    resource_title="MRLI_3yr_compressed_adj_2025.csv",
-    file_path=(
-        f"{base_dir}"
-        f"mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/"
-        f"MRLI_3yr_compressed_adj_2025.csv"
-    ),
-)
-
-mrli_hs_full_range = mcard_transform.mcard_highstreet_threehourly_transform(
-    spend_adj_full_range
-)
-mrli_tc_full_range = mcard_transform.mcard_towncentre_threehourly_transform(
-    spend_adj_full_range
-)
-mrli_bid_full_range = mcard_transform.mcard_bid_threehourly_transform(
-    spend_adj_full_range
-)
-mrli_bespoke_full_range = mcard_transform.mcard_bespoke_threehourly_transform(
-    spend_adj_full_range
-)
-data_writer.truncate_and_load_to_postgres(
-    mrli_hs_full_range,
-    table_name="econ_busyness_mcard_highstreets_3hourly_txn",
-    schema="gisapdata",
-)
-data_writer.truncate_and_load_to_postgres(
-    mrli_tc_full_range,
-    table_name="econ_busyness_mcard_towncentres_3hourly_txn",
-    schema="gisapdata",
-)
-data_writer.truncate_and_load_to_postgres(
-    mrli_bid_full_range,
-    table_name="econ_busyness_mcard_bids_3hourly_txn",
-    schema="gisapdata",
-)
-data_writer.truncate_and_load_to_postgres(
-    mrli_bespoke_full_range,
-    table_name="econ_busyness_mcard_bespokes_3hourly_txn",
-    schema="gisapdata",
-)
-data_writer.write_threehourly_hs_to_csv(mrli_bespoke_full_range, "mastercard_3hourly")
-data_writer.write_threehourly_hs_to_csv(mrli_hs_full_range, "mastercard_3hourly")
-data_writer.write_threehourly_hs_to_csv(mrli_tc_full_range, "mastercard_3hourly")
-data_writer.write_threehourly_hs_to_csv(mrli_bid_full_range, "mastercard_3hourly")
+mrli_hs_full_range = data_loader.get_full_data(
+    "econ_busyness_mcard_highstreets_3hourly_txn")
+mrli_tc_full_range = data_loader.get_full_data(
+    "econ_busyness_mcard_towncentres_3hourly_txn")
+mrli_bid_full_range = data_loader.get_full_data(
+    "econ_busyness_mcard_bids_3hourly_txn")
+mrli_bespoke_full_range = data_loader.get_full_data(
+    "econ_busyness_mcard_bespokes_3hourly_txn")
+spend_adj_full_range = data_loader.get_full_data(
+    "econ_busyness_mrli_3hourly_adj")
 
 
 # update data in London Datastore along with start and end dates
@@ -212,13 +177,6 @@ data_writer.upload_data_to_lds(
     poi_type="bid",
     df=mrli_bid_full_range,
     file_name="bid_3hourly_txn",
-)
-
-
-quad_borough_lookup = pd.read_csv(
-    f"{base_dir}"
-    "reference_data/mcard_grid_ldn_ref_HS_TC_BID_CAZ_Borough_lookup2.csv",
-    usecols=['quad_id', 'borough_name']
 )
 
 # sub-license: westminster University
@@ -500,50 +458,9 @@ data_writer.upload_data_to_lds(
 )
 
 # Concatenate latest data from different layers
-econ_busyness_mcard_3hourly_txn = pd.concat(
-    [
-        mrli_hs_full_range.assign(layer="highstreets").rename(
-            columns={
-                "highstreet_id": "id",
-                "highstreet_name": "name",
-                "txn_amt": "txn_amt_retail",
-                "txn_amt_adj": "txn_amt_retail_adj"
-            }
-        ),
-        mrli_tc_full_range.assign(layer="towncentres").rename(
-            columns={"tc_id": "id", "tc_name": "name", "txn_amt": "txn_amt_retail",
-                     "txn_amt_adj": "txn_amt_retail_adj"}
-        ),
-        mrli_bid_full_range.assign(layer="bids").rename(
-            columns={"bid_id": "id", "bid_name": "name", "txn_amt": "txn_amt_retail",
-                     "txn_amt_adj": "txn_amt_retail_adj"}
-        ),
-        mrli_bespoke_full_range.assign(layer="bespoke").rename(
-            columns={
-                "bespoke_area_id": "id",
-                "bespoke_name": "name",
-                "txn_amt": "txn_amt_retail",
-                "txn_amt_adj": "txn_amt_retail_adj"
-            }
-        ),
-    ]
-)
-
-# Select columns for appending to PostgreSQL
-econ_busyness_mcard_3hourly_txn = econ_busyness_mcard_3hourly_txn[
-    [
-        "count_date",
-        "hours",
-        "id",
-        "name",
-        "layer",
-        "txn_amt_retail",
-        "txn_amt_retail_adj",
-    ]
-].sort_values(["count_date", "layer", "id"])
-
-data_writer.truncate_and_load_to_postgres(
-    econ_busyness_mcard_3hourly_txn,
-    table_name="econ_busyness_mcard_3hourly_txn",
-    schema="gisapdata",
+mcard_transform.concat_and_load_all_mcard_quad_layers(
+    query_file='quad_all_layer_concat_query.sql',
+    target_table='econ_busyness_mcard_3hourly_txn',
+    truncate=True,
+    load_to_db=True
 )

@@ -820,8 +820,80 @@ class DataWriter:
         except Exception as e:
             logging.error(f"Error while writing data to CSV: {e}")
 
+    def _standardize_columns_for_postgres(self, df, table_name):
+        """
+        Standardize DataFrame columns to match PostgreSQL table structure.
+
+        Args:
+            df (pd.DataFrame): DataFrame to standardize
+            table_name (str): Name of the target PostgreSQL table
+
+        Returns:
+            pd.DataFrame: DataFrame with standardized columns
+        """
+        try:
+            # Get existing table columns if table exists
+            with self.engine.connect() as connection:
+                result = connection.execute(text(
+                    f"SELECT column_name FROM information_schema.columns "
+                    f"WHERE table_name = '{table_name}' AND "
+                    f"table_schema = 'gisapdata' "
+                    f"ORDER BY ordinal_position"
+                ))
+                existing_columns = [row[0] for row in result.fetchall()]
+
+            if not existing_columns:
+                # Table doesn't exist, return original DataFrame
+                logging.info(
+                    f"Table {table_name} doesn't exist, "
+                    "will be created with current columns"
+                )
+                return df
+
+            df_standardized = df.copy()
+
+            # Remove extra columns that don't exist in PostgreSQL table
+            extra_columns = [
+                col for col in df_standardized.columns
+                if col not in existing_columns
+            ]
+            if extra_columns:
+                logging.info(
+                    f"Removing extra columns for {table_name}: {extra_columns}"
+                )
+                df_standardized = df_standardized.drop(columns=extra_columns)
+
+            # Add missing columns with None/NaN values
+            missing_columns = [
+                col for col in existing_columns
+                if col not in df_standardized.columns
+            ]
+            if missing_columns:
+                logging.info(
+                    f"Adding missing columns for {table_name}: {missing_columns}"
+                )
+                for col in missing_columns:
+                    df_standardized[col] = None
+
+            # Reorder columns to match PostgreSQL table order
+            df_standardized = df_standardized.reindex(columns=existing_columns)
+
+            logging.info(
+                f"Standardized {table_name}: {len(df)} rows, "
+                f"{len(df_standardized.columns)} columns"
+            )
+            return df_standardized
+
+        except Exception as e:
+            logging.warning(
+                f"Could not standardize columns for {table_name}: {str(e)}"
+            )
+            logging.warning("Proceeding with original DataFrame columns")
+            return df
+
     def truncate_and_load_to_postgres(
-        self, dataframe, table_name, schema="public", index=False
+        self, dataframe, table_name, schema="gisapdata", index=False,
+        standardize_columns=False
     ):
         """
         Truncate and load data from a DataFrame into a PostgreSQL table.
@@ -831,19 +903,29 @@ class DataWriter:
             dataframe (pd.DataFrame): The DataFrame containing the data to be loaded.
             table_name (str): The name of the PostgreSQL table.
             schema (str, optional): The schema where the table resides.
-                                   Default is 'public'.
+                                   Default is 'gisapdata'.
             index (bool, optional): Whether to include the DataFrame index as a
                                    column in the table. Default is False.
+            standardize_columns (bool, optional): Whether to standardize columns
+                                                 to match existing table structure.
+                                                 Default is False.
 
         Returns:
             None
         """
         try:
+            # Standardize columns if requested and table exists
+            if standardize_columns:
+                dataframe = self._standardize_columns_for_postgres(
+                    dataframe, table_name
+                )
+
             # First check if the table exists
             with self.engine.connect() as connection:
                 result = connection.execute(text(
                     f"SELECT EXISTS (SELECT FROM information_schema.tables "
-                    f"WHERE table_schema = '{schema}' AND table_name = '{table_name}')"
+                    f"WHERE table_schema = '{schema}' AND "
+                    f"table_name = '{table_name}')"
                 ))
                 table_exists = result.scalar()
 

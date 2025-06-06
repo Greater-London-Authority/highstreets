@@ -614,6 +614,10 @@ class LookupManager:
             # Save to CSV
             output_path = f"{self.base_dir}mastercard/lookups/Towncenters_in_caz.csv"
             caz_tcs.to_csv(output_path, index=False)
+            self.data_writer.truncate_and_load_to_postgres(
+                dataframe=caz_tcs,
+                table_name='econ_busyness_mcard_towncentre_caz_lookup',
+                schema="gisapdata")
             self.logger.info(f"Saved Town Centres in CAZ lookup to {output_path}")
 
             return caz_tcs
