@@ -76,48 +76,62 @@ class McardTransform:
         return data
 
     # INFLATION ADJUSTMENT
-    def inflation_adjust(self, spend, cpi_table, reindexing_year=None,
-                         col_to_adjust=['txn_amt'], date_col='count_date'):
-        '''
+    def inflation_adjust(
+        self,
+        spend,
+        cpi_table,
+        reindexing_year=None,
+        col_to_adjust=["txn_amt"],
+        date_col="count_date",
+    ):
+        """
         Adjusts spend columns 'txn_amt' and 'avg_spend_amt by
         monthly ONS inflation rates.
         spend: spend table of MC 3-hourly/weekly/Spending Pulse data
         cpi_table: imported and cleaned CPIH table from ONS
         reindexing year (optional): the year that you want to use as cpi_index = 100.
         If none, does not reindex beyond ONS's existing 2015=100 reindex
-        '''
+        """
         # Reindex to a chosen baseline year, otherwise skip
         if reindexing_year is not None:
-            reindex = cpi_table[cpi_table['yr'] == reindexing_year]['cpi_index'].mean()
-            cpi_table['cpi_index'] = cpi_table['cpi_index'] / reindex * 100
+            reindex = cpi_table[cpi_table["yr"] == reindexing_year]["cpi_index"].mean()
+            cpi_table["cpi_index"] = cpi_table["cpi_index"] / reindex * 100
         else:
             pass
+        # to match with new table
+        cpi_table["cpi_index"] = cpi_table["cpi_index"].round(4)
 
         # Add month and yr column to spend data
-        spend['month'] = spend[date_col].dt.month
-        spend['yr'] = spend[date_col].dt.year
+        spend["month"] = spend[date_col].dt.month
+        spend["yr"] = spend[date_col].dt.year
 
         # Join spend data with cpi data
-        spend = pd.merge(spend, cpi_table, how='left', on=['yr', 'month'])
+        spend = pd.merge(spend, cpi_table, how="left", on=["yr", "month"])
 
         # If spend data is more recent than cpi data, there will be NaNs.
         # Fill them with the latest available cpi index
-        max_year = cpi_table['yr'].max()
-        max_month = cpi_table[(cpi_table['yr'] == max_year)]['month'].max()
-        spend['cpi_index'].fillna(cpi_table[
-            (cpi_table['month'] == max_month) & (cpi_table[
-                'yr'] == max_year)]['cpi_index'])
+        max_year = cpi_table["yr"].max()
+        max_month = cpi_table[(cpi_table["yr"] == max_year)]["month"].max()
+        spend["cpi_index"].fillna(
+            cpi_table[
+                (cpi_table["month"] == max_month) & (cpi_table["yr"] == max_year)
+            ]["cpi_index"]
+        )
 
         # Adjust
         for col in col_to_adjust:
-            spend[f"{col}"] = spend[col] / spend['cpi_index'] * 100
-        spend.drop(columns=['Aggregate', 'cpi_index'], inplace=True)
+            spend[f"{col}"] = spend[col] / spend["cpi_index"] * 100
+        spend.drop(columns=["aggregate", "cpi_index"], inplace=True)
         return spend
 
-    def mcard_adjust(self, spend, col_to_adjust='txn_amt',
-                     adj_col='adjustment_factor_retail',
-                     date_col='count_date'):
-        '''
+    def mcard_adjust(
+        self,
+        spend,
+        col_to_adjust="txn_amt",
+        adj_col="adjustment_factor_retail",
+        date_col="count_date",
+    ):
+        """
         Adjusts spend column by monthly correction factor generated from
         Spending Pulse data.
         The adjustment takes into account the cash-to-card shift and the mastercard
@@ -138,76 +152,92 @@ class McardTransform:
         Returns
         --------
         Dataframe with additional adjusted spend column (e.g. txn_amt_adj)
-        '''
+        """
         data_loader = DataLoader()
         # adjustment_factor = data_loader.get_full_data(
         # "econ_busyness_mcard_adjustment_factor")
         inner_outer_quad = data_loader.get_full_data(
-            "econ_busyness_mcard_Inner_Outer_quad_lookup")
-        inner_outer_quad["quad_id"] = inner_outer_quad["quad_id"].astype('Int64')
+            "econ_busyness_mcard_Inner_Outer_quad_lookup"
+        )
+        inner_outer_quad["quad_id"] = inner_outer_quad["quad_id"].astype("Int64")
         adjustment_factor = pd.read_csv(self.adjustment_factor_dir)
         # inner_outer_quad = pd.read_csv(self.inner_outer_quad_dir)
         # where a quad is assigned both Inner and Outer - keep Outer
         inner_outer_quad = inner_outer_quad.sort_values(
-            by='inner_outer').drop_duplicates(subset='quad_id', keep='last')
+            by="inner_outer"
+        ).drop_duplicates(subset="quad_id", keep="last")
         # import ONS's CPIH table via API
         api_client = APIClient()
         cpi_table = api_client.fetch_cpi()
 
         # Add month and yr column to spend data
         spend[date_col] = pd.to_datetime(spend[date_col])
-        spend['month'] = spend[date_col].dt.month
-        spend['yr'] = spend[date_col].dt.year
+        spend["month"] = spend[date_col].dt.month
+        spend["yr"] = spend[date_col].dt.year
 
         # Add inner_outer to spend data
-        spend = pd.merge(spend, inner_outer_quad, how='left', on='quad_id')
+        spend = pd.merge(spend, inner_outer_quad, how="left", on="quad_id")
 
         # Join spend data with mcard adjustment data
         # # need to merge on inner vs outer too
-        spend = pd.merge(spend, adjustment_factor[
-            ['yr', 'month', 'inner_outer', adj_col]], how='left', on=[
-                'yr', 'month', 'inner_outer'])
+        spend = pd.merge(
+            spend,
+            adjustment_factor[["yr", "month", "inner_outer", adj_col]],
+            how="left",
+            on=["yr", "month", "inner_outer"],
+        )
 
         # If spend data is more recent than Spending Pulse, there will be NaNs.
         # Fill them with the latest available mcard_adjustment
-        spend = spend.sort_values(by=['inner_outer', date_col])
-        spend[adj_col] = spend[adj_col].fillna(method='ffill')
+        spend = spend.sort_values(by=["inner_outer", date_col])
+        spend[adj_col] = spend[adj_col].fillna(method="ffill")
 
         # Adjust for cash-to-card shift and MC market share - create an additional column
-        spend[col_to_adjust + '_adj'] = spend[col_to_adjust] / spend[adj_col]
+        spend[col_to_adjust + "_adj"] = spend[col_to_adjust] / spend[adj_col]
 
         # remove unecessary columns
-        spend.drop(columns=['inner_outer', adj_col], inplace=True)
+        spend.drop(columns=["inner_outer", adj_col], inplace=True)
 
         # Adjust for inflation (using subcategory-specific CPI)
-        txn_cat_cpi_dict = self.sectors_df[
-            ['geo_insights', 'cpi']].set_index('geo_insights').T.to_dict('records')[0]
-        if col_to_adjust == 'txn_amt':
-            txn_cat = 'retail'
+        txn_cat_cpi_dict = (
+            self.sectors_df[["geo_insights", "cpi"]]
+            .set_index("geo_insights")
+            .T.to_dict("records")[0]
+        )
+        if col_to_adjust == "txn_amt":
+            txn_cat = "retail"
         else:
             # eating / apparel / retail
-            txn_cat = col_to_adjust.split('_')[-1]
+            txn_cat = col_to_adjust.split("_")[-1]
         # adjust for inflation (subcat specific CPI) - updates adjusted column
         spend = self.inflation_adjust(
-            spend, cpi_table[cpi_table['Aggregate'] == txn_cat_cpi_dict[txn_cat]][
-                ['yr', 'month', 'Aggregate', 'cpi_index']], reindexing_year=2018,
-            col_to_adjust=[col_to_adjust + '_adj'], date_col=date_col)
+            spend,
+            cpi_table[cpi_table["Aggregate"] == txn_cat_cpi_dict[txn_cat]][
+                ["yr", "month", "Aggregate", "cpi_index"]
+            ],
+            reindexing_year=2018,
+            col_to_adjust=[col_to_adjust + "_adj"],
+            date_col=date_col,
+        )
 
         return spend
 
     def mcard_highstreet_threehourly_transform(self, data):
         data_loader = DataLoader()
         Highstreets_quad_lookup = data_loader.get_full_data(
-            'econ_busyness_mcard_Highstreets_quad_lookup')
-        Highstreets_quad_lookup["quad_id"] = Highstreets_quad_lookup[
-            "quad_id"].astype('Int64')
-        data["quad_id"] = data["quad_id"].astype('Int64')
+            "econ_busyness_mcard_Highstreets_quad_lookup"
+        )
+        Highstreets_quad_lookup["quad_id"] = Highstreets_quad_lookup["quad_id"].astype(
+            "Int64"
+        )
+        data["quad_id"] = data["quad_id"].astype("Int64")
         # Highstreets_quad_lookup = pd.read_csv(
         #     f"{self.base_dir}reference_data/Highstreets_quad_lookup.csv"
         # )
         data = (
-            Highstreets_quad_lookup
-            .merge(data, left_on="quad_id", right_on="quad_id", how="right")
+            Highstreets_quad_lookup.merge(
+                data, left_on="quad_id", right_on="quad_id", how="right"
+            )
             .dropna(subset=["highstreet_id"])
             .groupby(
                 [
@@ -223,7 +253,7 @@ class McardTransform:
             .aggregate(
                 txn_amt=("txn_amt", lambda x: round(x.sum(), 2)),
                 txn_amt_adj=("txn_amt_adj", lambda x: round(x.sum(), 2)),
-                txn_cnt=("txn_cnt", lambda x: round(x.sum(), 2))
+                txn_cnt=("txn_cnt", lambda x: round(x.sum(), 2)),
             )
             .reset_index()
         )
@@ -234,22 +264,25 @@ class McardTransform:
     def mcard_towncentre_threehourly_transform(self, data):
         data_loader = DataLoader()
         TownCentres_quad_lookup = data_loader.get_full_data(
-            'econ_busyness_mcard_TownCentres_quad_lookup')
-        TownCentres_quad_lookup["quad_id"] = TownCentres_quad_lookup[
-            "quad_id"].astype('Int64')
-        data["quad_id"] = data["quad_id"].astype('Int64')
+            "econ_busyness_mcard_TownCentres_quad_lookup"
+        )
+        TownCentres_quad_lookup["quad_id"] = TownCentres_quad_lookup["quad_id"].astype(
+            "Int64"
+        )
+        data["quad_id"] = data["quad_id"].astype("Int64")
         # TownCentres_quad_lookup = pd.read_csv(
         #     f"{self.base_dir}reference_data/TownCentres_quad_lookup.csv"
         # )
         data = (
-            TownCentres_quad_lookup
-            .merge(data, left_on="quad_id", right_on="quad_id", how="right")
+            TownCentres_quad_lookup.merge(
+                data, left_on="quad_id", right_on="quad_id", how="right"
+            )
             .dropna(subset=["tc_id"])
             .groupby(["tc_id", "tc_name", "count_date", "hours", "borough", "x", "y"])
             .aggregate(
                 txn_amt=("txn_amt", lambda x: round(x.sum(), 2)),
                 txn_amt_adj=("txn_amt_adj", lambda x: round(x.sum(), 2)),
-                txn_cnt=("txn_cnt", lambda x: round(x.sum(), 2))
+                txn_cnt=("txn_cnt", lambda x: round(x.sum(), 2)),
             )
             .reset_index()
         )
@@ -260,18 +293,20 @@ class McardTransform:
     def mcard_bid_threehourly_transform(self, data):
         data_loader = DataLoader()
         BIDS_quad_lookup = data_loader.get_full_data(
-            'econ_busyness_mcard_BIDs_quad_lookup')
-        BIDS_quad_lookup["quad_id"] = BIDS_quad_lookup["quad_id"].astype('Int64')
-        data["quad_id"] = data["quad_id"].astype('Int64')
+            "econ_busyness_mcard_BIDs_quad_lookup"
+        )
+        BIDS_quad_lookup["quad_id"] = BIDS_quad_lookup["quad_id"].astype("Int64")
+        data["quad_id"] = data["quad_id"].astype("Int64")
         data = (
-            BIDS_quad_lookup
-            .merge(data, left_on="quad_id", right_on="quad_id", how="right")
+            BIDS_quad_lookup.merge(
+                data, left_on="quad_id", right_on="quad_id", how="right"
+            )
             .dropna(subset=["bid_id"])
             .groupby(["bid_id", "bid_name", "count_date", "hours"])
             .aggregate(
                 txn_amt=("txn_amt", lambda x: round(x.sum(), 2)),
                 txn_amt_adj=("txn_amt_adj", lambda x: round(x.sum(), 2)),
-                txn_cnt=("txn_cnt", lambda x: round(x.sum(), 2))
+                txn_cnt=("txn_cnt", lambda x: round(x.sum(), 2)),
             )
             .reset_index()
         )
@@ -282,10 +317,10 @@ class McardTransform:
     def mcard_bespoke_threehourly_transform(self, data):
         data_loader = DataLoader()
         bespoke_quad_lookup = data_loader.get_full_data(
-            'econ_busyness_mcard_bespoke_quad_lookup')
-        bespoke_quad_lookup["quad_id"] = bespoke_quad_lookup[
-            "quad_id"].astype('Int64')
-        data["quad_id"] = data["quad_id"].astype('Int64')
+            "econ_busyness_mcard_bespoke_quad_lookup"
+        )
+        bespoke_quad_lookup["quad_id"] = bespoke_quad_lookup["quad_id"].astype("Int64")
+        data["quad_id"] = data["quad_id"].astype("Int64")
         # bespoke_quad_lookup = pd.read_csv(
         #     f"{self.base_dir}reference_data/bespoke_quad_lookup.csv"
         # )
@@ -298,7 +333,7 @@ class McardTransform:
             .aggregate(
                 txn_amt=("txn_amt", lambda x: round(x.sum(), 2)),
                 txn_amt_adj=("txn_amt_adj", lambda x: round(x.sum(), 2)),
-                txn_cnt=("txn_cnt", lambda x: round(x.sum(), 2))
+                txn_cnt=("txn_cnt", lambda x: round(x.sum(), 2)),
             )
             .reset_index()
         )
@@ -377,7 +412,7 @@ class McardTransform:
         transform_layer: str,
         table_name: str,
         truncate: bool = False,
-        load_to_db: bool = True
+        load_to_db: bool = True,
     ) -> None:
         """
         Transform and load Mastercard data using highly optimized bulk insert.
@@ -391,20 +426,23 @@ class McardTransform:
         try:
             # Get transformation query and ensure it doesn't end with semicolon
             transform_query = self.sql_manager.get_query(
-                transform_layer, "mcard/threehourly")
+                transform_layer, "mcard/threehourly"
+            )
 
             # Remove any trailing semicolons that might cause syntax errors
             transform_query = transform_query.strip()
-            if transform_query.endswith(';'):
+            if transform_query.endswith(";"):
                 transform_query = transform_query[:-1]
 
             # Check if we have a valid query
             if not transform_query or len(transform_query.strip()) < 10:
-                raise ValueError(f"Transform query is empty or"
-                                 f" too short: '{transform_query}'")
+                raise ValueError(
+                    f"Transform query is empty or" f" too short: '{transform_query}'"
+                )
 
-            self.logger.info(f"Running transformation:"
-                             f" {transform_layer} for table: {table_name}")
+            self.logger.info(
+                f"Running transformation:" f" {transform_layer} for table: {table_name}"
+            )
 
             if load_to_db:
                 # Construct the loading query with maximum performance optimizations
@@ -455,13 +493,17 @@ class McardTransform:
                     connection.execute(text(load_query))
 
                     # Log load statistics
-                    stats = connection.execute(text(f"""
+                    stats = connection.execute(
+                        text(
+                            f"""
                         SELECT
                             COUNT(*) as row_count,
                             MIN(count_date)::DATE as min_date,
                             MAX(count_date)::DATE as max_date
                         FROM {table_name}
-                    """)).fetchone()
+                    """
+                        )
+                    ).fetchone()
 
                     end_time = datetime.now()
                     duration = (end_time - start_time).total_seconds()
@@ -478,6 +520,63 @@ class McardTransform:
         except Exception as e:
             self.logger.error(f"Error in fetch_and_transform_mcard_data: {str(e)}")
             raise
+
+    def adjust_mcard_data_sql(
+        self,
+        query="update_mcard_adjustment_no_merge.sql",
+        table_name="econ_busyness_mrli_3hourly",
+    ) -> bool:
+        """
+        Execute SQL-based Mastercard adjustment with optimized performance.
+
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            # Get the optimized SQL query
+            sql_file = query
+            adjustment_sql = self.sql_manager.get_query(sql_file)
+
+            # Log the start of adjustment process
+            self.logger.info("Starting optimized SQL-based Mastercard adjustment")
+
+            # Get row count to be adjusted (for progress tracking)
+            with self.engine.connect() as conn:
+                row_count = conn.execute(
+                    text(f"SELECT COUNT(*) FROM {table_name}")
+                ).scalar()
+
+            start_time = datetime.now()
+            self.logger.info(f"Adjusting {row_count:,} rows...")
+
+            # Execute the SQL with high performance settings
+            with self.engine.connect().execution_options(
+                isolation_level="AUTOCOMMIT"
+            ) as conn:
+                # Set database configuration for better performance
+                conn.execute(text("SET statement_timeout = 0"))  # No timeout
+                conn.execute(text("SET work_mem = '1GB'"))
+                # More memory for sorting/joins
+
+                # Execute the actual adjustment SQL
+                conn.execute(text(adjustment_sql))
+
+            end_time = datetime.now()
+            duration = (end_time - start_time).total_seconds()
+            rows_per_second = row_count / duration if duration > 0 else 0
+
+            # Log performance statistics
+            self.logger.info(
+                f"Successfully adjusted {row_count:,} rows\n"
+                f"Duration: {duration:.2f} seconds\n"
+                f"Performance: {rows_per_second:,.0f} rows/second"
+            )
+
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Error in adjust_mcard_data_sql: {str(e)}")
+            return False
 
     def load_cpi_data_to_postgres(self, truncate=True) -> bool:
         """
@@ -525,59 +624,6 @@ class McardTransform:
 
         except Exception as e:
             self.logger.error(f"Error loading CPI data to PostgreSQL: {str(e)}")
-            return False
-
-    def adjust_mcard_data_sql(self) -> bool:
-        """
-        Execute SQL-based Mastercard adjustment with optimized performance.
-
-        Returns:
-            bool: True if successful, False otherwise
-        """
-        try:
-            # Get the optimized SQL query
-            sql_file = "update_mcard_adjustment_no_merge.sql"
-            adjustment_sql = self.sql_manager.get_query(
-                sql_file)
-
-            # Log the start of adjustment process
-            self.logger.info("Starting optimized SQL-based Mastercard adjustment")
-
-            # Get row count to be adjusted (for progress tracking)
-            with self.engine.connect() as conn:
-                row_count = conn.execute(text(
-                    "SELECT COUNT(*) FROM econ_busyness_mrli_3hourly")).scalar()
-
-            start_time = datetime.now()
-            self.logger.info(f"Adjusting {row_count:,} rows...")
-
-            # Execute the SQL with high performance settings
-            with self.engine.connect().execution_options(
-                isolation_level="AUTOCOMMIT"
-            ) as conn:
-                # Set database configuration for better performance
-                conn.execute(text("SET statement_timeout = 0"))  # No timeout
-                conn.execute(text("SET work_mem = '1GB'"))
-                # More memory for sorting/joins
-
-                # Execute the actual adjustment SQL
-                conn.execute(text(adjustment_sql))
-
-            end_time = datetime.now()
-            duration = (end_time - start_time).total_seconds()
-            rows_per_second = row_count / duration if duration > 0 else 0
-
-            # Log performance statistics
-            self.logger.info(
-                f"Successfully adjusted {row_count:,} rows\n"
-                f"Duration: {duration:.2f} seconds\n"
-                f"Performance: {rows_per_second:,.0f} rows/second"
-            )
-
-            return True
-
-        except Exception as e:
-            self.logger.error(f"Error in adjust_mcard_data_sql: {str(e)}")
             return False
 
     def concat_and_load_all_mcard_quad_layers(

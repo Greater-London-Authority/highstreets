@@ -9,6 +9,7 @@ WITH filtered_data AS (
     l.inner_outer
   FROM 
     econ_busyness_mcard_stg_18_zoom c
+    econ_busyness_mcard_stg_18_zoom c
   JOIN 
     econ_busyness_mcard_inner_outer_quad_lookup l ON c.quad_id::bigint = l.quad_id::bigint
   WHERE 
