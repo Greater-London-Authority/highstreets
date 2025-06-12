@@ -40,10 +40,8 @@ SP_FILEPATH_PROCESSED = (
 MCARD_ADJ_PATH = f"{BASE_DIR}mastercard/spendingpulse/mcard_adjustment_factor.csv"
 MCARD_ADJ_PATH1 = f"{BASE_DIR}reference_data/mcard_adjustment_factor.csv"
 MCARD_ADJ_PATH2 = "Z:/HSDS/data/mastercard/spendingpulse/mcard_adjustment_factor.csv"
-MCARD_ADJ_PATH3 = "Z:/HSDS/data/reference_data/mcard_adjustment_factor.csv"
-#  These were for testing
-# MCARD_ADJ_PATH = "Z:/HSDS/data/mastercard/spendingpulse/test/mcard_adjustment_factor.csv"
-# MCARD_ADJ_PATH1 = "Z:/HSDS/data/mastercard/spendingpulse/test/mcard_adjustment_factor.csv"
+MCARD_ADJ_PATH3 = ("Z:/HSDS/data/reference_data/"
+                   "mcard_adjustment_factor.csv")
 
 ADJUSTMENT_FACTOR_DIR = (
     f"{BASE_DIR}mastercard/spendingpulse/" "mcard_adjustment_factor.csv"
