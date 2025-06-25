@@ -1,12 +1,26 @@
 import pandas as pd
+import os
 import logging
 from highstreets import config
 from highstreets.data_source_sink.dataloader import DataLoader
 from highstreets.data_source_sink.datawriter import DataWriter
+from highstreets.core.sql_manager import SQLManager
+from sqlalchemy import create_engine
 from highstreets.data_transformation.mcard_transform import McardTransform
-
 from highstreets.data_transformation.mcard_weekly_processor import FileProcessor
+from dotenv import find_dotenv, load_dotenv
 base_dir = config.BASE_DIR
+
+load_dotenv(find_dotenv())
+# initialize the database connection
+database = os.getenv("PG_DATABASE")
+username = os.getenv("PG_USER")
+password = os.getenv("PG_PASSWORD")
+host = os.getenv("PG_HOST")
+port = os.getenv("PG_PORT")
+engine = create_engine(
+    f"postgresql+psycopg2://{username}:{password}@" f"{host}:{port}/{database}"
+)
 
 # Configure logging
 logging.basicConfig(
@@ -19,8 +33,7 @@ logging.basicConfig(
 data_loader = DataLoader()
 data_writer = DataWriter()
 mcard_transform = McardTransform()
-dir_path = f"{base_dir}mastercard/sharefile_test"
-mcard_weekly = FileProcessor(data_loader, data_writer, dir_path)
+sql_manager = SQLManager(engine=engine)
 
 # Define table names
 table_name_map = {
@@ -33,8 +46,8 @@ for table_name in table_name_map.values():
 
 # Process files
 dir_path = "C:/Covid-19 Busyness/data/mastercard/sharefile"
-file_processor = FileProcessor(data_loader, data_writer, dir_path)
-file_processor.process_mcard_raw_files(table_name_map)
+mcard_weekly = FileProcessor(data_loader, data_writer, dir_path)
+mcard_weekly.process_mcard_raw_files(table_name_map)
 
 
 # Clean and process data
@@ -44,16 +57,21 @@ cols = [
     "avg_ticket", "avg_freq", "avg_spend_amt", "file_name",
     "weekday_weekend", "central_latitude", "central_longitude"
 ]
-file_processor.clean_and_process_data(18, cols, clean_table_name)
+mcard_weekly.clean_and_process_data(18, cols, clean_table_name)
 
-file_processor.incremental_refresh_mcard_stg_18_zoom()
+mcard_weekly.incremental_refresh_mcard_stg_18_zoom()
 
-file_processor.process_inner_outer_weekly_summary()
+mcard_weekly.process_inner_outer_weekly_summary()
 
-# script for generating adjustment factor comes here
-# script for generating adjustment factor comes here
-# script for generating adjustment factor comes here
-
+# Adjustment Factor generation using Spending Pulse
+mcard_weekly.create_adjustment_factor(
+    table_name="econ_busyness_mcard_inner_outer_txn_pre_adj",
+    rolling_average_months=12,
+    ffill_missing_dates=False,
+    date_from=None,  # I added these for testing purposes
+    date_to=None,
+    update_pg_table=True,
+)
 
 data_writer.export_table_to_s3(table_name='econ_busyness_mcard_adjustment_factors',
                                s3_base_path=(f"{base_dir}mastercard/spendingpulse/"
@@ -61,11 +79,131 @@ data_writer.export_table_to_s3(table_name='econ_busyness_mcard_adjustment_factor
                                file_prefix='adjustment_factor',
                                add_date_range_to_filename=True,
                                date_column='date')
+# Path to save the adjusted data
+weekly_txn_dir = f"{base_dir}mastercard/weekly/processed/"
+weekly_adj_path = weekly_txn_dir + "adjusted_weekly_data/"
 
-# script for generating aggregated txn and yoy data comes here
-# script for generating aggregated txn and yoy data comes here
-# script for generating aggregated txn and yoy data comes here
+aggregation_ids_dict = {
+    "inner_outer": {
+        "poi_id": ["inner_outer"],
+        "quad_area_lookup": "econ_busyness_mcard_inner_outer_quad_lookup",
+    },
+    "bid": {
+        "poi_id": ["bid_id", "bid_name"],
+        "quad_area_lookup": "econ_busyness_mcard_bids_quad_lookup",
+    },
+    "towncentre": {
+        "poi_id": ["tc_id", "tc_name"],
+        "quad_area_lookup": "econ_busyness_mcard_towncentres_quad_lookup",
+    },
+    "highstreet": {
+        "poi_id": ["highstreet_id", "highstreet_name"],
+        "quad_area_lookup": "econ_busyness_mcard_highstreets_quad_lookup",
+    },
+    "msoa": {
+        "poi_id": ["msoa11cd", "msoa11nm"],
+        "quad_area_lookup": "econ_busyness_mcard_msoas_quad_lookup",
+    },
+    "bespoke": {
+        "poi_id": ["bespoke_area_id", "name"],
+        "quad_area_lookup": "econ_busyness_mcard_bespoke_quad_lookup",
+    },
+    "borough": {
+        "poi_id": ["gss_code", "name"],
+        "quad_area_lookup": "econ_busyness_mcard_boroughs_quad_lookup",
+    },
+    "caz": {
+        "poi_id": ["objectid", "name"],
+        "quad_area_lookup": "econ_busyness_mcard_caz_quad_lookup",
+    },
+}
 
+
+# --------------------------------------------------
+# Aggreagte the weekly data
+# --------------------------------------------------
+
+for agg in aggregation_ids_dict.keys():
+    # Load the area query and save to csv
+    query = sql_manager.get_query(f"{agg}_weekly_query.sql")
+    weekly_agg = sql_manager.execute_query(query)
+    weekly_agg["week_start"] = pd.to_datetime(
+        weekly_agg["week_start"], errors="coerce"
+    ).dt.strftime("%Y-%m-%d")
+    weekly_agg.to_csv(
+        f"{weekly_txn_dir}" f"mcard_weekly_{agg}_txn.csv",
+        index=False,
+    )
+
+
+# --------------------------------------------------
+# Adjust the aggregated data
+# --------------------------------------------------
+
+
+for agg in aggregation_ids_dict.keys():
+    print(agg)
+    if agg in ["highstreet", "bid", "towncentre", "msoa", "borough"]:
+        save_name = f"{agg}s"
+    else:
+        save_name = agg
+
+    adjusted_data = mcard_weekly.mcard_adjust_weekly(
+        pd.read_csv(weekly_txn_dir + f"mcard_weekly_{agg}_txn.csv"),
+        save_path=weekly_adj_path,
+        col_to_adjust=[
+            f"txn_amt_wd_{sector}"
+            for sector in config.SECTORS_DF["geo_insights"].values
+        ]
+        + [
+            f"txn_amt_we_{sector}"
+            for sector in config.SECTORS_DF["geo_insights"].values
+        ],
+        date_col="week_start",
+        lookup_file="econ_busyness_mcard_inner_outer_quad_lookup",
+        quad_lookup_file=aggregation_ids_dict[agg]["quad_area_lookup"],
+        poi_id=aggregation_ids_dict[agg]["poi_id"],
+        filename=f"txn_{save_name}",
+    )
+
+
+# -----------------------------------------------------------------
+# Create adjusted London level data (Combine Inner and Outer)
+# -----------------------------------------------------------------
+
+txn_io_london = pd.read_csv(f"{weekly_adj_path}txn_inner_outer.csv")
+txn_london = (
+    txn_io_london.groupby(["yr", "wk", "week_start"]).sum(min_count=1).reset_index()
+)
+txn_london["area"] = "London"
+txn_london = txn_london[
+    ["yr", "wk", "week_start", "area"]
+    + [i for i in txn_io_london.columns if i.startswith("txn")]
+]
+txn_london = txn_london.round(3)
+
+txn_london.to_csv(f"{weekly_adj_path}txn_london.csv", index=False)
+
+# Create London YoY file
+yoy = txn_london.copy()
+for col in [i for i in yoy.columns if i.startswith("txn_")]:
+    yoy = mcard_weekly.calculate_yoy_growth_compared_to_2019(
+        yoy, col, f"yoy_{col}", ids=["area"]
+    )
+# Filter for 2019 onwards
+yoy = yoy[yoy["yr"] >= 2019]
+# Get all columns before txn_amt ones
+first_txn_amt_col = [column for column in yoy.columns if column.startswith("txn_amt_")][
+    0
+]
+id_cols = list(yoy.loc[:, :first_txn_amt_col].columns[:-1])
+# Drop txn_ cols
+yoy = yoy.drop(columns=[i for i in yoy.columns if i.startswith("txn_")]).round(2)
+
+yoy = yoy[id_cols + [i for i in yoy.columns if i.startswith("yoy")]]
+yoy.to_csv(f"{weekly_adj_path}yoy_london.csv", index=False)
+
+print("Data adjusted")
 
 # Define table mapping for different layers - upload to Postgres
 table_mapping = {
@@ -107,7 +245,8 @@ print("Loading data to PostgreSQL tables...")
 for prefix, resources in mcard_weekly_layers.items():
     for resource in resources:
         file_key = f"{prefix}_{resource}"
-        file_path = f"{base_dir}mastercard/weekly/processed/{file_key}.csv"
+        file_path = (f"{base_dir}mastercard/weekly/processed/"
+                     f"adjusted_weekly_data/{file_key}.csv")
         table_name = table_mapping.get(file_key)
 
         if table_name:
@@ -142,7 +281,7 @@ print("\nPostgreSQL loading completed!")
 
 # reading full range txn_bespoke data from mastercard directory
 mcard_weekly = pd.read_csv(
-    f"{base_dir}mastercard/weekly/processed/txn_bespoke.csv"
+    f"{base_dir}mastercard/weekly/processed/adjusted_weekly_data/txn_bespoke.csv"
 )
 
 # sub-licensing agreement for colliers
@@ -180,7 +319,7 @@ knightsbridge_ids = [64, 69]
 
 # reading full range txn_bid data from mastercard directory
 mcard_weekly_bid = pd.read_csv(
-    f"{base_dir}mastercard/weekly/processed/txn_bids.csv"
+    f"{base_dir}mastercard/weekly/processed/adjusted_weekly_data/txn_bids.csv"
 )
 
 # filtering all holba site weekly transaction data and writing it to csv
@@ -238,7 +377,8 @@ mcard_weekly_layers = {
 for prefix, resources in mcard_weekly_layers.items():
     for resource in resources:
         resource_title = f"{prefix}_{resource}.csv"
-        file_path = f"{base_dir}mastercard/weekly/processed/{resource_title}"
+        file_path = (f"{base_dir}mastercard/weekly/processed/"
+                     f"adjusted_weekly_data/{resource_title}")
         data_writer.upload_data_to_lds(
             slug="mastercard-retail-location-insights",
             custom_date_column="week_start",

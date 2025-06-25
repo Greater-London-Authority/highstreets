@@ -64,7 +64,7 @@ class FileProcessor:
 
     def create_adjustment_factor(
         self,
-        table_name="test_econ_busyness_mcard_inner_outer_txn",
+        table_name="econ_busyness_mcard_inner_outer_txn_pre_adj",
         rolling_average_months=12,
         ffill_missing_dates=False,
         date_from=None,
@@ -106,7 +106,7 @@ class FileProcessor:
         logging.info("Loading and formatting MC weekly data")
         if table_name == "econ_busyness_mcard_raw_18_zoom":
             _, txn_inner_outer = self.load_and_format_mc_weekly(table_name=table_name)
-        elif table_name == "test_econ_busyness_mcard_inner_outer_txn":
+        elif table_name == "econ_busyness_mcard_inner_outer_txn_pre_adj":
             txn_inner_outer = self.data_loader.get_full_data(table_name)
 
         logging.info("Formatting and updating spending pulse data")
@@ -300,7 +300,6 @@ class FileProcessor:
                 adj_factor,
                 "econ_busyness_mcard_adjustment_factors",
                 schema="gisapdata",
-                if_exists="replace",
                 index=False,
             )
 
@@ -630,7 +629,7 @@ class FileProcessor:
         """
         # Finds the most recent week in inner-outer csv
         txn_inner_outer = self.data_loader.get_full_data(
-            "econ_busyness_mcard_inner_outer_txn"
+            "econ_busyness_mcard_inner_outer_txn_pre_adj"
         )
         txn_inner_outer["week_start"] = pd.to_datetime(txn_inner_outer["week_start"])
         txn_inner_outer["month"] = txn_inner_outer["week_start"].dt.month
@@ -1448,7 +1447,7 @@ class FileProcessor:
             txn_amt_we_eating, txn_amt_we_apparel
         """
         query = self.sql_manager.get_query(
-            "inner_outer_weekly_summary_test", "mcard/weekly")
+            "inner_outer_weekly_summary", "mcard/weekly")
 
         # Add date filter if provided
         if since_date:
@@ -1488,7 +1487,7 @@ class FileProcessor:
 
     def process_inner_outer_weekly_summary(
             self,
-            target_table='econ_busyness_mcard_inner_outer_txn',
+            target_table='econ_busyness_mcard_inner_outer_txn_pre_adj',
             output_csv=True):
         """
         Process and save inner/outer London weekly transaction data.
@@ -1532,7 +1531,7 @@ class FileProcessor:
             # Save to CSV if requested
             if output_csv:
                 csv_path = (f"{self.base_dir}mastercard/weekly/"
-                            f"processed/inner_outer_weekly_txn.csv")
+                            f"processed/inner_outer_weekly_txn_pre_adj.csv")
                 df.to_csv(csv_path, index=False)
                 self.logger.info(f"Saved data to CSV: {csv_path}")
 

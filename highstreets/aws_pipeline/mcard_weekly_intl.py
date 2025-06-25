@@ -41,25 +41,25 @@ conn = psycopg2.connect(
 # Load the bid query and save to csv
 query = sql_manager.get_query('bid_intl_query.sql')
 df_bid = pd.read_sql_query(query, conn)
-df_bid.to_csv(f"{base_dir}mastercard/weekly/processed/"
+df_bid.to_csv(f"{base_dir}mastercard/weekly/processed/international/"
               f"mcard_weekly_bid_international_txn.csv", index=False)
 
 # Load the highstreet query and save to csv
 query = sql_manager.get_query('highstreet_intl_query.sql')
 hs_weekly = pd.read_sql_query(query, conn)
-hs_weekly.to_csv(f"{base_dir}mastercard/weekly/processed/"
+hs_weekly.to_csv(f"{base_dir}mastercard/weekly/processed/international/"
                  f"mcard_weekly_highstreet_international_txn.csv", index=False)
 
 # Load the towncentre query and save to csv
 query = sql_manager.get_query('towncentre_intl_query.sql')
 tc_weekly = pd.read_sql_query(query, conn)
-tc_weekly.to_csv(f"{base_dir}mastercard/weekly/processed/"
+tc_weekly.to_csv(f"{base_dir}mastercard/weekly/processed/international/"
                  f"mcard_weekly_towncentre_international_txn.csv", index=False)
 
 # Load the msoa query and save to csv
 query = sql_manager.get_query('msoa_intl_query.sql')
 msoa_weekly = pd.read_sql_query(query, conn)
-msoa_weekly.to_csv(f"{base_dir}mastercard/weekly/processed/"
+msoa_weekly.to_csv(f"{base_dir}mastercard/weekly/processed/international/"
                    f"mcard_weekly_msoa_international_txn.csv", index=False)
 
 # Load the bespoke query and save to csv
@@ -67,20 +67,20 @@ query = sql_manager.get_query('bespoke_intl_query.sql')
 bespoke_weekly = pd.read_sql_query(query, conn)
 bespoke_weekly['week_start'] = pd.to_datetime(bespoke_weekly['week_start'],
                                               errors='coerce')
-bespoke_weekly.to_csv(f"{base_dir}mastercard/weekly/processed/"
+bespoke_weekly.to_csv(f"{base_dir}mastercard/weekly/processed/international/"
                       f"mcard_weekly_bespoke_international_txn.csv", index=False)
 
 # Load the caz query and save to csv
 query = sql_manager.get_query('caz_intl_query.sql')
 caz_weekly = pd.read_sql_query(query, conn)
 caz_weekly['week_start'] = pd.to_datetime(caz_weekly['week_start'], errors='coerce')
-caz_weekly.to_csv(f"{base_dir}mastercard/weekly/processed/"
+caz_weekly.to_csv(f"{base_dir}mastercard/weekly/processed/international/"
                   f"mcard_weekly_caz_international_txn.csv", index=False)
 
 
 # Load aggregated data from base directory(default: AWS S3)
 # adjust the data using the cpi table
-folder = f"{base_dir}mastercard/weekly/processed/"
+folder = f"{base_dir}mastercard/weekly/processed/international/"
 cpi_table = api_client.fetch_cpi()
 cpi_table[cpi_table['Aggregate'] == 'Overall Index']
 
@@ -134,7 +134,7 @@ data_writer.upload_data_to_lds(
     custom_date_column="week_start",
     resource_title="mcard_weekly_msoa_international_txn_adj.csv",
     file_path=(
-        f"{base_dir}mastercard/weekly/processed/"
+        f"{base_dir}mastercard/weekly/processed/international/"
         "mcard_weekly_msoa_international_txn_adj.csv"
     ),
 )
@@ -143,7 +143,7 @@ data_writer.upload_data_to_lds(
     custom_date_column="week_start",
     resource_title="mcard_weekly_bid_international_txn_adj.csv",
     file_path=(
-        f"{base_dir}mastercard/weekly/processed/"
+        f"{base_dir}mastercard/weekly/processed/international/"
         "mcard_weekly_bid_international_txn_adj.csv"
     ),
 )
@@ -153,7 +153,7 @@ data_writer.upload_data_to_lds(
     custom_date_column="week_start",
     resource_title="mcard_weekly_caz_international_txn_adj.csv",
     file_path=(
-        f"{base_dir}mastercard/weekly/processed/"
+        f"{base_dir}mastercard/weekly/processed/international/"
         "mcard_weekly_caz_international_txn_adj.csv"
     ),
 )
@@ -163,7 +163,7 @@ data_writer.upload_data_to_lds(
     custom_date_column="week_start",
     resource_title="mcard_weekly_bespoke_international_txn_adj.csv",
     file_path=(
-        f"{base_dir}mastercard/weekly/processed/"
+        f"{base_dir}mastercard/weekly/processed/international/"
         "mcard_weekly_bespoke_international_txn_adj.csv"
     ),
 )
@@ -173,7 +173,7 @@ data_writer.upload_data_to_lds(
     custom_date_column="week_start",
     resource_title="mcard_weekly_towncentre_international_txn_adj.csv",
     file_path=(
-        f"{base_dir}mastercard/weekly/processed/"
+        f"{base_dir}mastercard/weekly/processed/international/"
         "mcard_weekly_towncentre_international_txn_adj.csv"
     ),
 )
@@ -182,7 +182,7 @@ data_writer.upload_data_to_lds(
     custom_date_column="week_start",
     resource_title="mcard_weekly_highstreet_international_txn_adj.csv",
     file_path=(
-        f"{base_dir}mastercard/weekly/processed/"
+        f"{base_dir}mastercard/weekly/processed/international/"
         "mcard_weekly_highstreet_international_txn_adj.csv"
     ),
 )
