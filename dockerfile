@@ -22,6 +22,14 @@ COPY pyproject.toml poetry.lock ./
 # Adding `--no-root` flag ensures Poetry only installs dependencies without installing the project itself.
 RUN poetry install --no-root
 
+# # Install glapy separately using environment variable for GitHub token
+# # This ARG will be passed during docker build
+# ARG GITHUB_TOKEN
+# ENV GITHUB_TOKEN=${GITHUB_TOKEN}
+
+# # Install glapy using the environment variable
+# RUN poetry run pip install git+https://${GITHUB_TOKEN}@github.com/Greater-London-Authority/glapy@feature/lds-update-data
+
 # Copy the entire project into the container at /app
 COPY . .
 

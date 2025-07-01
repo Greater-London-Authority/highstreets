@@ -1,7 +1,12 @@
+from dotenv import load_dotenv
 from highstreets import config
 from highstreets.data_source_sink.datawriter import DataWriter
 from highstreets.data_source_sink.lookup_manager import LookupManager
 import warnings
+
+# Load environment variables from .env file
+load_dotenv()
+
 warnings.filterwarnings('ignore')
 base_dir = config.BASE_DIR
 
