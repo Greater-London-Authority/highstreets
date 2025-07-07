@@ -82,7 +82,7 @@ caz_weekly.to_csv(f"{base_dir}mastercard/weekly/processed/international/"
 # adjust the data using the cpi table
 folder = f"{base_dir}mastercard/weekly/processed/international/"
 cpi_table = api_client.fetch_cpi()
-cpi_table[cpi_table['Aggregate'] == 'Overall Index']
+cpi_table = cpi_table[cpi_table['Aggregate'] == 'Overall Index']
 cpi_table.rename(columns={'Aggregate': 'aggregate'}, inplace=True)
 
 
