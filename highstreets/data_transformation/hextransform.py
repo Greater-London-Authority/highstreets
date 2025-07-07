@@ -128,7 +128,15 @@ class HexTransform(DataLoader):
         )
         transformed_data = transformed_data.rename(columns={"poi_id": "hex_id"})
         transformed_data = transformed_data.rename(columns={"date": "count_date"})
-        transformed_data["hex_id"] = transformed_data["hex_id"].astype(int)
+
+        # Handle poi_id format change: remove "L" prefix if present
+        # This ensures compatibility with both old numeric and new "L" prefix format
+        transformed_data["hex_id"] = (
+            transformed_data["hex_id"]
+            .astype(str)
+            .str.lstrip("L")
+            .astype(int)
+        )
 
         # Select specific columns
         transformed_data = transformed_data[
