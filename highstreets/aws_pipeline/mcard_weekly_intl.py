@@ -1,4 +1,5 @@
 import pandas as pd
+import warnings
 from highstreets.data_source_sink.dataloader import DataLoader
 from highstreets.data_source_sink.datawriter import DataWriter
 from highstreets.api.clientbase import APIClient
@@ -9,6 +10,15 @@ from sqlalchemy import create_engine
 import psycopg2
 import os
 from dotenv import find_dotenv, load_dotenv
+from sqlalchemy import exc as sa_exc
+# Suppress GeoPandas GEOS version warnings
+warnings.filterwarnings('ignore', message='.*Shapely GEOS version.*incompatible.*')
+# Suppress SQLAlchemy XML column warnings
+warnings.filterwarnings(
+    'ignore', category=sa_exc.SAWarning, message='.*Did not recognize type.*xml.*')
+# Optional: Suppress all SQLAlchemy warnings if needed
+# warnings.filterwarnings('ignore', category=sa_exc.SAWarning)
+print("Warning filters applied for cleaner output")
 
 load_dotenv(find_dotenv())
 base_dir = config.BASE_DIR

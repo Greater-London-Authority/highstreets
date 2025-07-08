@@ -423,37 +423,43 @@ class McardTransform:
             truncate: Whether to truncate the target table first
             load_to_db: Whether to execute the load
         """
+        self.logger.info(
+            f"Running transformation: {transform_layer} for table: {table_name}"
+        )
+
         try:
-            # Get transformation query and ensure it doesn't end with semicolon
-            transform_query = self.sql_manager.get_query(
-                transform_layer, "mcard/threehourly"
+            # Get transformation query
+            transform_query = self.sql_manager.get_query(transform_layer)
+
+            if not load_to_db:
+                # Just log the query without executing
+                self.logger.info(f"Query preview for {transform_layer}:")
+                self.logger.info(transform_query)
+                return
+
+            # Create a fresh connection with temp_buffers set at connection level
+            from sqlalchemy import create_engine
+
+            # Create a new engine specifically for this operation
+            connection_string = (
+                f"postgresql+psycopg2://{self.data_loader.username}:"
+                f"{self.data_loader.password}@{self.data_loader.host}:"
+                f"{self.data_loader.port}/{self.data_loader.database}"
             )
-
-            # Remove any trailing semicolons that might cause syntax errors
-            transform_query = transform_query.strip()
-            if transform_query.endswith(";"):
-                transform_query = transform_query[:-1]
-
-            # Check if we have a valid query
-            if not transform_query or len(transform_query.strip()) < 10:
-                raise ValueError(
-                    f"Transform query is empty or" f" too short: '{transform_query}'"
-                )
-
-            self.logger.info(
-                f"Running transformation:" f" {transform_layer} for table: {table_name}"
+            fresh_engine = create_engine(
+                connection_string,
+                # Set temp_buffers as a connection parameter
+                connect_args={"options": "-c temp_buffers=1GB"}
             )
-
-            if load_to_db:
-                # Construct the loading query with maximum performance optimizations
-                load_query = f"""
+            # Construct the loading query without temp_buffers
+            # (since it's set at connection level)
+            load_query = f"""
                 -- Start transaction
                 BEGIN;
 
-                -- Maximize performance settings
+                -- Maximize performance settings (excluding temp_buffers)
                 SET LOCAL maintenance_work_mem = '2GB';
                 SET LOCAL work_mem = '1GB';
-                SET LOCAL temp_buffers = '1GB';
                 SET LOCAL synchronous_commit = OFF;
                 SET LOCAL join_collapse_limit = 8;
                 SET LOCAL from_collapse_limit = 8;
@@ -486,39 +492,46 @@ class McardTransform:
                 COMMIT;
                 """
 
-                with self.engine.connect().execution_options(
-                    isolation_level="AUTOCOMMIT"
-                ) as connection:
-                    start_time = datetime.now()
-                    connection.execute(text(load_query))
+            with fresh_engine.connect().execution_options(
+                isolation_level="AUTOCOMMIT"
+            ) as connection:
+                start_time = datetime.now()
+                connection.execute(text(load_query))
 
-                    # Log load statistics
-                    stats = connection.execute(
-                        text(
-                            f"""
-                        SELECT
-                            COUNT(*) as row_count,
-                            MIN(count_date)::DATE as min_date,
-                            MAX(count_date)::DATE as max_date
-                        FROM {table_name}
-                    """
-                        )
-                    ).fetchone()
+                # Log load statistics
+                end_time = datetime.now()
+                duration = (end_time - start_time).total_seconds()
 
-                    end_time = datetime.now()
-                    duration = (end_time - start_time).total_seconds()
-                    rows_per_second = stats.row_count / duration if duration > 0 else 0
+                # Get row count and date range
+                stats_query = f"""
+                SELECT
+                    COUNT(*) as row_count,
+                    MIN(count_date) as min_date,
+                    MAX(count_date) as max_date
+                FROM {table_name}
+                """
 
-                    self.logger.info(
-                        f"Successfully loaded {stats.row_count:,}"
-                        f" rows into {table_name}\n"
-                        f"Date range: {stats.min_date} to {stats.max_date}\n"
-                        f"Duration: {duration:.2f} seconds\n"
-                        f"Performance: {rows_per_second:,.0f} rows/second"
-                    )
+                with self.engine.connect() as stats_connection:
+                    result = stats_connection.execute(text(stats_query)).fetchone()
+                    row_count = result[0] if result else 0
+                    min_date = result[1] if result else None
+                    max_date = result[2] if result else None
+
+                self.logger.info(
+                    f"Successfully loaded {row_count:,} rows into {table_name}"
+                )
+                if min_date and max_date:
+                    self.logger.info(f"Date range: {min_date} to {max_date}")
+                self.logger.info(f"Duration: {duration:.2f} seconds")
+                if duration > 0:
+                    performance = row_count / duration
+                    self.logger.info(f"Performance: {performance:,.0f} rows/second")
+
+            # Dispose of the fresh engine
+            fresh_engine.dispose()
 
         except Exception as e:
-            self.logger.error(f"Error in fetch_and_transform_mcard_data: {str(e)}")
+            self.logger.error(f"Error in fetch_and_transform_mcard_data: {e}")
             raise
 
     def adjust_mcard_data_sql(
@@ -634,30 +647,44 @@ class McardTransform:
         load_to_db: bool = True
     ) -> None:
         """
-        Concatenate Mastercard 3-hourly data from all layer tables
-        (highstreets, towncentres, bids, bespoke)
-        and load into a combined table using a SQL-based approach for maximum efficiency.
+        Concatenate all Mastercard quad layer data into a single table.
 
         Args:
-            query_file: Name of the SQL query file that performs the concatenation
-            target_table: Target table to load the concatenated data into
-            truncate: Whether to truncate the target table before loading
-            load_to_db: Whether to execute the load operation
+            query_file: SQL file containing the concatenation query
+            target_table: Target table to load concatenated data
+            truncate: Whether to truncate target table first
+            load_to_db: Whether to execute the load
         """
+
         try:
             # Get the concatenation query
             concat_query = self.sql_manager.get_query(query_file)
 
             if load_to_db:
-                # Construct the loading query with performance optimizations
+                # Create a fresh connection with temp_buffers set at connection level
+                from sqlalchemy import create_engine
+
+                # Create a new engine specifically for this operation
+                connection_string = (
+                    f"postgresql+psycopg2://{self.data_loader.username}:"
+                    f"{self.data_loader.password}@{self.data_loader.host}:"
+                    f"{self.data_loader.port}/{self.data_loader.database}"
+                )
+                fresh_engine = create_engine(
+                    connection_string,
+                    # Set temp_buffers as a connection parameter
+                    connect_args={"options": "-c temp_buffers=1GB"}
+                )
+
+                # Construct the loading query without temp_buffers
+                # (since it's set at connection level)
                 load_query = f"""
                 -- Start transaction
                 BEGIN;
 
-                -- Maximize performance settings
+                -- Maximize performance settings (excluding temp_buffers)
                 SET LOCAL maintenance_work_mem = '2GB';
                 SET LOCAL work_mem = '1GB';
-                SET LOCAL temp_buffers = '1GB';
                 SET LOCAL synchronous_commit = OFF;
                 SET LOCAL join_collapse_limit = 8;
                 SET LOCAL from_collapse_limit = 8;
@@ -691,38 +718,51 @@ class McardTransform:
                 COMMIT;
                 """
 
-                with self.engine.connect().execution_options(
+                with fresh_engine.connect().execution_options(
                     isolation_level="AUTOCOMMIT"
                 ) as connection:
                     start_time = datetime.now()
                     connection.execute(text(load_query))
 
-                    # Log load statistics
-                    stats = connection.execute(text(f"""
-                        SELECT
-                            COUNT(*) as row_count,
-                            MIN(count_date)::DATE as min_date,
-                            MAX(count_date)::DATE as max_date,
-                            COUNT(DISTINCT layer) as layer_count,
-                            array_agg(DISTINCT layer) as layers
-                        FROM {target_table}
-                    """)).fetchone()
-
+                    # Get statistics
                     end_time = datetime.now()
                     duration = (end_time - start_time).total_seconds()
-                    rows_per_second = stats.row_count / duration if duration > 0 else 0
 
+                    # Get row count and date range
+                    stats_query = f"""
+                    SELECT
+                        COUNT(*) as row_count,
+                        MIN(count_date) as min_date,
+                        MAX(count_date) as max_date,
+                        COUNT(DISTINCT layer) as layer_count,
+                        STRING_AGG(DISTINCT layer, ', ' ORDER BY layer) as layers
+                    FROM {target_table}
+                    """
+
+                    with self.engine.connect() as stats_connection:
+                        result = stats_connection.execute(text(stats_query)).fetchone()
+                        row_count = result[0] if result else 0
+                        min_date = result[1] if result else None
+                        max_date = result[2] if result else None
+                        layer_count = result[3] if result else 0
+                        layers = result[4] if result else ""
+
+                    layer_list = layers.split(', ') if layers else []
+
+                    performance = row_count / duration if duration > 0 else 0
                     self.logger.info(
-                        f"Successfully combined {stats.layer_count} layers"
-                        f" into {target_table}:\n"
-                        f"Layers: {stats.layers}\n"
-                        f"Total rows: {stats.row_count:,}\n"
-                        f"Date range: {stats.min_date} to {stats.max_date}\n"
+                        f"Successfully combined {layer_count} layers "
+                        f"into {target_table}:\n"
+                        f"Layers: {layer_list}\n"
+                        f"Total rows: {row_count:,}\n"
+                        f"Date range: {min_date} to {max_date}\n"
                         f"Duration: {duration:.2f} seconds\n"
-                        f"Performance: {rows_per_second:,.0f} rows/second"
+                        f"Performance: {performance:,.0f} rows/second"
                     )
 
+                # Dispose of the fresh engine
+                fresh_engine.dispose()
+
         except Exception as e:
-            self.logger.error(f"Error in concat_and_load_all_mcard_quad_layers:"
-                              f" {str(e)}")
+            self.logger.error(f"Error in concat_and_load_all_mcard_quad_layers: {e}")
             raise

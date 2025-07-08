@@ -1,5 +1,6 @@
 import pandas as pd
 import os
+import warnings
 import logging
 from highstreets import config
 from highstreets.data_source_sink.dataloader import DataLoader
@@ -9,6 +10,15 @@ from sqlalchemy import create_engine
 from highstreets.data_transformation.mcard_transform import McardTransform
 from highstreets.data_transformation.mcard_weekly_processor import FileProcessor
 from dotenv import find_dotenv, load_dotenv
+from sqlalchemy import exc as sa_exc
+# Suppress GeoPandas GEOS version warnings
+warnings.filterwarnings('ignore', message='.*Shapely GEOS version.*incompatible.*')
+# Suppress SQLAlchemy XML column warnings
+warnings.filterwarnings(
+    'ignore', category=sa_exc.SAWarning, message='.*Did not recognize type.*xml.*')
+# Optional: Suppress all SQLAlchemy warnings if needed
+# warnings.filterwarnings('ignore', category=sa_exc.SAWarning)
+print("Warning filters applied for cleaner output")
 base_dir = config.BASE_DIR
 
 load_dotenv(find_dotenv())
@@ -45,7 +55,7 @@ for table_name in table_name_map.values():
     data_loader.create_table_mcard_weekly_raw(table_name)
 
 # Process files
-dir_path = "C:/Covid-19 Busyness/data/mastercard/sharefile"
+dir_path = f"{base_dir}mastercard/weekly/raw/mcard_staging/"
 mcard_weekly = FileProcessor(data_loader, data_writer, dir_path)
 mcard_weekly.process_mcard_raw_files(table_name_map)
 

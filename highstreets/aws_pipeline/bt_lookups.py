@@ -1,9 +1,19 @@
 import os
 import geopandas as gpd
+import warnings
 from dotenv import find_dotenv, load_dotenv
 from sqlalchemy import create_engine, text
 from highstreets.data_source_sink.datawriter import DataWriter
 from highstreets import config
+from sqlalchemy import exc as sa_exc
+# Suppress GeoPandas GEOS version warnings
+warnings.filterwarnings('ignore', message='.*Shapely GEOS version.*incompatible.*')
+# Suppress SQLAlchemy XML column warnings
+warnings.filterwarnings(
+    'ignore', category=sa_exc.SAWarning, message='.*Did not recognize type.*xml.*')
+# Optional: Suppress all SQLAlchemy warnings if needed
+# warnings.filterwarnings('ignore', category=sa_exc.SAWarning)
+print("Warning filters applied for cleaner output")
 
 data_writer = DataWriter()
 
