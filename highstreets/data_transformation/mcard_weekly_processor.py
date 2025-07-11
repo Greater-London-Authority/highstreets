@@ -307,8 +307,8 @@ class FileProcessor:
         if date_to is None:
             adj_factor.to_csv(self.mcard_adj_path, index=False)
             adj_factor.to_csv(self.mcard_adj_path1, index=False)
-            adj_factor.to_csv(self.mcard_adj_path2, index=False)
-            adj_factor.to_csv(self.mcard_adj_path3, index=False)
+            # adj_factor.to_csv(self.mcard_adj_path2, index=False)
+            # adj_factor.to_csv(self.mcard_adj_path3, index=False)
 
         else:
             adj_factor.to_csv(
