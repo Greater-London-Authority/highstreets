@@ -4,6 +4,7 @@ import warnings
 from dotenv import find_dotenv, load_dotenv
 from sqlalchemy import create_engine, text
 from highstreets.data_source_sink.datawriter import DataWriter
+from highstreets.data_source_sink.lookup_manager import LookupManager
 from highstreets import config
 from sqlalchemy import exc as sa_exc
 # Suppress GeoPandas GEOS version warnings
@@ -15,9 +16,22 @@ warnings.filterwarnings(
 # warnings.filterwarnings('ignore', category=sa_exc.SAWarning)
 print("Warning filters applied for cleaner output")
 
+# Load environment variables from .env file
+load_dotenv()
+# lookup for mcard refreshed and updated
+warnings.filterwarnings('ignore')
+base_dir = config.BASE_DIR
+
 data_writer = DataWriter()
+lookup_manager = LookupManager()
+df = lookup_manager.process_borough_hs_lookup()
+data_writer.truncate_and_load_to_postgres(
+    df,
+    table_name='econ_busyness_borough_hs_lookup_3',
+    schema='gisapdata')
+lookup_manager.generate_all_quad_lookups()
 
-
+# lookups for BT hex refreshed and updated
 load_dotenv(find_dotenv())
 
 database = os.getenv("PG_DATABASE")
