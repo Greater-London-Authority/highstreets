@@ -34,7 +34,11 @@ jobs:
           
       - name: Install validation tools
         run: |
-          pip install markdown-link-check pytest pyyaml requests
+          pip install pytest pyyaml requests
+      
+      - name: Install markdown-link-check
+        run: |
+          npm install markdown-link-check
           
       - name: Detect changed files
         id: changes
