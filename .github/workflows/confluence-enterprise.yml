@@ -36,7 +36,7 @@ jobs:
         run: |
           pip install pytest pyyaml requests
       
-      - name: Install markdown-link-check
+      - name: Install markdown-link-checkk
         run: |
           npm install markdown-link-check
           
