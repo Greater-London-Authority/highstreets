@@ -1,0 +1,154 @@
+name: Enterprise Confluence Documentation Sync
+
+on:
+  push:
+    paths:
+      - 'confluence/**'
+      - 'highstreets/docs/**'
+    branches:
+      - aws-hsds
+      - main
+      - develop
+  pull_request:
+    paths:
+      - 'confluence/**'
+      - 'highstreets/docs/**'
+
+jobs:
+  validate-docs:
+    runs-on: ubuntu-latest
+    name: Validate Documentation
+    outputs:
+      changes: ${{ steps.changes.outputs.changes }}
+      
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+          
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          
+      - name: Install validation tools
+        run: |
+          pip install markdown-link-check pytest pyyaml requests
+          
+      - name: Detect changed files
+        id: changes
+        run: |
+          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD | grep -E "(confluence/|highstreets/docs/)" | jq -R -s -c 'split("\n")[:-1]')
+          echo "changes=$CHANGED_FILES" >> $GITHUB_OUTPUT
+          echo "Changed files: $CHANGED_FILES"
+          
+      - name: Validate markdown syntax
+        run: |
+          find confluence/ -name "*.md" -exec markdownlint {} \; || true
+          
+      - name: Validate frontmatter
+        run: |
+          python .github/scripts/validate_frontmatter.py
+          
+      - name: Check for broken links
+        run: |
+          find confluence/ -name "*.md" -exec markdown-link-check {} \;
+
+  sync-to-confluence:
+    runs-on: ubuntu-latest
+    needs: validate-docs
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/aws-hsds' || github.ref == 'refs/heads/main')
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          
+      - name: Install dependencies
+        run: |
+          pip install requests python-frontmatter markdown beautifulsoup4 python-dotenv
+          
+      - name: Sync documentation to Confluence
+        env:
+          CONFLUENCE_URL: ${{ secrets.CONFLUENCE_URL }}
+          CONFLUENCE_USERNAME: ${{ secrets.CONFLUENCE_USERNAME }}
+          CONFLUENCE_API_TOKEN: ${{ secrets.CONFLUENCE_API_TOKEN }}
+          CONFLUENCE_SPACE: ${{ secrets.CONFLUENCE_SPACE }}
+        run: |
+          python .github/scripts/confluence_sync.py
+          
+      - name: Post sync summary
+        if: success()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            if (fs.existsSync('/tmp/sync_summary.json')) {
+              const summary = JSON.parse(fs.readFileSync('/tmp/sync_summary.json', 'utf8'));
+              
+              github.rest.repos.createCommitComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                commit_sha: context.sha,
+                body: `## 📊 Confluence Sync Summary\n\n` +
+                      `✅ **${summary.success_count}** pages updated\n` +
+                      `❌ **${summary.error_count}** errors\n` +
+                      `🔄 **${summary.total_pages}** pages processed\n\n` +
+                      `View in Confluence: [${summary.space_name}](${summary.space_url})`
+              });
+            }
+
+  dry-run-confluence:
+    runs-on: ubuntu-latest
+    needs: validate-docs
+    if: github.event_name == 'pull_request'
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          
+      - name: Install dependencies
+        run: |
+          pip install requests python-frontmatter markdown beautifulsoup4
+          
+      - name: Dry run Confluence sync
+        env:
+          CONFLUENCE_URL: ${{ secrets.CONFLUENCE_URL }}
+          CONFLUENCE_USERNAME: ${{ secrets.CONFLUENCE_USERNAME }}
+          CONFLUENCE_API_TOKEN: ${{ secrets.CONFLUENCE_API_TOKEN }}
+          CONFLUENCE_SPACE: ${{ secrets.CONFLUENCE_SPACE }}
+        run: |
+          python .github/scripts/confluence_sync.py --dry-run
+          
+      - name: Comment PR with dry run results
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            if (fs.existsSync('/tmp/dry_run_summary.json')) {
+              const summary = JSON.parse(fs.readFileSync('/tmp/dry_run_summary.json', 'utf8'));
+              
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `## 🧪 Confluence Dry Run Results\n\n` +
+                      `**Files that would be updated:**\n` +
+                      summary.files.map(f => `- ${f.name} → ${f.confluence_title}`).join('\n') + '\n\n' +
+                      `**Summary:**\n` +
+                      `- ${summary.total_files} files would be processed\n` +
+                      `- ${summary.new_pages} new pages would be created\n` +
+                      `- ${summary.updated_pages} existing pages would be updated\n\n` +
+                      `✅ Ready to sync when merged to aws-hsds branch!`
+              });
+            } 
