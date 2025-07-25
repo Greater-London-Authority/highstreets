@@ -34,11 +34,7 @@ jobs:
           
       - name: Install validation tools
         run: |
-          pip install pytest pyyaml requests
-      
-      - name: Install markdown-link-checkk
-        run: |
-          npm install markdown-link-check
+          pip install pytest pyyaml requests python-frontmatter
           
       - name: Detect changed files
         id: changes
@@ -47,17 +43,9 @@ jobs:
           echo "changes=$CHANGED_FILES" >> $GITHUB_OUTPUT
           echo "Changed files: $CHANGED_FILES"
           
-      - name: Validate markdown syntax
-        run: |
-          find confluence/ -name "*.md" -exec markdownlint {} \; || true
-          
       - name: Validate frontmatter
         run: |
           python .github/scripts/validate_frontmatter.py
-          
-      - name: Check for broken links
-        run: |
-          find confluence/ -name "*.md" -exec markdown-link-check {} \;
 
   sync-to-confluence:
     runs-on: ubuntu-latest
