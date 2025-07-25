@@ -5,7 +5,7 @@ type: "page"
 labels: ["platform", "overview", "highstreets"]
 ---
 
-# Highstreets Data Platform - Ovverview
+# Highstreets Data Platform - Overview
 
 ## 🎯 **Platform Purpose**
 

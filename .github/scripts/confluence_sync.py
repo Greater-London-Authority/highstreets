@@ -246,6 +246,8 @@ class ConfluenceSync:
     
     def _init_confluence_api(self) -> ConfluenceAPI:
         """Initialize Confluence API client."""
+        from dotenv import load_dotenv
+        load_dotenv()
         base_url = os.environ.get('CONFLUENCE_URL')
         username = os.environ.get('CONFLUENCE_USERNAME')
         api_token = os.environ.get('CONFLUENCE_API_TOKEN')
