@@ -81,3 +81,5 @@ data/external/
 
 # MLFlow
 */mlflow/*
+
+.codegpt

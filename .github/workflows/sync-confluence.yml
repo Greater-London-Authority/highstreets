@@ -1,0 +1,72 @@
+name: Sync Documentation to Confluence
+
+on:
+  push:
+    paths:
+      - 'confluence/**'
+    branches:
+      - main
+      - master
+  pull_request:
+    paths:
+      - 'confluence/**'
+    branches:
+      - main
+      - master
+
+jobs:
+  sync-confluence:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+          
+      - name: Install mark
+        run: go install github.com/kovetskiy/mark@latest
+        
+      - name: Dry run on PR
+        if: github.event_name == 'pull_request'
+        run: |
+          cd confluence
+          mark --dry-run \
+               --url="${{ secrets.CONFLUENCE_URL }}" \
+               --username="${{ secrets.CONFLUENCE_USERNAME }}" \
+               --password="${{ secrets.CONFLUENCE_PASSWORD }}" \
+               *.md
+               
+      - name: Sync to Confluence on main/master
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+        run: |
+          cd confluence
+          mark --url="${{ secrets.CONFLUENCE_URL }}" \
+               --username="${{ secrets.CONFLUENCE_USERNAME }}" \
+               --password="${{ secrets.CONFLUENCE_PASSWORD }}" \
+               --space="HSDS" \
+               01-platform-overview.md \
+               bt-data-source.md \
+               mastercard-data-source.md \
+               system-architecture.md \
+               03.1-bt-data-flow.md \
+               03.2-mastercard-data-flow.md \
+               04-database-schema.md \
+               07-sublicensing.md \
+               08-data-governance.md \
+               09-contacts-support.md
+               
+      - name: Comment on PR with sync status
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '✅ Confluence documentation dry-run completed successfully! Changes will be synced when this PR is merged.'
+            }) 

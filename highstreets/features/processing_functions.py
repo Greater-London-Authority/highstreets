@@ -110,7 +110,7 @@ def create_gradient(hs, months):
 
     # create df
     gradients = pd.DataFrame(
-        list(zip(names, flat)), columns=["highstreet_name", "gradient"]
+        list(zip(names, flat, strict=True)), columns=["highstreet_name", "gradient"]
     )
     return gradients
 
@@ -149,6 +149,6 @@ def create_gradient_o2(hs, months):
 
     # create df
     gradients = pd.DataFrame(
-        list(zip(names, flat)), columns=["highstreet_name", "gradient"]
+        list(zip(names, flat, strict=True)), columns=["highstreet_name", "gradient"]
     )
     return gradients

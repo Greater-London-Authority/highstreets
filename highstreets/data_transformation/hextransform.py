@@ -1,0 +1,799 @@
+import logging
+
+import numpy as np
+import pandas as pd
+from sqlalchemy import text
+from datetime import datetime
+
+from highstreets import config
+from highstreets.core.sql_manager import SQLManager
+from highstreets.core.logger import setup_logger
+from highstreets.data_source_sink.dataloader import DataLoader
+
+
+class HexTransform(DataLoader):
+    def __init__(self):
+        """
+        Transform class for performing data transformation on data.
+
+        This class provides methods to transform input data containing HSDS information,
+        such as hex_id, date, total_volume, worker_population_percentage,
+        and resident_population_percentage, into a desired output format.
+
+        Attributes:
+            logger (logging.Logger): Logger instance for logging messages.
+        """
+        self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(logging.INFO)
+        super().__init__()
+        self.sql_manager = SQLManager()
+        self.logger = setup_logger(__name__)
+        self.logger.addHandler(logging.StreamHandler())
+        self.base_dir = config.BASE_DIR
+
+    def transform_data(self, data):
+        """
+        Transforms the given input data.
+
+        Args:
+            data (pandas.DataFrame or list or dict): Input data in DataFrame,
+            list, or dictionary format.
+
+        Returns:
+            pandas.DataFrame: Transformed data with selected columns.
+
+        Raises:
+            ValueError: If the input data is invalid or missing required columns.
+
+        Usage:
+            hex_transform = HexTransform()
+            transformed_data = hex_transform.transform_data(data)
+        """
+        self.logger.info("Starting data transformation...")
+        # Validate input data
+        # Convert JSON data to DataFrame
+        try:
+            df = pd.DataFrame(data)
+        except ValueError:
+            self.logger.error("Invalid JSON data format. Cannot convert to DataFrame.")
+            raise ValueError(
+                "Invalid JSON data format. Cannot convert to DataFrame."
+            ) from None
+        # Validate input data columns
+        required_columns = [
+            "poi_id",
+            "date",
+            "total_volume",
+            "worker_population_percentage",
+            "resident_population_percentage",
+        ]
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            self.logger.error(f"Missing required columns: {', '.join(missing_columns)}")
+            raise ValueError(
+                f"Missing required columns: {', '.join(missing_columns)}"
+            ) from None
+
+        # Copy data to avoid modifying the original DataFrame
+        transformed_data = df.copy()
+
+        self.logger.info("Removing IDE values from the dataset.")
+        self.logger.info(
+            "Number of 'IDE' values: %d", transformed_data.isin(["IDE"]).sum().sum()
+        )
+        self.logger.info(
+            "Percentage of 'IDE' values: %.2f%%",
+            (transformed_data.isin(["IDE"]).sum().sum() / transformed_data.size) * 100,
+        )
+        transformed_data.replace("IDE", np.nan, inplace=True)
+
+        # Perform data transformation operations
+        transformed_data["date"] = pd.to_datetime(transformed_data["date"])
+        transformed_data["worker_population_percentage"] = pd.to_numeric(
+            transformed_data["worker_population_percentage"], errors="coerce"
+        )
+        transformed_data["resident_population_percentage"] = pd.to_numeric(
+            transformed_data["resident_population_percentage"], errors="coerce"
+        )
+        transformed_data["total_volume"] = pd.to_numeric(
+            transformed_data["total_volume"], errors="coerce"
+        )
+        transformed_data["worker"] = np.round(
+            pd.to_numeric(
+                transformed_data["worker_population_percentage"]
+                / 100
+                * transformed_data["total_volume"],
+                errors="coerce",
+            )
+        ).astype("Int64")
+        transformed_data["resident"] = np.round(
+            pd.to_numeric(
+                transformed_data["resident_population_percentage"]
+                / 100
+                * transformed_data["total_volume"],
+                errors="coerce",
+            )
+        ).astype("Int64")
+        transformed_data["visitor"] = transformed_data["total_volume"] - (
+            transformed_data["worker"] + transformed_data["resident"]
+        )
+        transformed_data["visitor"] = np.round(
+            pd.to_numeric(transformed_data["visitor"], errors="coerce")
+        ).astype("Int64", errors="ignore")
+        transformed_data["time_indicator"] = transformed_data["time_indicator"].astype(
+            "category"
+        )
+        transformed_data["day"] = (
+            transformed_data["date"].dt.strftime("%a").astype("category")
+        )
+        transformed_data = transformed_data.rename(columns={"poi_id": "hex_id"})
+        transformed_data = transformed_data.rename(columns={"date": "count_date"})
+
+        # Handle poi_id format change: remove "L" prefix if present
+        # This ensures compatibility with both old numeric and new "L" prefix format
+        transformed_data["hex_id"] = (
+            transformed_data["hex_id"]
+            .astype(str)
+            .str.lstrip("L")
+            .astype(int)
+        )
+
+        # Select specific columns
+        transformed_data = transformed_data[
+            [
+                "hex_id",
+                "count_date",
+                "day",
+                "time_indicator",
+                "resident",
+                "worker",
+                "visitor",
+                "loyalty_percentage",
+                "dwell_time",
+            ]
+        ]
+        # Convert time_indicator values
+        time_indicator_map = {
+            "00AM-02AM": "00-03",
+            "03AM-05AM": "03-06",
+            "06AM-08AM": "06-09",
+            "09AM-11AM": "09-12",
+            "12PM-14PM": "12-15",
+            "15PM-17PM": "15-18",
+            "18PM-20PM": "18-21",
+            "21PM-23PM": "21-24",
+        }
+
+        transformed_data["time_indicator"] = transformed_data["time_indicator"].replace(
+            time_indicator_map
+        )
+        # typecasting to float
+        transformed_data['loyalty_percentage'] = transformed_data[
+            'loyalty_percentage'].astype(float)
+        transformed_data['dwell_time'] = transformed_data['dwell_time'].astype(float)
+
+        self.logger.info("Data transformation completed.")
+        return transformed_data
+
+    def highstreet_threehourly_transform(self, transformed_data):
+        data_loader = DataLoader()
+        Highstreets_quad_lookup = data_loader.get_full_data(
+            'econ_busyness_mcard_Highstreets_quad_lookup')
+        Highstreets_quad_lookup["highstreet_id"] = Highstreets_quad_lookup[
+            "highstreet_id"].astype('Int64')
+        hex_highstreet_lookup = data_loader.get_full_data(
+            'econ_busyness_hex_highstreet_lookup')
+        hex_highstreet_lookup["highstreet_id"] = hex_highstreet_lookup[
+            "highstreet_id"].astype('Int64')
+        # Highstreets_quad_lookup = pd.read_csv(
+        #     f"{self.base_dir}"
+        #     "reference_data/Highstreets_quad_lookup.csv"
+        # )
+        # hex_highstreet_lookup = pd.read_csv(
+        #     f"{self.base_dir}"
+        #     "reference_data/hex_highstreet_lookup.csv"
+        # )
+
+        transformed_data = hex_highstreet_lookup.merge(
+            transformed_data, left_on="hex_id", right_on="hex_id", how="right"
+        )
+        transformed_data = pd.melt(
+            transformed_data,
+            id_vars=[
+                "hex_id",
+                "highstreet_id",
+                "highstreet_name",
+                "count_date",
+                "day",
+                "time_indicator",
+                "loyalty_percentage",
+                "dwell_time",
+            ],
+            var_name="count_type",
+            value_name="volume",
+        )
+        transformed_data = transformed_data.dropna(subset=["highstreet_id"])
+        transformed_data["time_indicator"] = transformed_data["time_indicator"].astype(
+            str
+        )
+
+        transformed_data = (
+            transformed_data.groupby(
+                [
+                    "highstreet_id",
+                    "highstreet_name",
+                    "count_type",
+                    "count_date",
+                    "time_indicator",
+                ]
+            )
+            .aggregate(
+                volume=("volume", lambda x: round(x.sum(), 2)),
+                ave_loyalty_percentage=(
+                    "loyalty_percentage",
+                    lambda x: round(x.mean(), 2),
+                ),
+                ave_dwell_time=("dwell_time", lambda x: round(x.mean(), 2)),
+            )
+            .reset_index()
+        )
+
+        transformed_data = transformed_data.pivot_table(
+            index=[
+                "highstreet_id",
+                "highstreet_name",
+                "count_date",
+                "time_indicator",
+                "ave_loyalty_percentage",
+                "ave_dwell_time",
+            ],
+            columns="count_type",
+            values="volume",
+        ).reset_index()
+
+        transformed_data = transformed_data.merge(
+            Highstreets_quad_lookup.drop_duplicates(subset="highstreet_id").loc[
+                :, ["highstreet_id", "x", "y", "borough"]
+            ],
+            on="highstreet_id",
+            how="left",
+        )
+        transformed_data = transformed_data[
+            [
+                "highstreet_id",
+                "highstreet_name",
+                "count_date",
+                "time_indicator",
+                "x",
+                "y",
+                "borough",
+                "resident",
+                "visitor",
+                "worker",
+                "ave_loyalty_percentage",
+                "ave_dwell_time",
+            ]
+        ]
+        # Define column data types
+        column_types = {
+            "highstreet_id": "int64",
+            "time_indicator": "category",
+            "resident": "int64",
+            "visitor": "int64",
+            "worker": "int64",
+            "highstreet_name": str,
+            "borough": str,
+        }
+        # Convert columns to specified data types
+        transformed_data = transformed_data.astype(column_types)
+        transformed_data = transformed_data.rename(columns={"time_indicator": "hours"})
+        return transformed_data
+
+    def towncentre_threehourly_transform(self, transformed_data):
+        data_loader = DataLoader()
+        TownCentres_quad_lookup = data_loader.get_full_data(
+            'econ_busyness_mcard_TownCentres_quad_lookup')
+        TownCentres_quad_lookup["tc_id"] = TownCentres_quad_lookup[
+            "tc_id"].astype('Int64')
+        hex_towncentre_lookup = data_loader.get_full_data(
+            'econ_busyness_hex_towncentre_lookup')
+        hex_towncentre_lookup["tc_id"] = hex_towncentre_lookup[
+            "tc_id"].astype('Int64')
+        # TownCentres_quad_lookup = pd.read_csv(
+        #     f"{self.base_dir}"
+        #     "reference_data/TownCentres_quad_lookup.csv"
+        # )
+        # hex_towncentre_lookup = pd.read_csv(
+        #     f"{self.base_dir}"
+        #     "reference_data/hex_towncentre_lookup.csv"
+        # )
+        transformed_data = hex_towncentre_lookup.merge(
+            transformed_data, left_on="hex_id", right_on="hex_id", how="right"
+        )
+        transformed_data = pd.melt(
+            transformed_data,
+            id_vars=[
+                "hex_id",
+                "tc_id",
+                "tc_name",
+                "count_date",
+                "day",
+                "time_indicator",
+                "loyalty_percentage",
+                "dwell_time",
+            ],
+            var_name="count_type",
+            value_name="volume",
+        )
+        transformed_data = transformed_data.dropna(subset=["tc_id"])
+        transformed_data["time_indicator"] = transformed_data["time_indicator"].astype(
+            str
+        )
+
+        transformed_data = (
+            transformed_data.groupby(
+                ["tc_id", "tc_name", "count_type", "count_date", "time_indicator"]
+            )
+            .aggregate(
+                volume=("volume", lambda x: round(x.sum(), 2)),
+                ave_loyalty_percentage=(
+                    "loyalty_percentage",
+                    lambda x: round(x.mean(), 2),
+                ),
+                ave_dwell_time=("dwell_time", lambda x: round(x.mean(), 2)),
+            )
+            .reset_index()
+        )
+
+        transformed_data = transformed_data.pivot_table(
+            index=[
+                "tc_id",
+                "tc_name",
+                "count_date",
+                "time_indicator",
+                "ave_loyalty_percentage",
+                "ave_dwell_time",
+            ],
+            columns="count_type",
+            values="volume",
+        ).reset_index()
+
+        transformed_data = transformed_data.merge(
+            TownCentres_quad_lookup.drop_duplicates(subset="tc_id").loc[
+                :, ["tc_id", "x", "y", "borough"]
+            ],
+            on="tc_id",
+            how="left",
+        )
+        transformed_data = transformed_data[
+            [
+                "tc_id",
+                "tc_name",
+                "count_date",
+                "time_indicator",
+                "x",
+                "y",
+                "borough",
+                "resident",
+                "visitor",
+                "worker",
+                "ave_loyalty_percentage",
+                "ave_dwell_time",
+            ]
+        ]
+        # Define column data types
+        column_types = {
+            "tc_id": "int64",
+            "time_indicator": "category",
+            "resident": "int64",
+            "visitor": "int64",
+            "worker": "int64",
+            "tc_name": str,
+            "borough": str,
+        }
+        # Convert columns to specified data types
+        transformed_data = transformed_data.astype(column_types)
+        transformed_data = transformed_data.rename(columns={"time_indicator": "hours"})
+        return transformed_data
+
+    def bid_threehourly_transform(self, transformed_data):
+        data_loader = DataLoader()
+        BIDS_quad_lookup = data_loader.get_full_data(
+            'econ_busyness_mcard_BIDs_quad_lookup')
+        BIDS_quad_lookup["bid_id"] = BIDS_quad_lookup[
+            "bid_id"].astype('Int64')
+        hex_bid_lookup = data_loader.get_full_data(
+            'econ_busyness_hex_bid_lookup')
+        hex_bid_lookup["bid_id"] = hex_bid_lookup[
+            "bid_id"].astype('Int64')
+        # BIDS_quad_lookup = pd.read_csv(
+        #     f"{self.base_dir}"
+        #     "reference_data/BIDS_quad_lookup.csv"
+        # )
+        # hex_bid_lookup = pd.read_csv(
+        #     f"{self.base_dir}"
+        #     "reference_data/hex_bid_lookup.csv"
+        # )
+        transformed_data = hex_bid_lookup.merge(
+            transformed_data, left_on="hex_id", right_on="hex_id", how="right"
+        )
+        transformed_data = pd.melt(
+            transformed_data,
+            id_vars=[
+                "hex_id",
+                "bid_id",
+                "bid_name",
+                "count_date",
+                "day",
+                "time_indicator",
+                "loyalty_percentage",
+                "dwell_time",
+            ],
+            var_name="count_type",
+            value_name="volume",
+        )
+        transformed_data = transformed_data.dropna(subset=["bid_id"])
+        transformed_data["time_indicator"] = transformed_data["time_indicator"].astype(
+            str
+        )
+
+        transformed_data = (
+            transformed_data.groupby(
+                ["bid_id", "bid_name", "count_type", "count_date", "time_indicator"]
+            )
+            .aggregate(
+                volume=("volume", lambda x: round(x.sum(), 2)),
+                ave_loyalty_percentage=(
+                    "loyalty_percentage",
+                    lambda x: round(x.mean(), 2),
+                ),
+                ave_dwell_time=("dwell_time", lambda x: round(x.mean(), 2)),
+            )
+            .reset_index()
+        )
+
+        transformed_data = transformed_data.pivot_table(
+            index=[
+                "bid_id",
+                "bid_name",
+                "count_date",
+                "time_indicator",
+                "ave_loyalty_percentage",
+                "ave_dwell_time",
+            ],
+            columns="count_type",
+            values="volume",
+        ).reset_index()
+
+        transformed_data = transformed_data.merge(
+            BIDS_quad_lookup.drop_duplicates(subset="bid_id").loc[:, ["bid_id"]],
+            on="bid_id",
+            how="left",
+        )
+        transformed_data = transformed_data[
+            [
+                "bid_id",
+                "bid_name",
+                "count_date",
+                "time_indicator",
+                "resident",
+                "visitor",
+                "worker",
+                "ave_loyalty_percentage",
+                "ave_dwell_time",
+            ]
+        ]
+        # Define column data types
+        column_types = {
+            "bid_id": "int64",
+            "time_indicator": "category",
+            "resident": "int64",
+            "visitor": "int64",
+            "worker": "int64",
+            "bid_name": str,
+        }
+        # Convert columns to specified data types
+        transformed_data = transformed_data.astype(column_types)
+        transformed_data = transformed_data.rename(columns={"time_indicator": "hours"})
+        return transformed_data
+
+    def bespoke_threehourly_transform(self, transformed_data):
+        data_loader = DataLoader()
+        bespoke_quad_lookup = data_loader.get_full_data(
+            'econ_busyness_mcard_bespoke_quad_lookup')
+        bespoke_quad_lookup["bespoke_area_id"] = bespoke_quad_lookup[
+            "bespoke_area_id"].astype('Int64')
+        hex_bespoke_lookup = data_loader.get_full_data(
+            'econ_busyness_hex_bespoke_lookup')
+        hex_bespoke_lookup["bespoke_area_id"] = hex_bespoke_lookup[
+            "bespoke_area_id"].astype('Int64')
+        # bespoke_quad_lookup = pd.read_csv(
+        #     f"{self.base_dir}"
+        #     "reference_data/bespoke_quad_lookup.csv"
+        # )
+        # hex_bespoke_lookup = pd.read_csv(
+        #     f"{self.base_dir}"
+        #     "reference_data/hex_bespoke_lookup.csv"
+        # )
+        transformed_data = hex_bespoke_lookup.merge(
+            transformed_data, left_on="hex_id", right_on="hex_id", how="right"
+        )
+        transformed_data = pd.melt(
+            transformed_data,
+            id_vars=[
+                "hex_id",
+                "bespoke_area_id",
+                "name",
+                "count_date",
+                "day",
+                "time_indicator",
+                "loyalty_percentage",
+                "dwell_time",
+            ],
+            var_name="count_type",
+            value_name="volume",
+        )
+        transformed_data = transformed_data.dropna(subset=["bespoke_area_id"])
+        transformed_data["time_indicator"] = transformed_data["time_indicator"].astype(
+            str
+        )
+
+        transformed_data = (
+            transformed_data.groupby(
+                [
+                    "bespoke_area_id",
+                    "name",
+                    "count_type",
+                    "count_date",
+                    "time_indicator",
+                ]
+            )
+            .aggregate(
+                volume=("volume", lambda x: round(x.sum(), 2)),
+                ave_loyalty_percentage=(
+                    "loyalty_percentage",
+                    lambda x: round(x.mean(), 2),
+                ),
+                ave_dwell_time=("dwell_time", lambda x: round(x.mean(), 2)),
+            )
+            .reset_index()
+        )
+
+        transformed_data = transformed_data.pivot_table(
+            index=[
+                "bespoke_area_id",
+                "name",
+                "count_date",
+                "time_indicator",
+                "ave_loyalty_percentage",
+                "ave_dwell_time",
+            ],
+            columns="count_type",
+            values="volume",
+        ).reset_index()
+
+        transformed_data = transformed_data.merge(
+            bespoke_quad_lookup.drop_duplicates(subset="bespoke_area_id").loc[
+                :, ["bespoke_area_id"]
+            ],
+            on="bespoke_area_id",
+            how="left",
+        )
+        transformed_data = transformed_data[
+            [
+                "bespoke_area_id",
+                "name",
+                "count_date",
+                "time_indicator",
+                "resident",
+                "visitor",
+                "worker",
+                "ave_loyalty_percentage",
+                "ave_dwell_time",
+            ]
+        ]
+        # Define column data types
+        column_types = {
+            "bespoke_area_id": "int64",
+            "time_indicator": "category",
+            "resident": "int64",
+            "visitor": "int64",
+            "worker": "int64",
+            "name": str,
+        }
+        # Convert columns to specified data types
+        transformed_data = transformed_data.astype(column_types)
+        transformed_data = transformed_data.rename(columns={"time_indicator": "hours"})
+        return transformed_data
+
+    def fetch_and_transform_hex_data(
+        self,
+        transform_layer: str,
+        table_name: str,
+        truncate: bool = False,
+        load_to_db: bool = True
+    ) -> None:
+        """
+        Transform and load hex data using highly optimized bulk insert.
+
+        Args:
+            transform_layer: Name of the transformation query file
+            table_name: Target table name to load data into
+            truncate: Whether to truncate the target table first
+            load_to_db: Whether to execute the load
+        """
+        try:
+            # Get transformation query
+            transform_query = self.sql_manager.get_query(transform_layer)
+
+            if load_to_db:
+                # Construct the loading query with maximum performance optimizations
+                load_query = f"""
+                -- Start transaction
+                BEGIN;
+
+                -- Maximize performance settings
+                SET LOCAL maintenance_work_mem = '2GB';
+                SET LOCAL work_mem = '1GB';
+                SET LOCAL temp_buffers = '1GB';
+                SET LOCAL synchronous_commit = OFF;
+                SET LOCAL join_collapse_limit = 8;
+                SET LOCAL from_collapse_limit = 8;
+
+                -- Disable autovacuum during load
+                ALTER TABLE {table_name} SET (autovacuum_enabled = false);
+
+                -- Truncate if requested
+                {f'TRUNCATE TABLE {table_name};' if truncate else ''}
+
+                -- Create unlogged temp table with transformed data
+                CREATE UNLOGGED TABLE temp_transformed AS
+                {transform_query};
+
+                -- Create index on temp table for faster joining
+                CREATE INDEX ON temp_transformed (count_date, hours);
+
+                -- Bulk insert from temp table
+                INSERT INTO {table_name}
+                SELECT * FROM temp_transformed;
+
+                -- Cleanup
+                DROP TABLE temp_transformed;
+
+                -- Reset table settings and analyze
+                ALTER TABLE {table_name} SET (autovacuum_enabled = true);
+                ANALYZE {table_name};
+
+                -- Commit transaction
+                COMMIT;
+                """
+
+                with self.engine.connect().execution_options(
+                    isolation_level="AUTOCOMMIT"
+                ) as connection:
+                    start_time = datetime.now()
+                    connection.execute(text(load_query))
+
+                    # Log load statistics
+                    stats = connection.execute(text(f"""
+                        SELECT
+                            COUNT(*) as row_count,
+                            MIN(count_date)::DATE as min_date,
+                            MAX(count_date)::DATE as max_date
+                        FROM {table_name}
+                    """)).fetchone()
+
+                    end_time = datetime.now()
+                    duration = (end_time - start_time).total_seconds()
+                    rows_per_second = stats.row_count / duration if duration > 0 else 0
+
+                    self.logger.info(
+                        f"Successfully loaded {stats.row_count:,}"
+                        f" rows into {table_name}\n"
+                        f"Date range: {stats.min_date} to {stats.max_date}\n"
+                        f"Duration: {duration:.2f} seconds\n"
+                        f"Performance: {rows_per_second:,.0f} rows/second"
+                    )
+
+        except Exception as e:
+            self.logger.error(f"Error in fetch_and_transform_hex_data: {str(e)}")
+            raise
+
+    def concat_and_load_all_hex_layers(
+        self,
+        query_file: str = 'hex_all_layer_concat_query.sql',
+        target_table: str = 'econ_busyness_bt_3hourly_counts',
+        truncate: bool = True,
+        load_to_db: bool = True
+    ) -> None:
+        """
+        Concatenate data from all layer tables (highstreets, towncentres, bids, bespoke)
+        and load into a combined table using a SQL-based approach for maximum efficiency.
+
+        Args:
+            query_file: Name of the SQL query file that performs the concatenation
+            target_table: Target table to load the concatenated data into
+            truncate: Whether to truncate the target table before loading
+            load_to_db: Whether to execute the load operation
+        """
+        try:
+            # Get the concatenation query
+            concat_query = self.sql_manager.get_query(query_file)
+
+            if load_to_db:
+                # Construct the loading query with performance optimizations
+                load_query = f"""
+                -- Start transaction
+                BEGIN;
+
+                -- Maximize performance settings
+                SET LOCAL maintenance_work_mem = '2GB';
+                SET LOCAL work_mem = '1GB';
+                SET LOCAL temp_buffers = '1GB';
+                SET LOCAL synchronous_commit = OFF;
+                SET LOCAL join_collapse_limit = 8;
+                SET LOCAL from_collapse_limit = 8;
+
+                -- Disable autovacuum during load
+                ALTER TABLE {target_table} SET (autovacuum_enabled = false);
+
+                -- Truncate if requested
+                {f'TRUNCATE TABLE {target_table};' if truncate else ''}
+
+                -- Create unlogged temp table with concatenated data
+                CREATE UNLOGGED TABLE temp_concat_layers AS
+                {concat_query};
+
+                -- Create indexes on temp table for faster loading
+                CREATE INDEX ON temp_concat_layers (count_date, hours);
+                CREATE INDEX ON temp_concat_layers (layer, id);
+
+                -- Bulk insert from temp table
+                INSERT INTO {target_table}
+                SELECT * FROM temp_concat_layers;
+
+                -- Cleanup
+                DROP TABLE temp_concat_layers;
+
+                -- Reset table settings and analyze
+                ALTER TABLE {target_table} SET (autovacuum_enabled = true);
+                ANALYZE {target_table};
+
+                -- Commit transaction
+                COMMIT;
+                """
+
+                with self.engine.connect().execution_options(
+                    isolation_level="AUTOCOMMIT"
+                ) as connection:
+                    start_time = datetime.now()
+                    connection.execute(text(load_query))
+
+                    # Log load statistics
+                    stats = connection.execute(text(f"""
+                        SELECT
+                            COUNT(*) as row_count,
+                            MIN(count_date)::DATE as min_date,
+                            MAX(count_date)::DATE as max_date,
+                            COUNT(DISTINCT layer) as layer_count,
+                            array_agg(DISTINCT layer) as layers
+                        FROM {target_table}
+                    """)).fetchone()
+
+                    end_time = datetime.now()
+                    duration = (end_time - start_time).total_seconds()
+                    rows_per_second = stats.row_count / duration if duration > 0 else 0
+
+                    self.logger.info(
+                        f"Successfully combined {stats.layer_count} layers"
+                        f" into {target_table}:\n"
+                        f"Layers: {stats.layers}\n"
+                        f"Total rows: {stats.row_count:,}\n"
+                        f"Date range: {stats.min_date} to {stats.max_date}\n"
+                        f"Duration: {duration:.2f} seconds\n"
+                        f"Performance: {rows_per_second:,.0f} rows/second"
+                    )
+
+        except Exception as e:
+            self.logger.error(f"Error in concat_and_load_all_hex_layers: {str(e)}")
+            raise

@@ -48,14 +48,15 @@ repos:
         args: [--py36-plus]
 
 -   repo: https://github.com/python-poetry/poetry
-    rev: '1.2.0b1'
+    rev: '1.5.1'
     hooks:
       - id: poetry-check
       - id: poetry-lock
         stages: [push]
+        files: ^$
 
 -   repo: https://github.com/PyCQA/isort
-    rev: '5.10.1'
+    rev: '5.12.0'
     hooks:
       - id: isort
         args: ["--profile", "black", "--filter-files"]
