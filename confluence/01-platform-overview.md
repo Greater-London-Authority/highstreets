@@ -1,6 +1,6 @@
 ---
 title: "Highstreets Data Platform - Overview"
-space: "HSDS"
+space: "CDU"
 type: "page"
 labels: ["platform", "overview", "highstreets"]
 ---

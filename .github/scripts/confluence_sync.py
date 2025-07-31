@@ -316,6 +316,8 @@ class ConfluenceSync:
     def _process_file(self, md_file: Path, 
                       page_id_map: Dict[str, str]) -> Optional[Dict]:
         """Process individual markdown file."""
+        from dotenv import load_dotenv
+        load_dotenv()
         logger.info(f"Processing {md_file.name}")
         
         # Parse frontmatter
@@ -324,8 +326,8 @@ class ConfluenceSync:
         
         # Extract metadata
         title = post.metadata.get('title')
-        space = post.metadata.get('space', 
-                                  os.environ.get('CONFLUENCE_SPACE', 'HSDS'))
+        space = post.metadata.get('space',
+                                  os.environ.get('CONFLUENCE_SPACE', 'CDU'))
         parent_title = post.metadata.get('parent')
         
         if not title:
@@ -407,8 +409,10 @@ class ConfluenceSync:
         return sorted(files, key=sort_key)
     
     def _save_results(self):
+        from dotenv import load_dotenv
+        load_dotenv()
         """Save sync results to file."""
-        space = os.environ.get('CONFLUENCE_SPACE', 'HSDS')
+        space = os.environ.get('CONFLUENCE_SPACE', 'CDU')
         base_url = os.environ.get('CONFLUENCE_URL', '')
         
         results = {

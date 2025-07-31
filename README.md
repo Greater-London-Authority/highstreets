@@ -250,8 +250,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 **Project Maintainer**: Anupam Bose - anupam.bose@london.gov.uk
 
 **Greater London Authority**  
-Economic Development Team  
-City Hall, London SE1 2AA
+City Data, City Intelligence Unit  
+City Hall, London E16 1ZE
 
 ---
 
