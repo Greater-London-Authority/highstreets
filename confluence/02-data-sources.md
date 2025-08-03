@@ -27,10 +27,10 @@ The Highstreets Data Platform integrates two primary commercial datasets to prov
 - **Coordinate System**: EPSG:27700 (British National Grid)
 
 #### **Temporal Coverage**
-- **Historical Data**: From 2019 onwards
-- **Update Frequency**: **Weekly** (received every Monday for previous week)
+- **Historical Data**: From May 2022 onwards
+- **Update Frequency**: **Weekly** (received every Wednesday for previous week)
 - **Time Resolution**: 3-hourly intervals (8 periods per day)
-- **Time Periods**: 00-03, 03-06, 06-09, 09-12, 12-15, 15-18, 18-21, 21-00
+- **Time Periods**: 00-03, 03-06, 06-09, 09-12, 12-15, 15-18, 18-21, 21-24
 
 #### **Population Segments**
 | Segment | Description | Use Case |
@@ -40,14 +40,13 @@ The Highstreets Data Platform integrates two primary commercial datasets to prov
 | **Visitors** | People who neither live nor work in the area | Tourism and retail activity |
 
 #### **Behavioral Metrics**
-| Metric | Description | Data Type | Use Case |
-|--------|-------------|-----------|----------|
-| **Population Count** | Estimated number of people in each segment | Integer | Activity volume measurement |
-| **Dwell Time** | Average time spent in the area (minutes) | Float | Engagement depth analysis |
-| **Loyalty Percentage** | % of visitors who are repeat visitors | Float (0-100) | Customer retention insights |
+| Metric | Description | Use Case |
+|--------|-------------|----------|
+| **Dwell Time** | Average time spent in the area | Engagement depth analysis |
+| **Loyalty Percentage** | % of visitors who are repeat visitors | Customer retention insights |
 
 ### **Data Collection Process**
-1. **Weekly API Calls**: Automated collection every Monday
+1. **Weekly API Calls**: Automated collection every Wednesday
 2. **Data Validation**: Schema validation and quality checks
 3. **Spatial Processing**: Hex grid assignment and validation
 4. **Temporal Alignment**: 3-hourly interval processing
@@ -76,7 +75,7 @@ The Highstreets Data Platform integrates two primary commercial datasets to prov
 
 #### **Temporal Coverage**
 - **Historical Data**: From 2018 onwards
-- **Update Frequency**: **Monthly** (received early each month for previous month)
+- **Update Frequency**: **Monthly** 
 - **Time Resolution**: 
   - **3-hourly data**: For detailed temporal analysis
   - **Weekly data**: For trend analysis and comparison
@@ -89,12 +88,12 @@ The Highstreets Data Platform integrates two primary commercial datasets to prov
 | **Apparel** | Clothing and fashion retail | Clothing stores, shoes, accessories |
 
 #### **Transaction Metrics**
-| Metric | Description | Data Type | Use Case |
-|--------|-------------|-----------|----------|
-| **Transaction Amount** | Total spending value | Float (GBP) | Economic impact measurement |
-| **Transaction Count** | Number of transactions | Integer | Activity volume tracking |
-| **Average Spend** | Average transaction value | Float (GBP) | Consumer behavior analysis |
-| **Account Count** | Number of unique accounts | Integer | Customer base measurement |
+| Metric | Description | Use Case |
+|--------|-------------|----------|
+| **Transaction Amount** | Total spending value | Economic impact measurement |
+| **Transaction Count** | Number of transactions | Activity volume tracking |
+| **Average Spend** | Average transaction value | Consumer behavior analysis |
+| **Account Count** | Number of unique accounts | Customer base measurement |
 
 ### **Data Processing Steps**
 
@@ -170,30 +169,6 @@ inflation_adjusted_amount = adjusted_amount * (cpi_2018 / cpi_current_period)
 | **Tuesday 15:00** | Database Loading | Load to production tables |
 | **Wednesday 09:00** | Aggregation | Generate boundary-level aggregations |
 | **Wednesday 14:00** | Export Generation | Create partner data exports |
-
-### **Monthly Schedule (Mastercard Data)**
-| Week | Activity | Details |
-|------|----------|---------|
-| **Week 1** | File Reception | Receive and validate monthly files |
-| **Week 1** | Raw Processing | Initial data cleaning and validation |
-| **Week 2** | Adjustment Processing | Apply spending pulse and inflation adjustments |
-| **Week 2** | Geographic Aggregation | Generate boundary-level aggregations |
-| **Week 3** | Export Generation | Create partner and public data exports |
-| **Week 4** | Quality Assurance | Final validation and documentation updates |
-
-## 📊 **Data Volume Statistics**
-
-### **BT Footfall Data**
-- **Weekly Volume**: ~750,000 records (hex × date × hour × segment)
-- **Annual Volume**: ~39M records
-- **Data Size**: ~15GB annually (uncompressed)
-- **Processing Time**: ~45 minutes per weekly update
-
-### **Mastercard Transaction Data**
-- **Monthly Volume**: ~2M records (3-hourly data)
-- **Annual Volume**: ~24M records
-- **Data Size**: ~8GB annually (compressed)
-- **Processing Time**: ~3 hours per monthly update
 
 ## 🛡️ **Data Privacy & Compliance**
 

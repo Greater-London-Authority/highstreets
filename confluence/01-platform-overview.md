@@ -7,11 +7,11 @@ labels: ["platform", "overview", "highstreets"]
 
 # Highstreets Data Platform - Overview
 
-## 🎯 **Platform Purpose**
+##  **Platform Purpose**
 
 The Highstreets Data Platform is the Greater London Authority's comprehensive data processing system for London-wide footfall and transaction analysis. It provides critical insights into economic activity across London's high streets, town centres, and business districts.
 
-## 📊 **What We Do**
+##  **What We Do**
 
 ### **Core Functions**
 - **Data Collection**: Automated ingestion from BT footfall API and Mastercard transaction feeds
@@ -26,7 +26,7 @@ The Highstreets Data Platform is the Greater London Authority's comprehensive da
 - Partner data sharing through sublicense agreements
 - Public open data via London Datastore
 
-## 🎯 **Business Objectives**
+##  **Business Objectives**
 
 ### **Primary Goals**
 1. **Economic Monitoring**: Track recovery and growth across London's commercial areas
@@ -40,7 +40,7 @@ The Highstreets Data Platform is the Greater London Authority's comprehensive da
 - **Partner Engagement**: 8+ active sublicense agreements serving diverse stakeholders
 - **Public Access**: Open datasets available via London Datastore with regular updates
 
-## 👥 **Key Stakeholders**
+##  **Key Stakeholders**
 
 ### **Internal Users**
 - **GLA Economics Team**: Primary analysts using the platform for economic research
@@ -59,7 +59,7 @@ The Highstreets Data Platform is the Greater London Authority's comprehensive da
 - **Mastercard**: Aggregated transaction data (anonymized and GDPR compliant)
 - **ONS**: Consumer Price Index data for inflation adjustments
 
-## 🏗️ **High-Level Architecture**
+##  **High-Level Architecture**
 
 ### **Data Flow Overview**
 ```
@@ -78,7 +78,7 @@ The Highstreets Data Platform is the Greater London Authority's comprehensive da
 - **Database Layer**: PostgreSQL for structured data storage
 - **Distribution Layer**: Multiple output channels for different user needs
 
-## 📈 **Data Coverage**
+##  **Data Coverage**
 
 ### **Geographic Scope**
 - **Total Coverage**: All 33 London boroughs
@@ -86,9 +86,9 @@ The Highstreets Data Platform is the Greater London Authority's comprehensive da
 - **Boundary Types**: High streets, town centres, BIDs, bespoke areas, administrative boundaries
 
 ### **Temporal Coverage**
-- **Historical Data**: From 2018 onwards (Mastercard), 2019 onwards (BT)
+- **Historical Data**: From 2018 onwards (Mastercard), 2022 onwards (BT)
 - **Update Frequency**: Weekly (BT), Monthly (Mastercard)
-- **Time Resolution**: 3-hourly intervals for detailed analysis
+- **Time Resolution**: 3-hourly and weekly intervals for detailed analysis
 
 ### **Data Types**
 - **Footfall Data**: Resident, visitor, and worker populations by location and time
@@ -96,7 +96,7 @@ The Highstreets Data Platform is the Greater London Authority's comprehensive da
 - **Geographic Data**: Spatial relationships and boundary definitions
 - **Adjustment Data**: Inflation adjustments and market share corrections
 
-## 🎯 **Use Cases**
+##  **Use Cases**
 
 ### **Economic Analysis**
 - **Recovery Tracking**: Monitor post-pandemic economic recovery across London
@@ -135,26 +135,6 @@ The Highstreets Data Platform is the Greater London Authority's comprehensive da
 - **Innovation**: Platform supports broader ecosystem of data users and innovators
 - **Collaboration**: Enables evidence-based collaboration between public and private sectors
 - **Economic Development**: Supports informed decisions that benefit London's economy
-
-## 🔄 **Data Lifecycle**
-
-### **Weekly Cycle (BT Data)**
-1. **Monday**: Automated API data collection for previous week
-2. **Tuesday**: Data validation, transformation, and loading
-3. **Wednesday**: Partner data exports and London Datastore updates
-4. **Thursday-Friday**: Data Hub updates and internal analysis
-
-### **Monthly Cycle (Mastercard Data)**
-1. **Month Start**: Receive and validate new monthly files
-2. **Week 1**: Process transaction data and apply adjustments
-3. **Week 2**: Generate aggregated outputs and partner exports
-4. **Week 3**: Update public datasets and internal dashboards
-
-### **Continuous Operations**
-- **Data Quality Monitoring**: Automated checks and alert systems
-- **System Maintenance**: Regular updates and performance optimization
-- **Partner Support**: Ongoing assistance with data interpretation and usage
-- **Documentation Updates**: Keep guidance and metadata current
 
 ## 📞 **Getting Started**
 
