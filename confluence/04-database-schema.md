@@ -1,6 +1,6 @@
 ---
 title: "Database Schema & Tables"
-space: "HSDS"
+space: "CDU"
 parent: "Highstreets Data Platform - Overview"
 type: "page"
 labels: ["database", "schema", "postgresql", "tables"]

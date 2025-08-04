@@ -1,6 +1,6 @@
 ---
 title: "Sublicensing & Data Distribution"
-space: "HSDS"
+space: "CDU"
 parent: "Highstreets Data Platform - Overview"
 type: "page"
 labels: ["sublicensing", "partners", "data-distribution", "governance"]
