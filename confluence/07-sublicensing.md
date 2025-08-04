@@ -60,12 +60,13 @@ The Highstreets Data Platform operates a sophisticated sublicensing system that 
 - **Data Sources**: BT footfall, Mastercard 3-hourly, Mastercard weekly, International data
 
 **Data Deliverables**:
+
 | Dataset | File Name | Update Frequency | Coverage |
 |---------|-----------|------------------|----------|
-| **BT Footfall** | `colliers_hsds_bt_footfall_3hourly_counts.csv` | Weekly | Bespoke areas 112-118, 197 |
+| **BT Footfall** | `colliers_hsds_footfall_3hourly_counts.csv` | Weekly | Bespoke areas 112-118, 197 |
 | **Mastercard 3-Hourly** | `colliers_hsds_mcard_3hourly_txn.csv` | Monthly | Same geographic coverage |
 | **Mastercard Weekly** | `colliers_hsds_mcard_weekly_txn.csv` | Monthly | Same geographic coverage |
-| **Year-over-Year** | `colliers_hsds_mcard_weekly_yoy.csv` | Monthly | Same geographic coverage |
+| **BT Daily** | `colliers_bt_daily_agg_counts.csv` | Weekly | HOLBA sites |
 
 #### **Fitzrovia Partnership BID**
 - **Partner**: Fitzrovia Partnership Business Improvement District
@@ -75,6 +76,7 @@ The Highstreets Data Platform operates a sophisticated sublicensing system that 
 - **Data Sources**: BT footfall, BT hex grid, Mastercard 3-hourly, Mastercard weekly
 
 **Data Deliverables**:
+
 | Dataset | File Name | Update Frequency | Coverage |
 |---------|-----------|------------------|----------|
 | **BT Aggregated** | `Fitzrovia_bt_3hourly_counts.csv` | Weekly | BID boundary aggregation |
@@ -90,6 +92,7 @@ The Highstreets Data Platform operates a sophisticated sublicensing system that 
 - **Data Sources**: BT footfall, BT hex grid, Mastercard 3-hourly, Mastercard weekly
 
 **Data Deliverables**:
+
 | Dataset | File Name | Update Frequency | Coverage |
 |---------|-----------|------------------|----------|
 | **BT Aggregated** | `Knightsbridge_bt_3hourly_counts.csv` | Weekly | BID boundary aggregation |
@@ -102,14 +105,15 @@ The Highstreets Data Platform operates a sophisticated sublicensing system that 
 - **Slug**: `jon-puleston-for-station-to-station-bid`
 - **Status**: Active
 - **Geographic Scope**: BID area 46
-- **Data Sources**: BT footfall, BT hex grid, Mastercard 3-hourly
+- **Data Sources**: BT hex grid, Mastercard 3-hourly, BT daily
 
 **Data Deliverables**:
+
 | Dataset | File Name | Update Frequency | Coverage |
 |---------|-----------|------------------|----------|
-| **BT Aggregated** | `jon_puleston_bt_3hourly_counts.csv` | Weekly | BID boundary aggregation |
 | **BT Hex Grid** | `jon_puleson_bt_hex_3hourly_counts.csv` | Weekly | Raw hex cell data |
 | **Mastercard Quad** | `jon_puleson_mcard_quad_3hourly_txn.csv` | Monthly | Raw quad-level data |
+| **BT Daily** | `jon_puleston_bt_daily_agg_counts.csv` | Daily | Station to Station area |
 
 #### **Avison Young**
 - **Partner**: Avison Young Commercial Real Estate
@@ -119,6 +123,7 @@ The Highstreets Data Platform operates a sophisticated sublicensing system that 
 - **Data Sources**: BT footfall, BT hex grid, Mastercard 3-hourly
 
 **Data Deliverables**:
+
 | Dataset | File Name | Update Frequency | Coverage |
 |---------|-----------|------------------|----------|
 | **BT Aggregated** | `avison_young_bt_3hourly_counts.csv` | Weekly | Town centres + bespoke |
@@ -135,6 +140,7 @@ The Highstreets Data Platform operates a sophisticated sublicensing system that 
 - **Data Sources**: BT footfall, BT hex grid, Mastercard 3-hourly, Mastercard weekly
 
 **Data Deliverables**:
+
 | Dataset | File Name | Update Frequency | Coverage |
 |---------|-----------|------------------|----------|
 | **BT BIDs** | `southbank_bids_bt_footfall_3hourly_counts.csv` | Weekly | BID areas |
@@ -154,6 +160,7 @@ The Highstreets Data Platform operates a sophisticated sublicensing system that 
 - **Data Sources**: Mastercard 3-hourly (historical years)
 
 **Data Deliverables**:
+
 | Dataset | File Name | Update Frequency | Coverage |
 |---------|-----------|------------------|----------|
 | **2022 Data** | `Mastercard_3hourly_2022.csv` | Annual | Complete London dataset |
@@ -164,38 +171,136 @@ The Highstreets Data Platform operates a sophisticated sublicensing system that 
 ## ⚙️ **Technical Implementation**
 
 ### **Configuration Management**
-The sublicensing system is driven by a YAML configuration file that defines:
+The sublicensing system is driven by a YAML configuration file that defines all partner agreements, data sources, and processing requirements.
 
+#### **Global Configuration Structure**
 ```yaml
-# Example sublicense configuration structure
-sublicenses:
-  partner-name:
-    slug: "partner-slug-for-urls"
-    description: "Partnership description"
-    contact: "partner@email.com"
-    status: "active"  # or "inactive"
+# Global configuration settings
+config:
+  base_schema: "gisapdata"
+  date_formats:
+    mastercard_3hourly: "count_date"
+    mastercard_weekly: "week_start" 
+    bt_footfall: "count_date"
+    bt_hex: "count_date"
+  
+  # Database table mappings for different data sources
+  data_sources:
+    bt_footfall:
+      aggregated_tables:
+        bespoke: "econ_busyness_bt_bespokes_3hourly_counts"
+        bid: "econ_busyness_bt_bids_3hourly_counts"
+        towncentre: "econ_busyness_bt_towncentres_3hourly_counts"
+        highstreet: "econ_busyness_bt_highstreets_3hourly_counts"
+      raw_table: "bt_footfall_tfl_hex_3hourly"
+      lookup_tables:
+        hex_bid: "econ_busyness_hex_bid_lookup"
+        hex_towncentre: "econ_busyness_hex_towncentre_lookup"
+        hex_bespoke: "econ_busyness_hex_bespoke_lookup"
+        hex_highstreet: "econ_busyness_hex_highstreet_lookup"
     
+    mastercard_3hourly:
+      aggregated_tables:
+        bespoke: "econ_busyness_mcard_bespokes_3hourly_txn"
+        bid: "econ_busyness_mcard_bids_3hourly_txn"
+        towncentre: "econ_busyness_mcard_towncentres_3hourly_txn"
+        highstreet: "econ_busyness_mcard_highstreets_3hourly_txn"
+      raw_table: "econ_busyness_mrli_3hourly_adj"
+      lookup_tables:
+        quad_bid: "econ_busyness_mcard_BIDs_quad_lookup"
+        quad_towncentre: "econ_busyness_mcard_TownCentres_quad_lookup"
+        quad_bespoke: "econ_busyness_mcard_bespoke_quad_lookup"
+        quad_highstreet: "econ_busyness_mcard_Highstreets_quad_lookup"
+```
+
+#### **Partner Sublicense Configuration**
+```yaml
+# Example: Colliers HSDS sublicense configuration
+sublicenses:
+  colliers-hsds:
+    slug: "colliers---hsds"
+    description: "Colliers HSDS sublicense agreement for HOLBA sites"
+    contact: "colliers_team@example.com"
+    status: "active"
+    
+    # Data sources this partner receives
     data_sources:
       - bt_footfall
       - mastercard_3hourly
       - mastercard_weekly
+      - mastercard_weekly_intl
+      - bt_daily
     
+    # Geographic and temporal filters
     filters:
-      bespoke_area_ids: [112, 113, 114]
-      bid_ids: [21, 77]
-      tc_ids: [23, 33, 29]
-      years: [2022, 2023, 2024]
+      bespoke_area_ids: [112, 113, 114, 115, 116, 117, 118, 197]
     
+    # SQL query templates for data extraction
     query_templates:
       bt_footfall_bespoke: |
-        SELECT * FROM gisapdata.econ_busyness_bt_bespokes_3hourly_counts 
+        SELECT * FROM {schema}.econ_busyness_bt_bespokes_3hourly_counts 
         WHERE bespoke_area_id IN ({bespoke_area_ids})
+      
+      mastercard_3hourly_bespoke: |
+        SELECT * FROM {schema}.econ_busyness_mcard_bespokes_3hourly_txn 
+        WHERE bespoke_area_id IN ({bespoke_area_ids})
+      
+      mastercard_weekly_bespoke: |
+        SELECT * FROM {schema}.econ_busyness_mcard_bespoke_txn 
+        WHERE bespoke_area_id::int IN ({bespoke_area_ids})
     
+    # Output file configurations
     output_configs:
       bt_footfall:
-        resource_title: "partner_bt_footfall_data.csv"
-        file_path: "bt/processed/partner/"
+        resource_title: "colliers_hsds_footfall_3hourly_counts.csv"
+        file_path: "bt/processed/bespoke/Colliers agreement - Holba sites/"
         custom_date_column: "count_date"
+      
+      mastercard_3hourly:
+        resource_title: "colliers_hsds_mcard_3hourly_txn.csv"
+        file_path: "mastercard/mrli_3hourly/processed/bespoke/Colliers agreement - Holba sites/"
+        custom_date_column: "count_date"
+      
+      mastercard_weekly:
+        resource_title: "colliers_hsds_mcard_weekly_txn.csv"
+        file_path: "mastercard/weekly/processed/bespoke/Colliers agreement - Holba sites/"
+        custom_date_column: "week_start"
+```
+
+#### **BID-Based Configuration Example**
+```yaml
+# Example: Fitzrovia Partnership BID configuration
+fitzrovia-partnership:
+  slug: "rendle-intelligence-for-fitzrovia-partnership"
+  description: "Fitzrovia Partnership BID sublicense"
+  contact: "fitzrovia@example.com"
+  status: "active"
+  
+  data_sources:
+    - bt_footfall
+    - bt_hex
+    - mastercard_3hourly
+    - mastercard_weekly
+  
+  filters:
+    bid_ids: [21, 77]
+  
+  query_templates:
+    bt_footfall_bid: |
+      SELECT * FROM {schema}.econ_busyness_bt_bids_3hourly_counts 
+      WHERE bid_id IN ({bid_ids})
+    
+    bt_hex: |
+      SELECT h.*, b.bid_name 
+      FROM {schema}.bt_footfall_tfl_hex_3hourly h
+      JOIN {schema}.econ_busyness_hex_bid_lookup b ON h.hex_id = b.hex_id
+      WHERE b.bid_id IN ({bid_ids})
+    
+    mastercard_3hourly_quad: |
+      SELECT m.*, b.bid_name 
+      FROM {schema}.econ_busyness_mrli_3hourly_adj m
+      JOIN {schema}.econ_busyness_mcard_BIDs_quad_lookup b ON m.quad_id = b.quad_id
+      WHERE b.bid_id IN ({bid_ids})
 ```
 
 ### **Database-Driven Processing**
@@ -209,13 +314,13 @@ The system executes SQL queries directly against the production database:
 ### **Geographic Filtering**
 Partners receive data for specific geographic areas based on their agreement:
 
-| Filter Type | Description | Example Values |
-|-------------|-------------|----------------|
-| **Bespoke Area IDs** | Custom-defined project areas | 112, 113, 114, 197 |
-| **BID IDs** | Business Improvement Districts | 21, 64, 77 |
-| **Town Centre IDs** | Designated town centre boundaries | 23, 29, 33, 37 |
-| **High Street IDs** | High street boundaries | 101, 102, 103 |
-| **Borough Names** | London borough boundaries | "Westminster", "Camden" |
+| Filter Type | Description | Configuration Key |
+|-------------|-------------|-------------------|
+| **Bespoke Area IDs** | Custom-defined project areas | `bespoke_area_ids` |
+| **BID IDs** | Business Improvement Districts | `bid_ids` |
+| **Town Centre IDs** | Designated town centre boundaries | `tc_ids` |
+| **High Street IDs** | High street boundaries | `highstreet_ids` |
+| **Borough Names** | London borough boundaries | `borough_names` |
 
 ### **Temporal Filtering**
 Data can be filtered by various temporal dimensions:
@@ -250,6 +355,7 @@ Data can be filtered by various temporal dimensions:
 ## 🔄 **Processing Schedule**
 
 ### **Weekly Processing (BT Data)**
+
 | Day | Activity | Partners Affected |
 |-----|----------|------------------|
 | **Monday** | BT data collection | All BT data partners |
@@ -258,6 +364,7 @@ Data can be filtered by various temporal dimensions:
 | **Thursday** | Distribution and notifications | All BT data partners |
 
 ### **Monthly Processing (Mastercard Data)**
+
 | Week | Activity | Partners Affected |
 |------|----------|------------------|
 | **Week 1** | Data collection and processing | All Mastercard partners |
@@ -302,6 +409,7 @@ Data can be filtered by various temporal dimensions:
 ## 📈 **Partner Success Metrics**
 
 ### **Engagement Metrics**
+
 | Metric | Measurement | Target |
 |--------|-------------|--------|
 | **Data Access Frequency** | Downloads per month | Monthly access |
@@ -346,7 +454,6 @@ Data can be filtered by various temporal dimensions:
 - **[Data Processing Workflows](03-data-workflows.md)**: How sublicense data is generated
 - **[Database Schema](04-database-schema.md)**: Understanding data structures
 - **[Data Governance](08-data-governance.md)**: Governance framework and policies
-- **[London Datastore Integration](06.1-london-datastore.md)**: Public data distribution
 
 ---
 
