@@ -395,7 +395,7 @@ The database is organized into the following main categories:
 ### **Data Flow Relationships**
 
 #### **BT Data Flow**
-```
+
 bt_footfall_tfl_hex_3hourly (Raw)
     ├─ JOIN hex_highstreet_lookup → bt_highstreets_3hourly_counts
     ├─ JOIN hex_towncentre_lookup → bt_towncentres_3hourly_counts  
@@ -403,10 +403,10 @@ bt_footfall_tfl_hex_3hourly (Raw)
     └─ JOIN hex_bespoke_lookup → bt_bespokes_3hourly_counts
                                         ↓
                             bt_3hourly_counts (Combined View)
-```
+
 
 #### **Mastercard Data Flow**
-```
+
 econ_busyness_mrli_3hourly_adj (Raw)
     ├─ JOIN mcard_Highstreets_quad_lookup → mcard_highstreets_3hourly_txn
     ├─ JOIN mcard_TownCentres_quad_lookup → mcard_towncentres_3hourly_txn
@@ -414,7 +414,7 @@ econ_busyness_mrli_3hourly_adj (Raw)
     └─ JOIN mcard_bespoke_quad_lookup → mcard_bespokes_3hourly_txn
                                         ↓
                             mcard_3hourly_txn (Combined View)
-```
+
 
 ### **Key Joins**
 
