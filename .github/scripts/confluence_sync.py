@@ -23,6 +23,14 @@ import frontmatter
 import markdown
 from bs4 import BeautifulSoup
 
+# Load environment variables from .env file if present
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    # dotenv not available, continue without it
+    pass
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -246,8 +254,6 @@ class ConfluenceSync:
     
     def _init_confluence_api(self) -> ConfluenceAPI:
         """Initialize Confluence API client."""
-        from dotenv import load_dotenv
-        load_dotenv()
         base_url = os.environ.get('CONFLUENCE_URL')
         username = os.environ.get('CONFLUENCE_USERNAME')
         api_token = os.environ.get('CONFLUENCE_API_TOKEN')
@@ -316,8 +322,6 @@ class ConfluenceSync:
     def _process_file(self, md_file: Path, 
                       page_id_map: Dict[str, str]) -> Optional[Dict]:
         """Process individual markdown file."""
-        from dotenv import load_dotenv
-        load_dotenv()
         logger.info(f"Processing {md_file.name}")
         
         # Parse frontmatter
@@ -409,9 +413,6 @@ class ConfluenceSync:
         return sorted(files, key=sort_key)
     
     def _save_results(self):
-        from dotenv import load_dotenv
-        load_dotenv()
-        """Save sync results to file."""
         space = os.environ.get('CONFLUENCE_SPACE', 'CDU')
         base_url = os.environ.get('CONFLUENCE_URL', '')
         

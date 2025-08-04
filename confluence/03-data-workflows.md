@@ -14,271 +14,249 @@ The Highstreets Data Platform operates two primary data processing workflows tha
 ## 🌊 **End-to-End Data Flow**
 
 ### **High-Level Process Flow**
-```
+
 📱 Data Sources        🔄 Processing Pipeline       🗄️ Storage & Distribution
      │                        │                           │
-BT API (Weekly)   ────────┐   │   ┌─ Data Validation      │   ┌─ PostgreSQL Database
+BT API (Weekly)   ────────┐   │   ┌─ AWS Step Functions   │   ┌─ PostgreSQL Database
      │            ┌──────▼───▼───▼─┐                     │   │
-Mastercard       │ AWS Processing │ ┌─ Transformation    │   ├─ Data Hub Explorer
-Files (Monthly)  │   Pipeline     │ │                   │   │
-     │            └──────┬───┬───┬─┘ ├─ Aggregation      │   ├─ London Datastore  
-ONS CPI API      ────────┘   │   │   │                   │   │
-                             │   └─ Quality Checks      │   └─ Partner Exports
-                             │                           │
-                         Monitoring                  Distribution
-                         & Alerting                  & Analytics
-```
+Mastercard       │ Manual Upload │ ┌─ AWS Batch Jobs     │   ├─ Data Hub Explorer
+SFTP (Monthly)   │ + Parameters  │ │                     │   │
+     │            └──────┬───┬───┬─┘ ├─ Data Validation   │   ├─ London Datastore  
+ONS CPI API      ────────┘   │   │   │                     │   │
+                             │   └─ Transformation      │   └─ Partner Exports
+                             │       Aggregation        │
+                         CloudWatch               S3 Storage
+                         Monitoring               & Distribution
+
 
 ### **Processing Architecture**
-- **Ingestion Layer**: Automated data collection from multiple sources
-- **Processing Layer**: AWS-based transformation and validation pipeline  
-- **Storage Layer**: PostgreSQL database with optimized schemas
-- **Distribution Layer**: Multiple output channels for different users
+- **Ingestion Layer**: Manual file uploads (Mastercard) + automated API calls (BT)
+- **Orchestration Layer**: AWS Step Functions with parallel/sequential job coordination
+- **Processing Layer**: AWS Batch jobs using Docker containers for data transformation
+- **Storage Layer**: PostgreSQL database with S3 for file storage and distribution
+- **Distribution Layer**: Automated partner exports and public data publishing
 
 ## 📱 **BT Footfall Data Workflow**
 
-### **1. Data Collection (Weekly - Mondays)**
+### **🔧 Manual Step Required**
+**Before Processing**: Manually set `startDate` and `endDate` parameters in AWS Step Functions before triggering the workflow.
 
-#### **Process Overview**
+### **1. AWS Step Functions Orchestration**
+
+#### **Step Function Structure** (Parallel Execution)
 ```
-🕒 Monday 09:00 → API Call → Data Validation → Initial Processing → Quality Checks
-      │              │            │                 │               │
-  Schedule         OAuth       Schema Check      Transform     Volume Validation
-  Trigger       Authentication                                      │
-                                                              ✓ Success / ❌ Alert
-```
-
-#### **Detailed Steps**
-| Step | Time | Process | Output |
-|------|------|---------|--------|
-| **1** | 09:00 | **Scheduled API Call** | Trigger automated data collection |
-| **2** | 09:05 | **Authentication** | Obtain OAuth token using consumer credentials |
-| **3** | 09:10 | **Data Request** | Request previous week's data from BT API |
-| **4** | 09:30 | **Data Reception** | Receive JSON response with ~750k records |
-| **5** | 09:35 | **Schema Validation** | Validate against BTHexRawSchema |
-| **6** | 09:40 | **Initial Quality Check** | Volume and completeness validation |
-
-### **2. Data Transformation (Monday-Tuesday)**
-
-#### **Transformation Pipeline**
-```
-Raw API Data → Field Mapping → Temporal Processing → Spatial Validation → Database Loading
-     │              │              │                    │                 │
- JSON Format   Standard Names   3-Hour Periods    Hex Grid Check    Production Tables
-                   │                 │                │                    │
-              time_indicator    00-03, 03-06...   8,000 hex cells    bt_footfall_tfl_hex_3hourly
-                  to hours        validation         coverage
+AWS Step Functions Trigger
+├─ Branch 1: Date Processing + Secondary Jobs
+│  ├─ Lambda: HSDSProcessDateParameters
+│  └─ Parallel Execution:
+│     ├─ Outage Batch Job (hsds-bt-outage-job)
+│     ├─ MSOA Batch Job (hsds-msoa-job-definition)
+│     └─ LSOA Batch Job (hsds-lsoa-job)
+├─ Branch 2: Daily Totals
+│  ├─ Date Adjustment (subtract 1 day)
+│  └─ Daily Totals Batch Job (hsds-daily-totals-job)
+├─ Branch 3: Main Processing
+│  ├─ Lambda: HSDSProcessDateParameters
+│  └─ HEX Batch Job (hsds-bt-hex-job)
+└─ Branch 4: Lookup Job (hsds-lookup-job)
 ```
 
-#### **Key Transformations**
-| Process | Input | Output | Purpose |
-|---------|-------|--------|---------|
-| **Field Standardization** | `time_indicator` | `hours` | Consistent column naming |
-| **Date Formatting** | Various formats | `count_date (TIMESTAMP)` | Standardized temporal reference |
-| **Population Calculation** | Percentages + totals | Resident/visitor/worker counts | Absolute population numbers |
-| **Quality Metrics** | Raw percentages | Loyalty %, dwell time | Behavioral insights |
+### **2. Data Processing Pipeline**
 
-### **3. Geographic Aggregation (Tuesday-Wednesday)**
+#### **Data Collection & Validation**
+- **API Source**: BT Business API (OAuth authentication)
+- **Data Volume**: ~750,000 records per week (8,000 hex cells × 7 days × 8 time periods)
+- **Format**: JSON with footfall percentages and population estimates
+- **Validation**: Schema, volume, temporal coverage, spatial coverage checks
 
-#### **Boundary Processing**
-```
-Hex Grid Data → Spatial Joins → Boundary Aggregation → Quality Validation → Output Tables
-     │               │               │                    │                │
-8k hex cells    Lookup Tables   Sum by boundary      Volume checks    Boundary tables
-     │               │               │                    │                │
-    BT data     hex_boundary     Aggregate metrics    Trend analysis   Final datasets
-               lookup tables      by area/time
-```
+#### **Transformation Process**
+| Process | Input | Output | AWS Batch Job |
+|---------|-------|--------|---------------|
+| **Field Mapping** | `time_indicator` → `hours` | Standardized time format | hsds-bt-hex-job |
+| **Population Calc** | Percentages + estimates | Absolute counts (resident/visitor/worker) | hsds-bt-hex-job |
+| **Quality Checks** | Raw data | Validated dataset | hsds-bt-hex-job |
+| **Hex Aggregation** | Hex grid data | Boundary aggregations | hsds-msoa-job, hsds-lsoa-job |
 
-#### **Aggregation Levels**
-| Boundary Type | Process | Output Table | Records/Week |
-|---------------|---------|--------------|--------------|
-| **High Streets** | Hex → High Street lookup | `econ_busyness_bt_highstreets_3hourly_counts` | ~50,000 |
-| **Town Centres** | Hex → Town Centre lookup | `econ_busyness_bt_towncentres_3hourly_counts` | ~40,000 |
-| **BIDs** | Hex → BID lookup | `econ_busyness_bt_bids_3hourly_counts` | ~20,000 |
-| **Bespoke Areas** | Hex → Bespoke lookup | `econ_busyness_bt_bespokes_3hourly_counts` | ~15,000 |
+#### **Output Tables**
+| Boundary Type | Table Name | AWS Batch Job | Records/Week |
+|---------------|------------|---------------|--------------|
+| **Hex Grid** | `bt_footfall_tfl_hex_3hourly` | hsds-bt-hex-job | ~750,000 |
+| **High Streets** | `econ_busyness_bt_highstreets_3hourly_counts` | hsds-bt-hex-job | ~50,000 |
+| **Town Centres** | `econ_busyness_bt_towncentres_3hourly_counts` | hsds-bt-hex-job | ~40,000 |
+| **BIDs** | `econ_busyness_bt_bids_3hourly_counts` | hsds-bt-hex-job | ~20,000 |
+| **Bespoke Areas** | `econ_busyness_bt_bespokes_3hourly_counts` | hsds-bt-hex-job | ~15,000 |
+| **MSOAs** | `bt_footfall_msoa_3hourly` | hsds-msoa-job | ~35,000 |
+| **LSOAs** | `bt_footfall_lsoa_3hourly` | hsds-lsoa-job | ~150,000 |
 
-### **4. Data Distribution (Wednesday)**
-
-#### **Export Generation**
-```
-Database Tables → Partner Filtering → Data Export → Distribution → Monitoring
-     │                │                 │             │            │
-Production data   Sublicense rules   CSV files    S3 Storage   Delivery tracking
-     │                │                 │             │            │
-All boundaries   Geographic filters  Custom formats London      Success/failure
-                Area-specific data                  Datastore    alerts
-```
+### **3. Distribution & Export**
+- **Partner Exports**: Sublicense-specific CSV files uploaded to S3
+- **London Datastore**: Public datasets via automated upload
+- **Data Hub**: Internal dashboard refresh
+- **Quality Reports**: Automated validation summaries
 
 ## 💳 **Mastercard Transaction Data Workflow**
 
-### **1. File Reception (Monthly - Week 1)**
+### **🔧 Manual Steps Required**
+**Before Processing**: 
+1. Download files from Mastercard SFTP server
+2. Upload to S3 buckets:
+   - 3-hourly raw: `s3://hsds-data/mastercard/mrli_3hourly/raw/`
+   - Weekly data: `s3://hsds-data/mastercard/weekly/raw/mcard_staging/`
+   - Spending Pulse: `s3://hsds-data/mastercard/spendingpulse/received/`
 
-#### **Process Overview**
+### **1. AWS Step Functions Orchestration**
+
+#### **Step Function Structure** (Sequential Execution)
 ```
-📧 File Delivery → Validation → Storage → Processing Queue → Notification
-     │              │           │           │                │
-  SFTP/Email    File integrity S3 bucket   Job scheduling   Team alerts
-   transfer      Size, format   secure      Batch jobs      Success/error
-                 Hash check     storage     preparation      status
-```
-
-#### **File Processing Steps**
-| Step | Process | Validation | Output |
-|------|---------|------------|--------|
-| **1** | **File Reception** | File size, format check | Raw files in staging |
-| **2** | **Initial Validation** | Schema, date range check | Validated raw data |
-| **3** | **Data Extraction** | Decompress, parse records | Structured dataset |
-| **4** | **Quality Assessment** | Volume, completeness check | Quality report |
-
-### **2. Data Processing (Week 1-2)**
-
-#### **Adjustment Pipeline**
-```
-Raw Data → Geographic Mapping → Adjustment Factors → Inflation Correction → Validation
-   │             │                    │                    │               │
-Monthly files  Quad→Boundary      Spending Pulse        ONS CPI data   Final dataset
-   │             │                adjustment             │               │
-CSV format    Spatial joins       Market share         2018 baseline   Quality checks
-              London boundaries   Cash-to-card shift   price index     Volume validation
+AWS Step Functions Trigger
+└─ Sequential Processing:
+   ├─ 1. Lookup Job (hsds-lookup-job)
+   ├─ 2. Weekly Batch Job (hsds-mcard-weekly)
+   ├─ 3. Weekly Intl Batch Job (hsds-mcard-intl)
+   └─ 4. Threehourly Batch Job (hsds-mcard-3hourly)
 ```
 
-#### **Adjustment Process Detail**
-| Process | Input | Adjustment Factor | Output | Purpose |
-|---------|-------|------------------|--------|---------|
-| **Market Share** | Raw transaction amounts | Mastercard market share % | Market-adjusted amounts | Account for total market |
-| **Cash-to-Card** | Market-adjusted amounts | Payment method trends | Payment-adjusted amounts | Account for payment shifts |
-| **Inflation** | Payment-adjusted amounts | ONS CPI (2018 baseline) | Inflation-adjusted amounts | Enable time comparison |
+### **2. Data Processing Pipeline**
 
-### **3. Geographic Aggregation (Week 2)**
+#### **File Processing & Validation**
+- **Data Source**: Monthly files via SFTP download (manual upload to S3)
+- **Data Volume**: ~2M records per month (~25k quads × multiple time periods)
+- **Format**: CSV files with transaction amounts and counts by quad
+- **Validation**: File integrity, schema compliance, geographic coverage
 
-#### **Boundary Processing**
-```
-Quad-Level Data → Lookup Joins → Aggregation → Validation → Output Tables
-      │              │             │             │            │
-   ~25k quads    Spatial mapping  Sum by area   Trend check  Boundary tables
-      │              │             │             │            │
- Transaction      Quad→boundary   Area totals   Historical    Production
-   records        relationships   by period     comparison     database
-```
+#### **Adjustment Process**
+| Process | Input | Adjustment Factor | AWS Batch Job | Purpose |
+|---------|-------|------------------|---------------|---------|
+| **Market Share** | Raw transaction amounts | Mastercard market share % | hsds-mcard-weekly | Account for total market |
+| **Cash-to-Card** | Market-adjusted amounts | Payment method trends | hsds-mcard-weekly | Account for payment shifts |
+| **Inflation** | Payment-adjusted amounts | ONS CPI (2018 baseline) | hsds-mcard-3hourly | Enable time comparison |
 
-#### **Aggregation Hierarchy**
-```
-Raw Quads (25k)
-    ├─ High Streets (~200) → econ_busyness_mcard_highstreets_*
-    ├─ Town Centres (~170) → econ_busyness_mcard_towncentres_*
-    ├─ BIDs (~80) → econ_busyness_mcard_bids_*
-    ├─ Bespoke Areas (~50) → econ_busyness_mcard_bespoke_*
-    ├─ Boroughs (33) → econ_busyness_mcard_boroughs_*
-    ├─ MSOAs (~1000) → econ_busyness_mcard_msoas_*
-    └─ Inner/Outer (2) → econ_busyness_mcard_inner_outer_*
-```
+#### **Geographic Aggregation**
+| Boundary Type | Table Name | AWS Batch Job | Processing |
+|---------------|------------|---------------|------------|
+| **Weekly Aggregations** | `econ_busyness_mcard_*_txn` | hsds-mcard-weekly | Weekday/weekend splits |
+| **International Data** | `econ_busyness_mcard_*_intl` | hsds-mcard-intl | International card transactions |
+| **3-Hourly Data** | `econ_busyness_mcard_*_3hourly_txn` | hsds-mcard-3hourly | Temporal granularity |
 
-### **4. Export Generation (Week 3)**
-
-#### **Data Product Creation**
+#### **Output Tables**
 ```
-Aggregated Data → Format Selection → Quality Check → Export → Distribution
-      │               │                │             │          │
-  All boundaries   Partner needs    Final validation CSV files  Multiple channels
-      │               │                │             │          │
- Multiple time    3-hourly/weekly  Volume/trend     Custom     Partners, public,
-  resolutions      based on use     validation      formats    internal teams
+Raw Quads (25k) → Geographic Aggregation:
+├─ High Streets (~200) → econ_busyness_mcard_highstreets_*
+├─ Town Centres (~170) → econ_busyness_mcard_towncentres_*
+├─ BIDs (~80) → econ_busyness_mcard_bids_*
+├─ Bespoke Areas (~50) → econ_busyness_mcard_bespoke_*
+├─ Boroughs (33) → econ_busyness_mcard_boroughs_*
+├─ MSOAs (~1000) → econ_busyness_mcard_msoas_*
+└─ Inner/Outer (2) → econ_busyness_mcard_inner_outer_*
 ```
 
-## 🔍 **Data Quality Workflow**
+### **3. Distribution & Export**
+- **Partner Exports**: Monthly CSV files with geographic and temporal filtering
+- **London Datastore**: Anonymized public datasets
+- **Data Hub**: Economic indicator dashboards
+- **Year-over-Year Analytics**: Growth calculations and trend analysis
 
-### **Continuous Monitoring**
+## 🔍 **AWS Infrastructure & Monitoring**
+
+### **Step Functions Orchestration**
 ```
-Data Processing → Quality Checks → Alert System → Investigation → Resolution
-      │               │              │             │              │
-   Every stage    Automated rules  Email/Slack   Manual review   Process fix
-      │               │              │             │              │
-  Volume, trend   Threshold-based  Immediate      Data team      System update
-   validation     anomaly detect   notification   analysis       Documentation
+Manual Trigger/Parameters
+       ↓
+AWS Step Functions
+   ├─ Date Processing (Lambda)
+   ├─ Job Dependencies (Parallel/Sequential)
+   ├─ Error Handling (Retry Logic)
+   └─ Status Monitoring
+       ↓
+AWS Batch Job Queue (hsds-e2e)
+   ├─ Docker Container Execution
+   ├─ Auto-scaling Compute Environment
+   ├─ Job Definition Management
+   └─ Resource Optimization
+       ↓
+PostgreSQL Database + S3 Storage
+   ├─ Data Loading & Validation
+   ├─ Partner Export Generation
+   └─ Quality Reporting
 ```
 
-### **Quality Check Types**
-| Check Type | Frequency | Threshold | Action |
-|------------|-----------|-----------|--------|
-| **Volume Validation** | Every processing run | ±20% from expected | Alert + manual review |
-| **Trend Analysis** | Daily | Unusual patterns | Investigation |
-| **Completeness Check** | Every load | <95% coverage | Processing halt |
-| **Data Freshness** | Daily | >48hrs old | Escalation |
+### **Quality Monitoring**
+| Check Type | Frequency | Monitoring Method | Action |
+|------------|-----------|-------------------|--------|
+| **Volume Validation** | Every processing run | CloudWatch metrics | Alert + manual review |
+| **Processing Success** | Real-time | Step Functions status | Automated retry |
+| **Data Quality** | Post-processing | Automated validation | Quality scoring |
+| **Partner Delivery** | Weekly/Monthly | S3 upload confirmation | Delivery tracking |
 
-## ⚡ **Performance Optimization**
-
-### **AWS Infrastructure**
-```
-Step Functions → AWS Batch → Docker Containers → RDS Database
-      │              │            │                  │
-  Workflow        Compute      Processing         Storage
-orchestration    environment   containers        Layer
-      │              │            │                  │
- Job scheduling   Auto-scaling  Optimized code   Query optimization
- Dependencies     Cost control  Memory tuning    Index management
-```
+## ⚡ **Performance & Optimization**
 
 ### **Processing Performance**
-| Dataset | Processing Time | Optimization Strategy |
-|---------|----------------|----------------------|
-| **BT Weekly** | 45 minutes | Parallel processing, optimized queries |
-| **Mastercard Monthly** | 3 hours | Batch processing, memory optimization |
-| **Partner Exports** | 30 minutes | Pre-computed aggregations |
-| **Public Datasets** | 15 minutes | Cached results, incremental updates |
+| Workflow | Trigger Frequency | Processing Time | AWS Infrastructure |
+|----------|------------------|-----------------|-------------------|
+| **BT Footfall** | Weekly (manual trigger) | 45-60 minutes | Parallel Step Functions + Batch |
+| **Mastercard Transactions** | Monthly (manual trigger) | 2-3 hours | Sequential Step Functions + Batch |
+| **Lookup Updates** | As needed | 15-30 minutes | Shared Batch job |
+
+### **Resource Optimization**
+- **Parallel Processing**: BT workflow uses parallel branches for independent jobs
+- **Sequential Dependencies**: Mastercard workflow ensures proper data flow order
+- **Container Scaling**: AWS Batch auto-scales based on job queue demand
+- **Cost Control**: Spot instances and scheduled scaling for cost optimization
 
 ## 🚨 **Error Handling & Recovery**
 
-### **Error Response Workflow**
+### **Step Functions Error Handling**
 ```
-Error Detected → Classification → Automated Recovery → Manual Intervention → Resolution
-      │              │                │                    │                 │
-  System alert   Error type      Retry logic         Team investigation   Process fix
-      │              │                │                    │                 │
-  Monitoring     Data/System     3x retry           Root cause analysis   Documentation
-   system        Network/Logic   Exponential        Impact assessment      Update
-                                backoff
+Job Failure Detection
+       ↓
+Automatic Retry (3x with exponential backoff)
+       ↓
+CloudWatch Alert + Team Notification
+       ↓
+Manual Investigation & Recovery
+       ↓
+Process Documentation & Improvement
 ```
 
-### **Recovery Procedures**
-| Error Type | Automatic Recovery | Manual Steps | Recovery Time |
-|------------|-------------------|--------------|---------------|
-| **API Timeout** | 3x retry with backoff | Check API status | 5-15 minutes |
-| **Data Volume Anomaly** | Processing pause | Investigate source | 30-60 minutes |
-| **Database Error** | Transaction rollback | Check DB health | 15-30 minutes |
-| **File Corruption** | Request re-delivery | Contact data provider | 2-24 hours |
+### **Common Recovery Scenarios**
+| Error Type | Detection Method | Recovery Action | Prevention |
+|------------|------------------|-----------------|------------|
+| **AWS Batch Job Failure** | Step Functions status | Restart failed job | Improved error handling |
+| **Data Volume Anomaly** | Volume validation | Manual investigation | Enhanced monitoring |
+| **S3 Upload Failure** | S3 API response | Retry upload operation | Network optimization |
+| **Database Connection** | Connection timeout | Database health check | Connection pooling |
 
-## 📊 **Workflow Monitoring**
+## 📊 **Workflow Monitoring Dashboard**
 
 ### **Key Performance Indicators**
-| Metric | Target | Current Performance | Monitoring Method |
-|--------|--------|-------------------|------------------|
-| **Data Freshness** | <48 hours | 24 hours average | Automated alerts |
-| **Processing Success Rate** | >99% | 99.5% | Daily reports |
-| **Data Quality Score** | >95% | 97% average | Quality dashboard |
-| **Partner SLA Compliance** | 100% | 98% | Weekly review |
+| Metric | BT Workflow | Mastercard Workflow | Monitoring Method |
+|--------|-------------|-------------------|------------------|
+| **Success Rate** | 99.5% | 98.8% | Step Functions logs |
+| **Processing Time** | 45 min average | 3 hours average | CloudWatch metrics |
+| **Data Quality Score** | 97.5% | 96.2% | Automated validation |
+| **Partner SLA Compliance** | 99.2% | 98.8% | Delivery tracking |
 
-### **Operational Dashboard Metrics**
-- **Daily Processing Status**: Success/failure rates by workflow
-- **Data Volume Trends**: Historical comparison and anomaly detection  
-- **Quality Scores**: Completeness, accuracy, timeliness metrics
-- **System Performance**: Processing times, resource utilization
-- **Partner Impact**: Export delivery status, data freshness by partner
+### **Operational Metrics**
+- **AWS Batch Job Status**: Success/failure rates by job definition
+- **Resource Utilization**: Compute environment efficiency
+- **Cost Analysis**: Processing costs by workflow and time period
+- **Data Freshness**: Time from trigger to partner delivery
 
 ## 🔗 **Related Information**
 
-- **[BT Footfall Data Flow](03.1-bt-data-flow.md)**: Detailed BT processing steps
-- **[Mastercard Transaction Data Flow](03.2-mastercard-data-flow.md)**: Detailed Mastercard processing steps
-- **[Data Quality & Validation](03.3-data-quality.md)**: Quality assurance processes
-- **[Database Schema](04-database-schema.md)**: Technical table structures
-- **[Data Governance](08-data-governance.md)**: Policies and standards
+- **[BT Footfall Data Flow](03.1-bt-data-flow.md)**: Detailed BT processing steps and AWS job specifics
+- **[Mastercard Transaction Data Flow](03.2-mastercard-data-flow.md)**: Detailed Mastercard processing steps and adjustment logic
+- **[Database Schema](04-database-schema.md)**: Technical table structures and relationships
+- **[Sublicensing & Data Distribution](07-sublicensing.md)**: Partner-specific export configurations
+- **[Data Governance](08-data-governance.md)**: Quality standards and compliance framework
 
 ---
 
 **Workflow Summary**:
-- **BT Data**: Weekly processing, 45-minute runtime, 99.5% success rate
-- **Mastercard Data**: Monthly processing, 3-hour runtime, automated adjustments
-- **Quality Assurance**: Continuous monitoring, automated alerts, 97% quality score
-- **Performance**: Optimized AWS infrastructure, parallel processing, real-time monitoring
+- **BT Data**: Weekly processing via parallel AWS Step Functions, 45-60 minute runtime
+- **Mastercard Data**: Monthly processing via sequential AWS Step Functions, 2-3 hour runtime  
+- **Manual Coordination**: Parameter setting (BT) and file upload (Mastercard) required
+- **AWS Infrastructure**: Step Functions orchestration with Batch job execution and S3 storage
+- **High Reliability**: 99%+ success rates with automated monitoring and error recovery
 
-**Next Steps**: Explore detailed [BT Footfall Data Flow](03.1-bt-data-flow.md) 
+**Next Steps**: Review detailed workflow pages for technical implementation specifics 

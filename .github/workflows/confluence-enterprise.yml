@@ -34,7 +34,7 @@ jobs:
           
       - name: Install validation tools
         run: |
-          pip install pytest pyyaml requests python-frontmatter
+          pip install pytest pyyaml requests python-frontmatter python-dotenv
           
       - name: Detect changed files
         id: changes
@@ -82,7 +82,6 @@ jobs:
             const fs = require('fs');
             if (fs.existsSync('/tmp/sync_summary.json')) {
               const summary = JSON.parse(fs.readFileSync('/tmp/sync_summary.json', 'utf8'));
-              
               github.rest.repos.createCommitComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
@@ -111,7 +110,7 @@ jobs:
           
       - name: Install dependencies
         run: |
-          pip install requests python-frontmatter markdown beautifulsoup4
+          pip install requests python-frontmatter markdown beautifulsoup4 python-dotenv
           
       - name: Dry run Confluence sync
         env:
@@ -129,7 +128,6 @@ jobs:
             const fs = require('fs');
             if (fs.existsSync('/tmp/dry_run_summary.json')) {
               const summary = JSON.parse(fs.readFileSync('/tmp/dry_run_summary.json', 'utf8'));
-              
               github.rest.issues.createComment({
                 issue_number: context.issue.number,
                 owner: context.repo.owner,
