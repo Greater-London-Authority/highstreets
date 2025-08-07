@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Enhanced Enterprise Confluence Documentation Sync Script with Image Upload
+Enterprise Confluence Documentation Sync Script
 
 Features:
-- Automatic image upload to Confluence as attachments
-- Attachment token fallback for better permissions handling
-- Image reference conversion in markdown
-- Support for local image files
-- All existing functionality preserved
+- Sync markdown documentation to Confluence
+- Convert markdown to Confluence storage format
+- Support for frontmatter-based configuration
+- Dry run mode for testing
+- Images handled manually in Confluence
 """
 
 import os
@@ -15,8 +15,6 @@ import sys
 import json
 import argparse
 import logging
-import re
-import mimetypes
 from pathlib import Path
 from typing import Dict, List, Optional
 import requests
@@ -40,28 +38,16 @@ logger = logging.getLogger(__name__)
 
 
 class ConfluenceAPI:
-    """Enhanced Confluence REST API client with attachment token fallback."""
+    """Confluence REST API client for documentation sync."""
     
     def __init__(self, base_url: str, username: str, api_token: str):
         self.base_url = base_url.rstrip('/')
-        self.username = username
-        self.api_token = api_token
-        
-        # Primary session for general operations
         self.session = requests.Session()
         self.session.auth = (username, api_token)
         self.session.headers.update({
             'Content-Type': 'application/json',
             'Accept': 'application/json'
         })
-        
-        # Attachment-specific session (try fallback token if available)
-        self.attachment_session = None
-        attachment_token = os.getenv('CONFLUENCE_ATTACHMENT_TOKEN')
-        if attachment_token and attachment_token != api_token:
-            self.attachment_session = requests.Session()
-            self.attachment_session.auth = (username, attachment_token)
-            logger.info("Using dedicated attachment token for file uploads")
     
     def get_space(self, space_key: str) -> Optional[Dict]:
         """Get space information."""
@@ -147,79 +133,11 @@ class ConfluenceAPI:
             logger.error(f"Failed to update page {page_id}: {e}")
             return None
 
-    def upload_attachment(self, page_id: str, file_path: str, 
-                         filename: str) -> Optional[str]:
-        """Upload file as attachment with token fallback."""
-        sessions_to_try = []
-        
-        # Try attachment-specific session first if available
-        if self.attachment_session:
-            sessions_to_try.append(("attachment token", 
-                                   self.attachment_session))
-        
-        # Fallback to main session
-        sessions_to_try.append(("main token", self.session))
-        
-        for token_type, session in sessions_to_try:
-            try:
-                logger.info(f"Attempting upload with {token_type}: {filename}")
-                
-                # Always create new attachment (simpler and more reliable)
-                url = f"{self.base_url}/rest/api/content/{page_id}/child/attachment"
-                
-                # Determine content type
-                content_type, _ = mimetypes.guess_type(file_path)
-                if not content_type:
-                    content_type = 'application/octet-stream'
-                
-                # Upload file
-                with open(file_path, 'rb') as f:
-                    files = {'file': (filename, f, content_type)}
-                    headers = {key: val for key, val in session.headers.items() 
-                              if key.lower() != 'content-type'}
-                    
-                    response = requests.post(url, files=files, 
-                                           auth=session.auth, headers=headers)
-                    response.raise_for_status()
-                    
-                    result = response.json()
-                    if 'results' in result:
-                        result = result['results'][0]
-                    
-                    logger.info(f"Successfully uploaded with {token_type}: {filename}")
-                    return filename
-                    
-            except requests.exceptions.HTTPError as e:
-                if e.response.status_code == 403:
-                    logger.warning(f"403 Forbidden with {token_type} for {filename}")
-                    continue  # Try next token
-                else:
-                    logger.error(f"HTTP error with {token_type} for {filename}: {e}")
-                    continue
-            except Exception as e:
-                logger.error(f"Upload failed with {token_type} for {filename}: {e}")
-                continue
-        
-        logger.error(f"All token attempts failed for {filename}")
-        return None
-
-    def get_page_attachments(self, page_id: str) -> List[Dict]:
-        """Get all attachments for a page."""
-        try:
-            url = f"{self.base_url}/rest/api/content/{page_id}/child/attachment"
-            response = self.session.get(url)
-            response.raise_for_status()
-            return response.json().get('results', [])
-        except Exception as e:
-            logger.error(f"Failed to get attachments for page {page_id}: {e}")
-            return []
-
 
 class MarkdownProcessor:
-    """Enhanced markdown processor with image upload support."""
+    """Process markdown files for Confluence."""
     
-    def __init__(self, confluence_api: ConfluenceAPI):
-        self.confluence_api = confluence_api
+    def __init__(self):
         self.md = markdown.Markdown(extensions=[
             'markdown.extensions.tables',
             'markdown.extensions.fenced_code',
@@ -227,72 +145,50 @@ class MarkdownProcessor:
             'markdown.extensions.toc'
         ])
     
-    def process_images_in_markdown(self, content: str, page_id: str, 
-                                 source_file_path: str) -> str:
-        """Process markdown images and upload them as Confluence attachments."""
-        # Find all image references
-        img_pattern = r'!\[([^\]]*)\]\(([^)]+)\)'
-        images = re.findall(img_pattern, content)
-        
-        source_dir = os.path.dirname(source_file_path)
-        
-        for alt_text, img_path in images:
-            # Skip external URLs
-            if img_path.startswith(('http://', 'https://')):
-                continue
-                
-            # Handle relative paths
-            if not img_path.startswith('/'):
-                # Relative to the markdown file
-                full_img_path = os.path.join(source_dir, img_path)
-            else:
-                # Absolute path from repo root
-                full_img_path = img_path.lstrip('/')
-            
-            # Normalize path
-            full_img_path = os.path.normpath(full_img_path)
-            
-            if os.path.exists(full_img_path):
-                filename = os.path.basename(full_img_path)
-                logger.info(f"Processing image: {filename} from {full_img_path}")
-                
-                attachment_filename = self.confluence_api.upload_attachment(
-                    page_id, full_img_path, filename)
-                
-                if attachment_filename:
-                    # Replace markdown image with Confluence image macro
-                    old_img = f'![{alt_text}]({img_path})'
-                    new_img = (f'<ac:image ac:width="800">'
-                             f'<ri:attachment ri:filename="{attachment_filename}" />'
-                             f'</ac:image>')
-                    content = content.replace(old_img, new_img)
-                    logger.info(f"Converted image: {filename}")
-                else:
-                    logger.warning(f"Failed to upload image: {filename}")
-            else:
-                logger.warning(f"Image file not found: {full_img_path}")
-        
-        return content
-    
-    def convert_to_confluence_storage(self, markdown_content: str, 
-                                    page_id: str = None, 
-                                    source_file_path: str = None) -> str:
-        """Convert markdown to Confluence storage format with image processing."""
-        # Process images first if we have page context
-        if page_id and source_file_path:
-            markdown_content = self.process_images_in_markdown(
-                markdown_content, page_id, source_file_path)
-        
+    def convert_to_confluence_storage(self, markdown_content: str) -> str:
+        """Convert markdown to Confluence storage format."""
         # Convert markdown to HTML
         html = self.md.convert(markdown_content)
         soup = BeautifulSoup(html, 'html.parser')
         
-        # Apply existing transformations
+        # Apply transformations
         self._convert_code_blocks(soup)
         self._convert_tables(soup)
         self._convert_info_boxes(soup)
+        self._process_images(soup)
         
         return str(soup)
+    
+    def _process_images(self, soup: BeautifulSoup):
+        """Convert local image references to placeholder text."""
+        for img in soup.find_all('img'):
+            src = img.get('src', '')
+            alt = img.get('alt', 'Image')
+            
+            # Skip external images
+            if src.startswith(('http://', 'https://')):
+                continue
+            
+            # Replace local images with info note
+            info_box = soup.new_tag('div')
+            info_box['class'] = 'confluence-information-macro'
+            
+            info_icon = soup.new_tag('span')
+            info_icon['class'] = 'aui-icon aui-icon-small aui-iconfont-info'
+            info_icon.string = 'Info'
+            
+            info_body = soup.new_tag('div')
+            info_body['class'] = 'confluence-information-macro-body'
+            
+            info_text = soup.new_tag('p')
+            info_text.string = f"📊 {alt} - Please add image manually in Confluence"
+            
+            info_body.append(info_text)
+            info_box.append(info_icon)
+            info_box.append(info_body)
+            
+            img.replace_with(info_box)
+            logger.info(f"Converted image placeholder: {alt}")
     
     def _convert_code_blocks(self, soup: BeautifulSoup):
         """Convert code blocks to Confluence code macros."""
@@ -366,19 +262,18 @@ class MarkdownProcessor:
 
 
 class ConfluenceSync:
-    """Enhanced sync orchestrator with image support."""
+    """Sync orchestrator for documentation."""
     
     def __init__(self, dry_run: bool = False):
         self.dry_run = dry_run
         self.confluence = self._init_confluence_api()
-        self.processor = MarkdownProcessor(self.confluence)
+        self.processor = MarkdownProcessor()
         self.stats = {
             'success_count': 0,
             'error_count': 0,
             'total_pages': 0,
             'new_pages': 0,
-            'updated_pages': 0,
-            'images_uploaded': 0
+            'updated_pages': 0
         }
     
     def _init_confluence_api(self) -> ConfluenceAPI:
@@ -389,7 +284,7 @@ class ConfluenceSync:
         
         if missing_vars:
             raise ValueError(
-                f"Missing required environment variables for Confluence API: "
+                f"Missing required environment variables: "
                 f"{', '.join(missing_vars)}")
         
         return ConfluenceAPI(
@@ -449,16 +344,14 @@ class ConfluenceSync:
             logger.info(f"[DRY RUN] Would sync: {title}")
             return
         
+        # Convert markdown to Confluence format
+        content = self.processor.convert_to_confluence_storage(post.content)
+        
         # Find existing page
         existing_page = self.confluence.get_page_by_title(space_key, title)
         
         if existing_page:
-            # Update existing page with images
-            content = self.processor.convert_to_confluence_storage(
-                post.content, 
-                existing_page['id'], 
-                str(md_file)
-            )
+            # Update existing page
             result = self.confluence.update_page(
                 existing_page['id'], 
                 title, 
@@ -469,10 +362,7 @@ class ConfluenceSync:
                 self.stats['updated_pages'] += 1
                 logger.info(f"Updated page: {title}")
         else:
-            # Create new page (two-step process for images)
-            initial_content = self.processor.convert_to_confluence_storage(
-                post.content)
-            
+            # Create new page
             parent_id = None
             if parent_title:
                 parent_page = self.confluence.get_page_by_title(
@@ -481,25 +371,9 @@ class ConfluenceSync:
                     parent_id = parent_page['id']
             
             result = self.confluence.create_page(
-                space_key, title, initial_content, parent_id)
+                space_key, title, content, parent_id)
             if result:
                 self.stats['new_pages'] += 1
-                
-                # Now process images for the newly created page
-                final_content = self.processor.convert_to_confluence_storage(
-                    post.content, 
-                    result['id'], 
-                    str(md_file)
-                )
-                
-                # Update page with images
-                self.confluence.update_page(
-                    result['id'], 
-                    title, 
-                    final_content, 
-                    result['version']['number']
-                )
-                
                 logger.info(f"Created page: {title}")
     
     def _save_sync_summary(self):
@@ -510,7 +384,6 @@ class ConfluenceSync:
             'total_pages': self.stats['total_pages'],
             'new_pages': self.stats['new_pages'],
             'updated_pages': self.stats['updated_pages'],
-            'images_uploaded': self.stats['images_uploaded'],
             'space_name': os.getenv('CONFLUENCE_SPACE', 'CDU'),
             'space_url': (f"{os.getenv('CONFLUENCE_URL')}/spaces/"
                          f"{os.getenv('CONFLUENCE_SPACE', 'CDU')}")
