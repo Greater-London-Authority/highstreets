@@ -24,7 +24,7 @@ The Highstreets Data Platform is the Greater London Authority's comprehensive da
 - Transaction volume and spending analysis at multiple geographic levels
 - Economic impact assessments for high streets and town centres
 - Partner data sharing through sublicense agreements
-- Public open data via London Datastore
+- Data via London Datastore
 
 ##  **Business Objectives**
 
@@ -62,15 +62,9 @@ The Highstreets Data Platform is the Greater London Authority's comprehensive da
 ##  **High-Level Architecture**
 
 ### **Data Flow Overview**
-```
-📱 BT API          📊 Mastercard Files
-    ↓ (Weekly)         ↓ (Monthly)
-🔄 Data Processing Pipeline (AWS)
-    ↓
-🗄️ PostgreSQL Database
-    ↓
-📈 Data Hub Explorer  🌐 London Datastore  🤝 Partner Exports
-```
+![Platform Data Flow](https://github.com/Greater-London-Authority/highstreets/tree/aws-hsds/confluence/assets/images/platform-overview-flow.png)
+
+*[📋 Interactive Miro Board](https://miro.com/app/board/uXjVKeHa9kQ=/?moveToWidget=3458764636705813569&cot=14) | [🔗 View Full Size](https://github.com/Greater-London-Authority/highstreets/tree/aws-hsds/confluence/assets/images/platform-overview-flow.png)*
 
 ### **Core Components**
 - **Data Ingestion**: Automated collection from external sources
