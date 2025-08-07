@@ -149,11 +149,4 @@ The Highstreets Data Platform is the Greater London Authority's comprehensive da
 
 ---
 
-**Platform Statistics** (as of latest update):
-- **8+ Active Partners** with data sharing agreements
-- **750,000+ Records** processed weekly from BT API
-- **2M+ Transaction Records** processed monthly from Mastercard
-- **500+ Geographic Boundaries** supported across London
-- **99.5% Uptime** for automated data processing
-
 **Next Steps**: Explore detailed information about [Data Sources & Coverage](02-data-sources.md) 
