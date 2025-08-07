@@ -22,15 +22,20 @@ The Highstreets Data Platform integrates two primary commercial datasets to prov
 
 #### **Spatial Coverage**
 - **Geographic Scope**: All 33 London boroughs
-- **Spatial Resolution**: TfL Hex Grid (350-400m grid cells)
-- **Total Grid Cells**: ~8,000 hex cells covering Greater London
+- **Spatial Resolution**: Multiple geographic aggregation levels
+  - **Hex Grid**: TfL Hex Grid (350-400m grid cells)
+  - **MSOA**: Middle Layer Super Output Areas
+  - **LSOA**: Lower Layer Super Output Areas 
+  - **Administrative**: High Streets, Town Centres, BIDs, Bespoke areas
 - **Coordinate System**: EPSG:27700 (British National Grid)
 
 #### **Temporal Coverage**
 - **Historical Data**: From May 2022 onwards
 - **Update Frequency**: **Weekly** (received every Wednesday for previous week)
-- **Time Resolution**: 3-hourly intervals (8 periods per day)
-- **Time Periods**: 00-03, 03-06, 06-09, 09-12, 12-15, 15-18, 18-21, 21-24
+- **Time Resolution**: Multiple temporal aggregations
+  - **3-hourly intervals**: 8 periods per day (00-03, 03-06, 06-09, 09-12, 12-15, 15-18, 18-21, 21-00)
+  - **Hourly intervals**: For MSOA and LSOA data
+  - **Daily totals**: Aggregated daily summaries
 
 #### **Population Segments**
 | Segment | Description | Use Case |
@@ -46,17 +51,30 @@ The Highstreets Data Platform integrates two primary commercial datasets to prov
 | **Loyalty Percentage** | % of visitors who are repeat visitors | Customer retention insights |
 
 ### **Data Collection Process**
-1. **Weekly API Calls**: Automated collection every Wednesday
-2. **Data Validation**: Schema validation and quality checks
-3. **Spatial Processing**: Hex grid assignment and validation
-4. **Temporal Alignment**: 3-hourly interval processing
-5. **Database Loading**: Storage in `bt_footfall_tfl_hex_3hourly` table
+
+#### **Multi-Resolution Data Streams**
+| Data Stream | Resolution | Output Table | Purpose |
+|-------------|------------|--------------|----------|
+| **Hex Grid** | 3-hourly | `bt_footfall_tfl_hex_3hourly` | Primary detailed analysis |
+| **MSOA** | Hourly | `bt_footfall_msoa_hourly` | Statistical area analysis |
+| **LSOA** | Hourly | `bt_footfall_lsoa_hourly` | Local area detailed analysis |
+| **Daily Totals** | Daily | `econ_busyness_bt_daily_agg_cust_raw` | Summary reporting |
+| **Outage Monitoring** | Daily | `econ_busyness_bt_outage_data` | Data quality tracking |
+
+#### **Processing Steps**
+1. **Weekly API Calls**: Automated collection every Wednesday across all endpoints
+2. **Multi-Resolution Processing**: Parallel collection at hex, MSOA, LSOA, and daily levels
+3. **Data Validation**: Schema validation and quality checks across all datasets
+4. **Spatial Processing**: Geographic assignment and boundary validation
+5. **Temporal Alignment**: Multi-resolution time period processing
+6. **Database Loading**: Storage in production tables and aws s3
 
 ### **Data Quality Measures**
-- **Outage Detection**: Automated identification of data gaps or anomalies
+- **Outage Detection**: Automated identification of data gaps or anomalies across all resolutions
 - **Historical Comparison**: Validation against expected patterns
-- **Spatial Validation**: Ensuring complete London coverage
+- **Spatial Validation**: Ensuring complete London coverage across all geographic levels
 - **Volume Checks**: Monitoring for unusual changes in data volume
+- **Cross-Resolution Consistency**: Validation that aggregations align across spatial scales
 
 ## 💳 **Mastercard Transaction Data**
 
@@ -117,7 +135,7 @@ The Highstreets Data Platform integrates two primary commercial datasets to prov
 #### **Spending Pulse Adjustment**
 The platform uses Mastercard's Spending Pulse data to adjust raw transaction figures:
 
-```sql
+
 -- Simplified adjustment formula
 adjusted_amount = raw_amount / adjustment_factor
 
@@ -125,15 +143,15 @@ adjusted_amount = raw_amount / adjustment_factor
 -- 1. Mastercard market share
 -- 2. Cash-to-card payment shift
 -- 3. Sector-specific trends
-```
+
 
 #### **Inflation Adjustment**
 All monetary values are adjusted to 2018 baseline using ONS CPI data:
 
-```sql
+
 -- Inflation adjustment to 2018 baseline
 inflation_adjusted_amount = adjusted_amount * (cpi_2018 / cpi_current_period)
-```
+
 
 ## 🗃️ **Supporting Reference Data**
 
@@ -144,31 +162,23 @@ inflation_adjusted_amount = adjusted_amount * (cpi_2018 / cpi_current_period)
 - **Usage**: Inflation adjustment for Mastercard transaction amounts
 
 ### **Geographic Boundary Data**
-- **High Streets**: ~200 designated high street boundaries
-- **Town Centres**: ~170 town centre boundaries  
+- **High Streets**: Designated high street boundaries
+- **Town Centres**: Designated town centre boundaries  
 - **Business Improvement Districts (BIDs)**: ~80 active BID areas
-- **Bespoke Areas**: ~50 custom-defined areas for specific projects
+- **Bespoke Areas**: custom-defined areas for specific projects
 - **Administrative Boundaries**: Boroughs, MSOAs, LSOAs
 
 ### **Lookup Tables**
-| Table Purpose | Spatial Relationship | Records |
-|---------------|---------------------|---------|
-| **Hex-to-High Street** | Links hex cells to high street boundaries | ~15,000 |
-| **Hex-to-Town Centre** | Links hex cells to town centre boundaries | ~12,000 |
-| **Hex-to-BID** | Links hex cells to BID boundaries | ~8,000 |
-| **Quad-to-Boundary** | Links Mastercard quads to all boundary types | ~25,000 |
+| Table Purpose | Spatial Relationship |
+|---------------|---------------------|
+| **Hex-to-High Street** | Links hex cells to high street boundaries |
+| **Hex-to-Town Centre** | Links hex cells to town centre boundaries |
+| **Hex-to-BID** | Links hex cells to BID boundaries |
+| **Hex-to-Bespoke** | Links hex cells to bespoke area boundaries |
+| **Quad-to-Boundary** | Links Mastercard quads to all boundary types |
+| **MSOA-to-Boundary** | Links MSOAs to administrative boundaries |
+| **LSOA-to-Boundary** | Links LSOAs to administrative boundaries |
 
-## 📅 **Data Update Schedule**
-
-### **Weekly Schedule (BT Data)**
-| Day | Activity | Details |
-|-----|----------|---------|
-| **Monday 09:00** | Data Collection | Automated API call for previous week |
-| **Monday 12:00** | Initial Processing | Data validation and transformation |
-| **Tuesday 10:00** | Quality Checks | Outage detection and volume validation |
-| **Tuesday 15:00** | Database Loading | Load to production tables |
-| **Wednesday 09:00** | Aggregation | Generate boundary-level aggregations |
-| **Wednesday 14:00** | Export Generation | Create partner data exports |
 
 ## 🛡️ **Data Privacy & Compliance**
 
@@ -185,13 +195,6 @@ inflation_adjusted_amount = adjusted_amount * (cpi_2018 / cpi_current_period)
 - **Geographic Aggregation**: Quad-level spatial aggregation
 
 ## 🔍 **Data Quality Indicators**
-
-### **Completeness Metrics**
-| Metric | BT Data | Mastercard Data |
-|--------|---------|-----------------|
-| **Geographic Coverage** | 99.8% of London hex cells | 95% of London quads |
-| **Temporal Coverage** | 99.5% of expected time periods | 98% of expected months |
-| **Data Freshness** | Updated within 48 hours | Updated within 2 weeks |
 
 ### **Accuracy Measures**
 - **Volume Validation**: Automatic detection of unusual volume changes
@@ -223,9 +226,9 @@ inflation_adjusted_amount = adjusted_amount * (cpi_2018 / cpi_current_period)
 ---
 
 **Data Coverage Summary**:
-- **BT Coverage**: 100% of London via hex grid, 3-hourly resolution, weekly updates
+- **BT Coverage**: 100% of London via multi-resolution framework (hex/MSOA/LSOA), 3-hourly/hourly/daily resolution, weekly updates
 - **Mastercard Coverage**: London-wide via merchant locations, monthly updates, inflation-adjusted
-- **Combined Coverage**: Comprehensive view of both footfall and economic activity
-- **Quality Assurance**: Automated monitoring and validation processes
+- **Combined Coverage**: Comprehensive view of both footfall and economic activity across multiple spatial and temporal scales
+- **Quality Assurance**: Automated monitoring and validation processes with cross-resolution consistency checks
 
 **Next Steps**: Learn about [Data Processing Workflows](03-data-workflows.md) 
