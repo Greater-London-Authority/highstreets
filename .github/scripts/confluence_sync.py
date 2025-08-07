@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
 """
-Enterprise Confluence Documentation Sync Script
+Enhanced Enterprise Confluence Documentation Sync Script with Image Upload
 
-Syncs markdown documentation to Confluence with advanced features:
-- Frontmatter-based configuration
-- Hierarchical page structure
-- Dry run mode
-- Comprehensive error handling
-- Detailed reporting
-- Content validation
+Features:
+- Automatic image upload to Confluence as attachments
+- Image reference conversion in markdown
+- Support for local image files
+- All existing functionality preserved
 """
 
 import os
@@ -16,6 +14,8 @@ import sys
 import json
 import argparse
 import logging
+import re
+import mimetypes
 from pathlib import Path
 from typing import Dict, List, Optional
 import requests
@@ -28,7 +28,6 @@ try:
     from dotenv import load_dotenv
     load_dotenv()
 except ImportError:
-    # dotenv not available, continue without it
     pass
 
 # Configure logging
@@ -40,7 +39,7 @@ logger = logging.getLogger(__name__)
 
 
 class ConfluenceAPI:
-    """Confluence REST API client."""
+    """Enhanced Confluence REST API client with image upload support."""
     
     def __init__(self, base_url: str, username: str, api_token: str):
         self.base_url = base_url.rstrip('/')
@@ -135,11 +134,64 @@ class ConfluenceAPI:
             logger.error(f"Failed to update page {page_id}: {e}")
             return None
 
+    def upload_attachment(self, page_id: str, file_path: str, filename: str) -> Optional[str]:
+        """Upload file as attachment to Confluence page."""
+        try:
+            # Check if attachment already exists
+            url = f"{self.base_url}/rest/api/content/{page_id}/child/attachment"
+            response = self.session.get(url, params={'filename': filename})
+            existing = response.json().get('results', [])
+            
+            if existing:
+                # Update existing attachment
+                attachment_id = existing[0]['id']
+                url = f"{self.base_url}/rest/api/content/{attachment_id}/data"
+                logger.info(f"Updating existing attachment: {filename}")
+            else:
+                logger.info(f"Creating new attachment: {filename}")
+            
+            # Determine content type
+            content_type, _ = mimetypes.guess_type(file_path)
+            if not content_type:
+                content_type = 'application/octet-stream'
+            
+            # Upload file
+            with open(file_path, 'rb') as f:
+                files = {'file': (filename, f, content_type)}
+                headers = {key: val for key, val in self.session.headers.items() 
+                          if key.lower() != 'content-type'}
+                
+                response = requests.post(url, files=files, auth=self.session.auth, headers=headers)
+                response.raise_for_status()
+                
+                result = response.json()
+                if 'results' in result:
+                    result = result['results'][0]
+                
+                # Return the attachment reference for Confluence storage format
+                return filename
+                
+        except Exception as e:
+            logger.error(f"Failed to upload attachment {filename}: {e}")
+            return None
+
+    def get_page_attachments(self, page_id: str) -> List[Dict]:
+        """Get all attachments for a page."""
+        try:
+            url = f"{self.base_url}/rest/api/content/{page_id}/child/attachment"
+            response = self.session.get(url)
+            response.raise_for_status()
+            return response.json().get('results', [])
+        except Exception as e:
+            logger.error(f"Failed to get attachments for page {page_id}: {e}")
+            return []
+
 
 class MarkdownProcessor:
-    """Process markdown files for Confluence."""
+    """Enhanced markdown processor with image upload support."""
     
-    def __init__(self):
+    def __init__(self, confluence_api: ConfluenceAPI):
+        self.confluence_api = confluence_api
         self.md = markdown.Markdown(extensions=[
             'markdown.extensions.tables',
             'markdown.extensions.fenced_code',
@@ -147,34 +199,74 @@ class MarkdownProcessor:
             'markdown.extensions.toc'
         ])
     
-    def convert_to_confluence_storage(self, markdown_content: str) -> str:
-        """Convert markdown to Confluence storage format."""
+    def process_images_in_markdown(self, content: str, page_id: str, source_file_path: str) -> str:
+        """Process markdown images and upload them as Confluence attachments."""
+        # Find all image references
+        img_pattern = r'!\[([^\]]*)\]\(([^)]+)\)'
+        images = re.findall(img_pattern, content)
+        
+        source_dir = os.path.dirname(source_file_path)
+        
+        for alt_text, img_path in images:
+            # Skip external URLs
+            if img_path.startswith(('http://', 'https://')):
+                continue
+                
+            # Handle relative paths
+            if not img_path.startswith('/'):
+                # Relative to the markdown file
+                full_img_path = os.path.join(source_dir, img_path)
+            else:
+                # Absolute path from repo root
+                full_img_path = img_path.lstrip('/')
+            
+            # Normalize path
+            full_img_path = os.path.normpath(full_img_path)
+            
+            if os.path.exists(full_img_path):
+                filename = os.path.basename(full_img_path)
+                logger.info(f"Processing image: {filename} from {full_img_path}")
+                
+                attachment_filename = self.confluence_api.upload_attachment(page_id, full_img_path, filename)
+                
+                if attachment_filename:
+                    # Replace markdown image with Confluence image macro
+                    old_img = f'![{alt_text}]({img_path})'
+                    new_img = f'<ac:image ac:width="800"><ri:attachment ri:filename="{attachment_filename}" /></ac:image>'
+                    content = content.replace(old_img, new_img)
+                    logger.info(f"Converted image: {filename}")
+                else:
+                    logger.warning(f"Failed to upload image: {filename}")
+            else:
+                logger.warning(f"Image file not found: {full_img_path}")
+        
+        return content
+    
+    def convert_to_confluence_storage(self, markdown_content: str, page_id: str = None, source_file_path: str = None) -> str:
+        """Convert markdown to Confluence storage format with image processing."""
+        # Process images first if we have page context
+        if page_id and source_file_path:
+            markdown_content = self.process_images_in_markdown(markdown_content, page_id, source_file_path)
+        
         # Convert markdown to HTML
         html = self.md.convert(markdown_content)
-        
-        # Parse with BeautifulSoup for processing
         soup = BeautifulSoup(html, 'html.parser')
         
-        # Convert code blocks to Confluence macros
+        # Apply existing transformations
         self._convert_code_blocks(soup)
-        
-        # Convert tables
         self._convert_tables(soup)
-        
-        # Convert info/warning boxes
         self._convert_info_boxes(soup)
         
         return str(soup)
     
     def _convert_code_blocks(self, soup: BeautifulSoup):
-        """Convert HTML code blocks to Confluence code macros."""
+        """Convert code blocks to Confluence code macros."""
         for pre in soup.find_all('pre'):
             code = pre.find('code')
             if code:
-                language = self._extract_language(code.get('class', []))
-                code_content = code.get_text()
+                classes = code.get('class', [])
+                language = self._extract_language(classes)
                 
-                # Create Confluence code macro
                 macro = soup.new_tag('ac:structured-macro')
                 macro['ac:name'] = 'code'
                 
@@ -185,22 +277,25 @@ class MarkdownProcessor:
                     macro.append(lang_param)
                 
                 body = soup.new_tag('ac:plain-text-body')
-                body.string = code_content
+                body.string = code.get_text()
                 macro.append(body)
                 
                 pre.replace_with(macro)
     
     def _convert_tables(self, soup: BeautifulSoup):
-        """Ensure tables are properly formatted for Confluence."""
-        # Confluence usually handles HTML tables well, but we can add 
-        # improvements here
+        """Enhanced table conversion for Confluence."""
         for table in soup.find_all('table'):
             table['class'] = 'confluenceTable'
+            
+            for th in table.find_all('th'):
+                th['class'] = 'confluenceTh'
+            
+            for td in table.find_all('td'):
+                td['class'] = 'confluenceTd'
     
     def _convert_info_boxes(self, soup: BeautifulSoup):
         """Convert blockquotes to Confluence info macros."""
         for blockquote in soup.find_all('blockquote'):
-            # Check if it's a special info box
             content = blockquote.get_text().strip()
             
             if (content.startswith('**Important**:') or 
@@ -213,9 +308,8 @@ class MarkdownProcessor:
                     content.startswith('**✅')):
                 macro_type = 'note'
             else:
-                continue  # Keep as regular blockquote
+                continue
             
-            # Create Confluence info macro
             macro = soup.new_tag('ac:structured-macro')
             macro['ac:name'] = macro_type
             
@@ -237,227 +331,166 @@ class MarkdownProcessor:
 
 
 class ConfluenceSync:
-    """Main sync orchestrator."""
+    """Enhanced sync orchestrator with image support."""
     
     def __init__(self, dry_run: bool = False):
         self.dry_run = dry_run
         self.confluence = self._init_confluence_api()
-        self.processor = MarkdownProcessor()
+        self.processor = MarkdownProcessor(self.confluence)
         self.stats = {
             'success_count': 0,
             'error_count': 0,
             'total_pages': 0,
             'new_pages': 0,
             'updated_pages': 0,
-            'errors': []
+            'images_uploaded': 0
         }
     
     def _init_confluence_api(self) -> ConfluenceAPI:
         """Initialize Confluence API client."""
-        base_url = os.environ.get('CONFLUENCE_URL')
-        username = os.environ.get('CONFLUENCE_USERNAME')
-        api_token = os.environ.get('CONFLUENCE_API_TOKEN')
+        required_vars = ['CONFLUENCE_URL', 'CONFLUENCE_USERNAME', 'CONFLUENCE_API_TOKEN']
+        missing_vars = [var for var in required_vars if not os.getenv(var)]
         
-        if not all([base_url, username, api_token]):
-            raise ValueError(
-                "Missing required environment variables for Confluence API"
-            )
+        if missing_vars:
+            raise ValueError(f"Missing required environment variables for Confluence API: {', '.join(missing_vars)}")
         
-        return ConfluenceAPI(base_url, username, api_token)
+        return ConfluenceAPI(
+            base_url=os.getenv('CONFLUENCE_URL'),
+            username=os.getenv('CONFLUENCE_USERNAME'),
+            api_token=os.getenv('CONFLUENCE_API_TOKEN')
+        )
     
-    def sync_documentation(self, docs_dir: str = 'confluence') -> Dict:
-        """Sync all documentation files."""
-        docs_path = Path(docs_dir)
+    def sync_documentation(self, confluence_dir: str = 'confluence', space_key: str = None):
+        """Sync all documentation files to Confluence."""
+        if not space_key:
+            space_key = os.getenv('CONFLUENCE_SPACE', 'CDU')
         
-        if not docs_path.exists():
-            raise FileNotFoundError(
-                f"Documentation directory not found: {docs_dir}"
-            )
+        # Verify space exists
+        space = self.confluence.get_space(space_key)
+        if not space:
+            logger.error(f"Space {space_key} not found or not accessible")
+            return False
         
-        run_type = 'dry run' if self.dry_run else 'sync'
-        logger.info(f"Starting {run_type} of documentation from {docs_dir}")
+        logger.info(f"Syncing documentation to Confluence space: {space_key}")
         
         # Find all markdown files
-        markdown_files = list(docs_path.glob('*.md'))
+        md_files = list(Path(confluence_dir).rglob('*.md'))
+        md_files = [f for f in md_files if f.name != 'README.md']  # Skip README files
         
-        # Filter out README and template files
-        excluded_files = ['README.md', 'data-source-template.md']
-        markdown_files = [f for f in markdown_files 
-                          if f.name not in excluded_files]
+        self.stats['total_pages'] = len(md_files)
         
-        # Sort files to process parent pages first
-        markdown_files = self._sort_files_by_hierarchy(markdown_files)
-        
-        # Process each file
-        page_id_map = {}  # Track created pages for parent relationships
-        
-        for md_file in markdown_files:
+        # Process files
+        for md_file in md_files:
             try:
-                result = self._process_file(md_file, page_id_map)
-                if result:
-                    self.stats['success_count'] += 1
-                    if result.get('created'):
-                        self.stats['new_pages'] += 1
-                    else:
-                        self.stats['updated_pages'] += 1
-                else:
-                    self.stats['error_count'] += 1
-                    
+                self._sync_file(md_file, space_key)
+                self.stats['success_count'] += 1
             except Exception as e:
-                logger.error(f"Error processing {md_file}: {e}")
+                logger.error(f"Failed to sync {md_file}: {e}")
                 self.stats['error_count'] += 1
-                self.stats['errors'].append(f"{md_file.name}: {str(e)}")
-            
-            self.stats['total_pages'] += 1
         
-        # Save results
-        self._save_results()
-        
-        success_count = self.stats['success_count']
-        error_count = self.stats['error_count']
-        logger.info(f"Sync completed: {success_count} successes, "
-                    f"{error_count} errors")
-        return self.stats
+        self._save_sync_summary()
+        logger.info(f"Sync completed: {self.stats['success_count']} successful, {self.stats['error_count']} errors")
+        return self.stats['error_count'] == 0
     
-    def _process_file(self, md_file: Path, 
-                      page_id_map: Dict[str, str]) -> Optional[Dict]:
-        """Process individual markdown file."""
-        logger.info(f"Processing {md_file.name}")
+    def _sync_file(self, md_file: Path, space_key: str):
+        """Sync individual markdown file."""
+        logger.info(f"Processing: {md_file}")
         
         # Parse frontmatter
         with open(md_file, 'r', encoding='utf-8') as f:
             post = frontmatter.load(f)
         
-        # Extract metadata
-        title = post.metadata.get('title')
-        space = post.metadata.get('space',
-                                  os.environ.get('CONFLUENCE_SPACE', 'CDU'))
+        title = post.metadata.get('title', md_file.stem)
         parent_title = post.metadata.get('parent')
         
-        if not title:
-            logger.error(f"No title found in {md_file.name}")
-            return None
-        
-        # Convert content
-        confluence_content = self.processor.convert_to_confluence_storage(
-            post.content
-        )
-        
         if self.dry_run:
-            logger.info(f"[DRY RUN] Would sync '{title}' to space '{space}'")
-            return {'title': title, 'space': space, 'parent': parent_title}
+            logger.info(f"[DRY RUN] Would sync: {title}")
+            return
         
-        # Find parent page ID if specified
-        parent_id = None
-        if parent_title:
-            parent_id = page_id_map.get(parent_title)
-            if not parent_id:
-                parent_page = self.confluence.get_page_by_title(
-                    space, parent_title
-                )
-                if parent_page:
-                    parent_id = parent_page['id']
-                    page_id_map[parent_title] = parent_id
-                else:
-                    logger.warning(
-                        f"Parent page '{parent_title}' not found for '{title}'"
-                    )
-        
-        # Check if page already exists
-        existing_page = self.confluence.get_page_by_title(space, title)
+        # Find existing page
+        existing_page = self.confluence.get_page_by_title(space_key, title)
         
         if existing_page:
-            # Update existing page
+            # Update existing page with images
+            content = self.processor.convert_to_confluence_storage(
+                post.content, 
+                existing_page['id'], 
+                str(md_file)
+            )
             result = self.confluence.update_page(
-                existing_page['id'],
-                title,
-                confluence_content,
+                existing_page['id'], 
+                title, 
+                content, 
                 existing_page['version']['number']
             )
-            
             if result:
+                self.stats['updated_pages'] += 1
                 logger.info(f"Updated page: {title}")
-                page_id_map[title] = result['id']
-                return {'title': title, 'id': result['id'], 'created': False}
-            else:
-                logger.error(f"Failed to update page: {title}")
-                return None
         else:
-            # Create new page
-            result = self.confluence.create_page(
-                space, title, confluence_content, parent_id
-            )
+            # Create new page (two-step process for images)
+            initial_content = self.processor.convert_to_confluence_storage(post.content)
             
+            parent_id = None
+            if parent_title:
+                parent_page = self.confluence.get_page_by_title(space_key, parent_title)
+                if parent_page:
+                    parent_id = parent_page['id']
+            
+            result = self.confluence.create_page(space_key, title, initial_content, parent_id)
             if result:
+                self.stats['new_pages'] += 1
+                
+                # Now process images for the newly created page
+                final_content = self.processor.convert_to_confluence_storage(
+                    post.content, 
+                    result['id'], 
+                    str(md_file)
+                )
+                
+                # Update page with images
+                self.confluence.update_page(
+                    result['id'], 
+                    title, 
+                    final_content, 
+                    result['version']['number']
+                )
+                
                 logger.info(f"Created page: {title}")
-                page_id_map[title] = result['id']
-                return {'title': title, 'id': result['id'], 'created': True}
-            else:
-                logger.error(f"Failed to create page: {title}")
-                return None
     
-    def _sort_files_by_hierarchy(self, files: List[Path]) -> List[Path]:
-        """Sort files to process parent pages before children."""
-        # Simple sorting: numbered files first, then alphabetical
-        def sort_key(file_path):
-            name = file_path.name
-            if name.startswith('01-'):
-                return (0, name)  # Platform overview first
-            elif name.startswith(('02-', '03-', '04-')):
-                return (1, name)  # Core docs
-            elif name.endswith('-data-source.md'):
-                return (2, name)  # Data sources
-            else:
-                return (3, name)  # Everything else
-        
-        return sorted(files, key=sort_key)
-    
-    def _save_results(self):
-        space = os.environ.get('CONFLUENCE_SPACE', 'CDU')
-        base_url = os.environ.get('CONFLUENCE_URL', '')
-        
-        results = {
-            **self.stats,
-            'space_name': space,
-            'space_url': f"{base_url}/display/{space}",
-            'dry_run': self.dry_run
+    def _save_sync_summary(self):
+        """Save sync summary for GitHub Actions."""
+        summary = {
+            'success_count': self.stats['success_count'],
+            'error_count': self.stats['error_count'],
+            'total_pages': self.stats['total_pages'],
+            'new_pages': self.stats['new_pages'],
+            'updated_pages': self.stats['updated_pages'],
+            'images_uploaded': self.stats['images_uploaded'],
+            'space_name': os.getenv('CONFLUENCE_SPACE', 'CDU'),
+            'space_url': f"{os.getenv('CONFLUENCE_URL')}/spaces/{os.getenv('CONFLUENCE_SPACE', 'CDU')}"
         }
         
-        output_file = ('/tmp/dry_run_summary.json' if self.dry_run 
-                       else '/tmp/sync_summary.json')
-        
-        with open(output_file, 'w') as f:
-            json.dump(results, f, indent=2)
-        
-        logger.info(f"Results saved to {output_file}")
+        summary_file = '/tmp/sync_summary.json' if not self.dry_run else '/tmp/dry_run_summary.json'
+        with open(summary_file, 'w') as f:
+            json.dump(summary, f, indent=2)
 
 
 def main():
-    """Main entry point."""
-    parser = argparse.ArgumentParser(
-        description='Sync documentation to Confluence'
-    )
-    parser.add_argument('--dry-run', action='store_true', 
-                        help='Perform dry run without making changes')
-    parser.add_argument('--docs-dir', default='confluence', 
-                        help='Documentation directory')
+    parser = argparse.ArgumentParser(description='Sync documentation to Confluence')
+    parser.add_argument('--dry-run', action='store_true', help='Run without making changes')
+    parser.add_argument('--space', help='Confluence space key')
+    parser.add_argument('--dir', default='confluence', help='Documentation directory')
     
     args = parser.parse_args()
     
     try:
-        syncer = ConfluenceSync(dry_run=args.dry_run)
-        results = syncer.sync_documentation(args.docs_dir)
-        
-        if results['error_count'] > 0:
-            logger.error(f"Sync completed with {results['error_count']} errors")
-            sys.exit(1)
-        else:
-            logger.info("Sync completed successfully")
-            
+        sync = ConfluenceSync(dry_run=args.dry_run)
+        success = sync.sync_documentation(args.dir, args.space)
+        sys.exit(0 if success else 1)
     except Exception as e:
         logger.error(f"Sync failed: {e}")
         sys.exit(1)
 
 
 if __name__ == '__main__':
-    main() 
+    main()

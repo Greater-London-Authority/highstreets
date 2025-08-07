@@ -62,9 +62,9 @@ The Highstreets Data Platform is the Greater London Authority's comprehensive da
 ##  **High-Level Architecture**
 
 ### **Data Flow Overview**
-![Platform Data Flow](https://github.com/Greater-London-Authority/highstreets/tree/aws-hsds/confluence/assets/images/platform-overview-flow.png)
+![Platform Data Flow](assets/images/platform-overview-flow.png)
 
-*[📋 Interactive Miro Board](https://miro.com/app/board/uXjVKeHa9kQ=/?moveToWidget=3458764636705813569&cot=14) | [🔗 View Full Size](https://github.com/Greater-London-Authority/highstreets/tree/aws-hsds/confluence/assets/images/platform-overview-flow.png)*
+*[📋 Interactive Miro Board](https://miro.com/app/board/uXjVKeHa9kQ=/?moveToWidget=3458764636705813569&cot=14)
 
 ### **Core Components**
 - **Data Ingestion**: Automated collection from external sources
