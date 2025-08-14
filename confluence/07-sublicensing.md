@@ -10,43 +10,105 @@ labels: ["sublicensing", "partners", "data-distribution", "governance"]
 
 ## 🤝 **Overview**
 
-The Highstreets Data Platform operates a sophisticated sublicensing system that enables controlled data sharing with external partners while maintaining data governance standards. This system supports strategic partnerships, commercial agreements, and research collaborations through automated, secure data distribution.
+The Highstreets Data Platform operates a sophisticated sublicensing system that enables controlled data sharing with external partners while maintaining data governance standards. This system uses **database-driven processing with YAML configuration** to provide automated, secure data distribution for strategic partnerships, commercial agreements, and research collaborations.
 
 ## 📋 **Sublicensing Framework**
 
 ### **Core Principles**
 - **Data Governance**: All data sharing follows strict governance and privacy protocols
-- **Automated Processing**: Database-driven filtering and export generation
-- **Flexible Agreements**: Customizable data scopes and delivery formats
-- **Quality Assurance**: Consistent data validation and delivery monitoring
-- **Compliance**: GDPR compliance and commercial data licensing requirements
+- **Database-Side Processing**: Efficient SQL-based filtering eliminates memory-intensive operations
+- **YAML-Driven Configuration**: No code changes required for new partners or modifications
+- **Automated Processing**: Single command processes all active sublicenses
+- **Quality Assurance**: Comprehensive validation, monitoring, and error handling
 
-### **System Architecture**
+## 🏗️ **Architecture Overview**
+
+### **Core Components**
+
+#### **1. YAML Configuration System**
+**File**: `highstreets/core/settings/sublicenses.yaml`
+- Centralized sublicense definitions
+- Database table mappings  
+- Partner-specific filters (BID IDs, bespoke area IDs, etc.)
+- Output file configurations
+- London Datastore slugs
+
+#### **2. Sublicense Processor**
+**File**: `highstreets/core/processors/sublicense_processor.py`
+- Database-driven processing using SQL queries
+- YAML-driven configuration management
+- Automatic file generation and datastore uploads
+- Performance monitoring and logging
+
+#### **3. SQL Manager Integration**
+**File**: `highstreets/core/sql_manager.py`
+- Dynamic query execution with parameter substitution
+- Query caching and performance optimization
+- Support for both local and S3 file systems
+
+*[📋 Interactive Miro Board -  Sublicense automation Architecture ](https://miro.com/app/board/uXjVKeHa9kQ=/?moveToWidget=3458764637355461613&cot=14)*
+
+**Note:** Visual diagram available above. The interactive board provides complete technical workflow details.
+
+
+### **Processing Workflow**
+
+#### **Step 1: Configuration Loading**
+```python
+# Load sublicense definitions from YAML
+config = load_config('sublicenses.yaml')
+sublicenses = config.get('sublicenses', {})
+
+# Example sublicense configuration
+colliers_config = {
+    'slug': 'colliers---hsds',
+    'filters': {'bespoke_area_ids': [112, 113, 114, 115, 116, 117, 118, 197]},
+    'query_templates': {
+        'bt_footfall_bespoke': 'SELECT * FROM {schema}.econ_busyness_bt_bespokes_3hourly_counts WHERE bespoke_area_id IN ({bespoke_area_ids})'
+    }
+}
 ```
-📊 Database Tables → 🔍 Partner Filters → 📁 Data Exports → 📤 Distribution
-      │                     │                  │              │
- Production data     YAML-driven         CSV files      S3 Storage
-      │              configuration           │              │
- All boundaries      Geographic &       Custom formats  London Datastore
-                    temporal filters                    Partner access
+
+#### **Step 2: Dynamic Query Generation**
+```python
+# Build SQL query from template with partner filters
+query = template.format(
+    schema='gisapdata',
+    bespoke_area_ids='112, 113, 114, 115, 116, 117, 118, 197'
+)
+
+# Execute database-side filtering
+df = sql_manager.execute_query(query)
 ```
 
-## 📖 **Sublicense Agreement Types**
+#### **Step 3: Automated Export Processing**
+```python
+# Process all sublicenses automatically
+processor = SublicenseProcessor()
+results = processor.process_all_sublicenses()
 
-### **1. Commercial Partnerships**
-- **Business Improvement Districts (BIDs)**: Local area data for business planning
-- **Real Estate Consultancies**: Market analysis and investment insights
-- **Commercial Property Firms**: Location intelligence and trend analysis
+# Individual sublicense processing
+results = processor.process_sublicense('colliers-hsds')
+```
 
-### **2. Academic Research**
-- **Universities**: Economic research and urban studies
-- **Research Institutions**: Policy analysis and academic publications
-- **Student Projects**: Educational use with appropriate data governance
+### **Key Advantages**
 
-### **3. Public Sector Collaboration**
-- **Local Authorities**: Borough-level economic insights
-- **Planning Departments**: Development impact assessment
-- **Transport Authorities**: Movement and activity correlation
+#### **Database-Side Filtering**
+- Efficient processing: Only relevant data is extracted from PostgreSQL
+- No memory-intensive DataFrame operations
+- Consistent performance regardless of dataset size
+
+#### **YAML-Driven Configuration**
+- No code changes required for new partners
+- Centralized partner management
+- Version-controlled configuration
+- Easy validation and testing
+
+#### **Automatic Processing**
+- Single command processes all active sublicenses
+- Consistent file formats and naming
+- Automated datastore uploads
+- Performance monitoring and error handling
 
 ## 🎯 **Active Sublicenses**
 
@@ -56,8 +118,8 @@ The Highstreets Data Platform operates a sophisticated sublicensing system that 
 - **Partner**: Colliers International - High Street Data Service
 - **Slug**: `colliers---hsds`
 - **Status**: Active
-- **Geographic Scope**: HOLBA sites (8 bespoke areas)
-- **Data Sources**: BT footfall, Mastercard 3-hourly, Mastercard weekly, International data
+- **Geographic Scope**: HOLBA sites (8 bespoke areas: 112-118, 197)
+- **Data Sources**: BT footfall, Mastercard 3-hourly, Mastercard weekly, International data, BT daily
 
 **Data Deliverables**:
 
@@ -66,7 +128,8 @@ The Highstreets Data Platform operates a sophisticated sublicensing system that 
 | **BT Footfall** | `colliers_hsds_footfall_3hourly_counts.csv` | Weekly | Bespoke areas 112-118, 197 |
 | **Mastercard 3-Hourly** | `colliers_hsds_mcard_3hourly_txn.csv` | Monthly | Same geographic coverage |
 | **Mastercard Weekly** | `colliers_hsds_mcard_weekly_txn.csv` | Monthly | Same geographic coverage |
-| **BT Daily** | `colliers_bt_daily_agg_counts.csv` | Weekly | HOLBA sites |
+| **BT Daily** | `colliers_bt_daily_agg_counts.csv` | Weekly | Heart of London BID |
+| **Mastercard International** | `colliers_mcard_weekly_intl_txn.csv` | Monthly | HOLBA sites |
 
 #### **Fitzrovia Partnership BID**
 - **Partner**: Fitzrovia Partnership Business Improvement District
@@ -126,11 +189,10 @@ The Highstreets Data Platform operates a sophisticated sublicensing system that 
 
 | Dataset | File Name | Update Frequency | Coverage |
 |---------|-----------|------------------|----------|
-| **BT Aggregated** | `avison_young_bt_3hourly_counts.csv` | Weekly | Town centres + bespoke |
-| **BT Hex (TC)** | `avison_tc_bt_hex_3hourly_counts.csv` | Weekly | Town centre hex cells |
-| **BT Hex (Bespoke)** | `avison_bespoke_bt_hex_3hourly_counts.csv` | Weekly | Bespoke area hex cells |
-| **Mastercard (TC)** | `avison_young_tc_mcard_quad_3hourly_txn.csv` | Monthly | Town centre quads |
-| **Mastercard (Bespoke)** | `avison_young_bespoke_mcard_quad_3hourly_txn.csv` | Monthly | Bespoke area quads |
+| **BT Town Centres** | `avison_young_bt_3hourly_counts.csv` | Weekly | Town centre aggregation |
+| **BT Bespoke** | `avison_young_bt_3hourly_counts.csv` | Weekly | Bespoke area aggregation |
+| **Mastercard Town Centres** | `avison_young_tc_mcard_quad_3hourly_txn.csv` | Monthly | Town centre quads |
+| **Mastercard Bespoke** | `avison_young_bespoke_mcard_quad_3hourly_txn.csv` | Monthly | Bespoke area quads |
 
 #### **Southbank Centre**
 - **Partner**: Southbank Centre Cultural Venue
@@ -157,23 +219,23 @@ The Highstreets Data Platform operates a sophisticated sublicensing system that 
 - **Slug**: `westminster-university`
 - **Status**: Active
 - **Geographic Scope**: London-wide (no geographic filters)
-- **Data Sources**: Mastercard 3-hourly (historical years)
+- **Data Sources**: Mastercard 3-hourly (historical years), BT hex grid
 
 **Data Deliverables**:
 
 | Dataset | File Name | Update Frequency | Coverage |
 |---------|-----------|------------------|----------|
-| **2022 Data** | `Mastercard_3hourly_2022.csv` | Annual | Complete London dataset |
-| **2023 Data** | `Mastercard_3hourly_2023.csv` | Annual | Complete London dataset |
-| **2024 Data** | `Mastercard_3hourly_2024.csv` | Annual | Complete London dataset |
-| **2025 Data** | `Mastercard_3hourly_2025.csv` | Annual | Complete London dataset |
+| **2022 Mastercard** | `Mastercard_3hourly_2022.csv` | Annual | Complete London dataset |
+| **2023 Mastercard** | `Mastercard_3hourly_2023.csv` | Annual | Complete London dataset |
+| **2024 Mastercard** | `Mastercard_3hourly_2024.csv` | Annual | Complete London dataset |
+| **2025 Mastercard** | `Mastercard_3hourly_2025.csv` | Annual | Complete London dataset |
+| **BT Hex Grid** | `BT_3hourly_counts_{year}.csv` | Annual | Complete London hex data |
 
 ## ⚙️ **Technical Implementation**
 
-### **Configuration Management**
-The sublicensing system is driven by a YAML configuration file that defines all partner agreements, data sources, and processing requirements.
+### **Configuration Structure**
 
-#### **Global Configuration Structure**
+#### **Global Configuration**
 ```yaml
 # Global configuration settings
 config:
@@ -248,6 +310,10 @@ sublicenses:
       mastercard_weekly_bespoke: |
         SELECT * FROM {schema}.econ_busyness_mcard_bespoke_txn 
         WHERE bespoke_area_id::int IN ({bespoke_area_ids})
+      
+      bt_daily: |
+        SELECT * FROM {schema}.econ_busyness_bt_daily_agg_cust_raw
+        WHERE poi_type = 'bids' AND poi_name = 'Heart of London'
     
     # Output file configurations
     output_configs:
@@ -265,6 +331,11 @@ sublicenses:
         resource_title: "colliers_hsds_mcard_weekly_txn.csv"
         file_path: "mastercard/weekly/processed/bespoke/Colliers agreement - Holba sites/"
         custom_date_column: "week_start"
+      
+      bt_daily:
+        resource_title: "colliers_bt_daily_agg_counts.csv"
+        file_path: "bt/processed/daily/Colliers agreement - Holba sites/"
+        custom_date_column: "count_date"
 ```
 
 #### **BID-Based Configuration Example**
@@ -301,15 +372,51 @@ fitzrovia-partnership:
       FROM {schema}.econ_busyness_mrli_3hourly_adj m
       JOIN {schema}.econ_busyness_mcard_BIDs_quad_lookup b ON m.quad_id = b.quad_id
       WHERE b.bid_id IN ({bid_ids})
+    
+    mastercard_weekly_bid: |
+      SELECT * FROM {schema}.econ_busyness_mcard_bids_txn 
+      WHERE bid_id IN ({bid_ids})
+  
+  output_configs:
+    bt_footfall:
+      resource_title: "Fitzrovia_bt_3hourly_counts.csv"
+      file_path: "bt/processed/bid/fitzrovia/"
+      custom_date_column: "count_date"
+    
+    bt_hex:
+      resource_title: "Fitzrovia_bt_hex_3hourly_counts.csv"
+      file_path: "bt/processed/hex_grid/fitzrovia/"
+      custom_date_column: "count_date"
+    
+    mastercard_3hourly:
+      resource_title: "Fitzrovia_mcard_quad_3hourly_txn.csv"
+      file_path: "mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/Fitzrovia/"
+      custom_date_column: "count_date"
+    
+    mastercard_weekly:
+      resource_title: "Fitzrovia_hsds_mcard_weekly_txn.csv"
+      file_path: "mastercard/weekly/processed/bid/fitzrovia/"
+      custom_date_column: "week_start"
 ```
 
-### **Database-Driven Processing**
-The system executes SQL queries directly against the production database:
+### **Command Line Usage**
 
-1. **Query Generation**: Templates populated with partner-specific filters
-2. **Direct Execution**: SQL queries run against PostgreSQL database
-3. **Result Export**: Query results saved as CSV files
-4. **Distribution**: Files uploaded to S3 and London Datastore
+```bash
+# Process all active sublicenses
+python -m highstreets.core.processors.sublicense_processor --all
+
+# Process specific sublicense
+python -m highstreets.core.processors.sublicense_processor --sublicense colliers-hsds
+
+# Validate configuration
+python -m highstreets.core.processors.sublicense_processor --validate
+
+# Get sublicense information
+python -m highstreets.core.processors.sublicense_processor --info
+
+# Include inactive sublicenses
+python -m highstreets.core.processors.sublicense_processor --all --include-inactive
+```
 
 ### **Geographic Filtering**
 Partners receive data for specific geographic areas based on their agreement:
@@ -352,76 +459,26 @@ Data can be filtered by various temporal dimensions:
 - **API Access**: Direct database queries for technical partners
 - **Custom Integration**: Tailored solutions for specific partner needs
 
-## 🔄 **Processing Schedule**
-
-### **Weekly Processing (BT Data)**
-
-| Day | Activity | Partners Affected |
-|-----|----------|------------------|
-| **Monday** | BT data collection | All BT data partners |
-| **Tuesday** | Data processing and validation | All BT data partners |
-| **Wednesday** | Partner export generation | All BT data partners |
-| **Thursday** | Distribution and notifications | All BT data partners |
-
-### **Monthly Processing (Mastercard Data)**
-
-| Week | Activity | Partners Affected |
-|------|----------|------------------|
-| **Week 1** | Data collection and processing | All Mastercard partners |
-| **Week 2** | Adjustment application and validation | All Mastercard partners |
-| **Week 3** | Export generation and quality checks | All Mastercard partners |
-| **Week 4** | Distribution and delivery confirmation | All Mastercard partners |
-
 ## 📊 **Data Quality Assurance**
 
-### **Pre-Export Validation**
-- **Volume Checks**: Ensure expected data volumes
-- **Completeness Validation**: Check for missing time periods or geographic coverage
-- **Quality Metrics**: Validate against historical patterns
-- **Schema Compliance**: Ensure consistent column structures
+### **Automated Validation**
+- **Volume Checks**: Ensure expected data volumes from SQL queries
+- **Schema Validation**: Verify column structures and data types
+- **Geographic Coverage**: Validate complete coverage of requested areas
+- **Temporal Completeness**: Check for missing time periods
 
-### **Post-Export Monitoring**
-- **Delivery Confirmation**: Track successful file uploads
-- **Download Monitoring**: Monitor partner access patterns
-- **Error Reporting**: Automated alerts for failed deliveries
-- **Partner Feedback**: Regular quality feedback collection
-
-## 🛡️ **Data Governance & Compliance**
-
-### **Privacy Protection**
-- **Aggregation Thresholds**: Minimum aggregation levels to prevent individual identification
-- **Geographic Generalization**: Appropriate spatial resolution for privacy
-- **Temporal Aggregation**: Time-based aggregation where required
-- **Data Anonymization**: All personal identifiers removed at source
-
-### **Commercial Compliance**
-- **License Terms**: Clearly defined usage rights and restrictions
-- **Attribution Requirements**: Proper data source attribution
-- **Redistribution Controls**: Limits on data sharing by partners
-- **Usage Monitoring**: Tracking of data usage patterns
-
-### **Technical Security**
-- **Encrypted Transfer**: All data transfers use encryption
-- **Access Controls**: Role-based access to partner data
-- **Audit Logging**: Comprehensive logging of all data access
-- **Retention Policies**: Automatic cleanup of expired data
-
-## 📈 **Partner Success Metrics**
-
-### **Engagement Metrics**
-
-| Metric | Measurement | Target |
-|--------|-------------|--------|
-| **Data Access Frequency** | Downloads per month | Monthly access |
-| **Query Success Rate** | Successful exports / Total exports | >98% |
-| **Delivery Timeliness** | On-time delivery rate | >99% |
-| **Partner Satisfaction** | Quarterly surveys | >4.5/5 |
-
-### **Data Usage Analytics**
-- **Download Patterns**: Most accessed datasets and time periods
-- **Geographic Interest**: Most requested geographic areas
-- **Temporal Preferences**: Preferred data time ranges
-- **Format Preferences**: CSV vs API access patterns
+### **Performance Monitoring**
+```python
+# Example performance tracking
+{
+    'queries_executed': 24,
+    'total_rows_processed': 485692,
+    'files_created': 18,
+    'uploads_completed': 16,
+    'average_query_time': 2.3,
+    'total_processing_time': 127.5
+}
+```
 
 ## 🔧 **Partner Onboarding Process**
 
@@ -432,10 +489,10 @@ Data can be filtered by various temporal dimensions:
 - **Delivery Format**: Agreeing on file formats and delivery methods
 
 ### **2. Technical Setup**
-- **Configuration Creation**: YAML configuration development
-- **Query Development**: Custom SQL query templates
+- **YAML Configuration**: Add partner definition to `sublicenses.yaml`
+- **Query Development**: Create partner-specific SQL query templates
 - **Testing Environment**: Sandbox testing with sample data
-- **Production Deployment**: Live system configuration
+- **Production Deployment**: Activate sublicense in production
 
 ### **3. Quality Assurance**
 - **Data Validation**: Ensuring data meets partner requirements
@@ -443,25 +500,27 @@ Data can be filtered by various temporal dimensions:
 - **Documentation Provision**: Partner-specific documentation
 - **Training Sessions**: Partner team training on data usage
 
-### **4. Ongoing Support**
-- **Regular Reviews**: Quarterly partnership reviews
-- **Technical Support**: Ongoing technical assistance
-- **Data Updates**: Notification of schema or process changes
-- **Feedback Integration**: Incorporating partner feedback into system improvements
+## 📈 **System Performance**
+
+### **Processing Efficiency**
+- **Database-Side Filtering**: ~10x faster than DataFrame operations
+- **Parallel Processing**: Multiple sublicenses processed simultaneously
+- **Query Optimization**: Cached queries and optimized SQL execution
+- **Resource Efficiency**: Minimal memory footprint
 
 ## 🔗 **Related Information**
 
-- **[Data Processing Workflows](03-data-workflows.md)**: How sublicense data is generated
-- **[Database Schema](04-database-schema.md)**: Understanding data structures
+- **[BT Data Flow](03.1-bt-data-flow.md)**: How BT sublicense data is generated
+- **[Mastercard Data Flow](03.2-mastercard-data-flow.md)**: How Mastercard sublicense data is generated
+- **[Database Schema](04-database-schema.md)**: Understanding data structures and table relationships
 - **[Data Governance](08-data-governance.md)**: Governance framework and policies
 
 ---
 
 **Sublicensing Summary**:
-- **Active Partners**: 8 sublicense agreements serving diverse stakeholders
-- **Data Coverage**: BT footfall and Mastercard transaction data across London
-- **Geographic Flexibility**: From single BIDs to London-wide coverage
-- **Automated Processing**: Database-driven, YAML-configured export generation
-- **Quality Assurance**: Comprehensive validation and monitoring systems
-
-**Next Steps**: Learn about [Data Governance & Quality](08-data-governance.md) 
+- **Active Partners**: 8+ sublicense agreements serving diverse stakeholders
+- **YAML-Driven**: Centralized configuration with no code changes required
+- **Database-Optimized**: Efficient SQL-based processing and filtering
+- **Automated Processing**: Single command processes all partners
+- **Quality Assured**: Comprehensive validation, monitoring, and error handling
+- **Scalable Architecture**: Designed to support 50+ partners efficiently

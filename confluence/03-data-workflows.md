@@ -156,24 +156,6 @@ The Highstreets Data Platform operates two primary data processing workflows tha
 
 ## 🔍 **AWS Infrastructure & Monitoring**
 
-https://miro.com/app/board/uXjVKeHa9kQ=/?moveToWidget=3458764636832263342&cot=14
-
-| Stage | Step | Description |
-|-------|------|-------------|
-| Manual Trigger / Parameters | — | Initiates workflow |
-| AWS Step Functions | Date Processing | Lambda function for processing dates |
-| AWS Step Functions | Job Dependencies | Parallel or sequential execution handling |
-| AWS Step Functions | Error Handling | Retry logic for failed steps |
-| AWS Step Functions | Status Monitoring | Real-time workflow tracking |
-| AWS Batch Job Queue (`hsds-e2e`) | Docker Container Execution | Runs workloads in containerized environments |
-| AWS Batch Job Queue (`hsds-e2e`) | Auto-scaling Compute Environment | Dynamically adjusts compute resources |
-| AWS Batch Job Queue (`hsds-e2e`) | Job Definition Management | Maintains job specifications and configurations |
-| AWS Batch Job Queue (`hsds-e2e`) | Resource Optimization | Efficient usage of CPU/memory for jobs |
-| PostgreSQL Database + S3 Storage | Data Loading & Validation | Inserts and verifies incoming data |
-| PostgreSQL Database + S3 Storage | Partner Export Generation | Produces partner-ready data exports |
-| PostgreSQL Database + S3 Storage | Quality Reporting | Generates reports on data quality |
-
-
 *[📋 Interactive Miro Board -  Full Architecture ](https://miro.com/app/board/uXjVKeHa9kQ=/?moveToWidget=3458764636832263342&cot=14)*
 
 **Note:** Visual diagram available above. The interactive board provides complete technical workflow details.
@@ -206,6 +188,7 @@ https://miro.com/app/board/uXjVKeHa9kQ=/?moveToWidget=3458764636832263342&cot=14
 
 ### **Step Functions Error Handling**
 
+```
 Job Failure Detection
        ↓
 Automatic Retry (3x with exponential backoff)
@@ -215,6 +198,7 @@ CloudWatch
 Manual Investigation & Recovery
        ↓
 Process Documentation & Improvement
+```
 
 
 ## 🔗 **Related Information**
