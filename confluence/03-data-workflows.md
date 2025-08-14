@@ -15,18 +15,9 @@ The Highstreets Data Platform operates two primary data processing workflows tha
 
 ### **High-Level Process Flow**
 
-📱 Data Sources        🔄 Processing Pipeline       🗄️ Storage & Distribution
-     │                        │                           │
-BT API (Weekly)   ────────┐   │   ┌─ AWS Step Functions   │   ┌─ PostgreSQL Database
-     │            ┌──────▼───▼───▼─┐                     │   │
-Mastercard       │ Manual Upload │ ┌─ AWS Batch Jobs     │   ├─ Data Hub Explorer
-SFTP (Monthly)   │ + Parameters  │ │                     │   │
-     │            └──────┬───┬───┬─┘ ├─ Data Validation   │   ├─ London Datastore  
-ONS CPI API      ────────┘   │   │   │                     │   │
-                             │   └─ Transformation      │   └─ Partner Exports
-                             │       Aggregation        │
-                         CloudWatch               S3 Storage
-                         Monitoring               & Distribution
+*[📋 Interactive Miro Board -  High level process Flow](https://miro.com/app/board/uXjVKeHa9kQ=/?moveToWidget=3458764637315852453&cot=14)*
+
+**Note:** Visual diagram available above. The interactive board provides complete technical workflow details.
 
 
 ### **Processing Architecture**
@@ -44,22 +35,24 @@ ONS CPI API      ────────┘   │   │   │                  
 ### **1. AWS Step Functions Orchestration**
 
 #### **Step Function Structure** (Parallel Execution)
-```
-AWS Step Functions Trigger
-├─ Branch 1: Date Processing + Secondary Jobs
-│  ├─ Lambda: HSDSProcessDateParameters
-│  └─ Parallel Execution:
-│     ├─ Outage Batch Job (hsds-bt-outage-job)
-│     ├─ MSOA Batch Job (hsds-msoa-job-definition)
-│     └─ LSOA Batch Job (hsds-lsoa-job)
-├─ Branch 2: Daily Totals
-│  ├─ Date Adjustment (subtract 1 day)
-│  └─ Daily Totals Batch Job (hsds-daily-totals-job)
-├─ Branch 3: Main Processing
-│  ├─ Lambda: HSDSProcessDateParameters
-│  └─ HEX Batch Job (hsds-bt-hex-job)
-└─ Branch 4: Lookup Job (hsds-lookup-job)
-```
+
+| Branch | Step | Description / Job Name |
+|--------|------|------------------------|
+| **Branch 1: Date Processing + Secondary Jobs** | Lambda | `HSDSProcessDateParameters` |
+| | Parallel Execution | Outage Batch Job → `hsds-bt-outage-job` |
+| | Parallel Execution | MSOA Batch Job → `hsds-msoa-job-definition` |
+| | Parallel Execution | LSOA Batch Job → `hsds-lsoa-job` |
+| **Branch 2: Daily Totals** | Date Adjustment | Subtract 1 day |
+| | Batch Job | `hsds-daily-totals-job` |
+| **Branch 3: Main Processing** | Lambda | `HSDSProcessDateParameters` |
+| | Batch Job | `hsds-bt-hex-job` |
+| **Branch 4: Lookup Job** | Batch Job | `hsds-lookup-job` |
+
+
+*[📋 Interactive Miro Board -  BT Step function orchestration ](https://miro.com/app/board/uXjVKeHa9kQ=/?moveToWidget=3458764637316390764&cot=14)*
+
+**Note:** Visual diagram available above. The interactive board provides complete technical workflow details.
+
 
 ### **2. Data Processing Pipeline**
 
@@ -80,17 +73,17 @@ AWS Step Functions Trigger
 #### **Output Tables**
 | Boundary Type | Table Name | AWS Batch Job | Records/Week |
 |---------------|------------|---------------|--------------|
-| **Hex Grid** | `bt_footfall_tfl_hex_3hourly` | hsds-bt-hex-job | ~750,000 |
-| **High Streets** | `econ_busyness_bt_highstreets_3hourly_counts` | hsds-bt-hex-job | ~50,000 |
-| **Town Centres** | `econ_busyness_bt_towncentres_3hourly_counts` | hsds-bt-hex-job | ~40,000 |
-| **BIDs** | `econ_busyness_bt_bids_3hourly_counts` | hsds-bt-hex-job | ~20,000 |
-| **Bespoke Areas** | `econ_busyness_bt_bespokes_3hourly_counts` | hsds-bt-hex-job | ~15,000 |
-| **MSOAs** | `bt_footfall_msoa_3hourly` | hsds-msoa-job | ~35,000 |
-| **LSOAs** | `bt_footfall_lsoa_3hourly` | hsds-lsoa-job | ~150,000 |
+| **Hex Grid** | `bt_footfall_tfl_hex_3hourly` | hsds-bt-hex-job | ~822,000 |
+| **High Streets** | `econ_busyness_bt_highstreets_3hourly_counts` | hsds-bt-hex-job | ~34,294 |
+| **Town Centres** | `econ_busyness_bt_towncentres_3hourly_counts` | hsds-bt-hex-job | ~13,318 |
+| **BIDs** | `econ_busyness_bt_bids_3hourly_counts` | hsds-bt-hex-job | ~4,217 |
+| **Bespoke Areas** | `econ_busyness_bt_bespokes_3hourly_counts` | hsds-bt-hex-job | ~16,926 |
+| **MSOAs** | `bt_footfall_msoa_hourly` | hsds-msoa-job | ~162,089 |
+| **LSOAs** | `bt_footfall_lsoa_hourly` | hsds-lsoa-job | ~830,388 |
 
 ### **3. Distribution & Export**
 - **Partner Exports**: Sublicense-specific CSV files uploaded to S3
-- **London Datastore**: Public datasets via automated upload
+- **London Datastore**: GLA wide datasets via automated upload
 - **Data Hub**: Internal dashboard refresh
 - **Quality Reports**: Automated validation summaries
 
@@ -107,20 +100,24 @@ AWS Step Functions Trigger
 ### **1. AWS Step Functions Orchestration**
 
 #### **Step Function Structure** (Sequential Execution)
-```
-AWS Step Functions Trigger
-└─ Sequential Processing:
-   ├─ 1. Lookup Job (hsds-lookup-job)
-   ├─ 2. Weekly Batch Job (hsds-mcard-weekly)
-   ├─ 3. Weekly Intl Batch Job (hsds-mcard-intl)
-   └─ 4. Threehourly Batch Job (hsds-mcard-3hourly)
-```
+
+| Order | Step Type | Description / Job Name |
+|-------|-----------|------------------------|
+| 1 | Batch Job | `hsds-lookup-job` |
+| 2 | Batch Job | `hsds-mcard-weekly` |
+| 3 | Batch Job | `hsds-mcard-intl` |
+| 4 | Batch Job | `hsds-mcard-3hourly` |
+
+
+*[📋 Interactive Miro Board -  Mastercard Step function orchestration ](https://miro.com/app/board/uXjVKeHa9kQ=/?moveToWidget=3458764637325900141&cot=14)*
+
+**Note:** Visual diagram available above. The interactive board provides complete technical workflow details.
+
 
 ### **2. Data Processing Pipeline**
 
 #### **File Processing & Validation**
 - **Data Source**: Monthly files via SFTP download (manual upload to S3)
-- **Data Volume**: ~2M records per month (~25k quads × multiple time periods)
 - **Format**: CSV files with transaction amounts and counts by quad
 - **Validation**: File integrity, schema compliance, geographic coverage
 
@@ -139,16 +136,17 @@ AWS Step Functions Trigger
 | **3-Hourly Data** | `econ_busyness_mcard_*_3hourly_txn` | hsds-mcard-3hourly | Temporal granularity |
 
 #### **Output Tables**
-```
-Raw Quads (25k) → Geographic Aggregation:
-├─ High Streets (~200) → econ_busyness_mcard_highstreets_*
-├─ Town Centres (~170) → econ_busyness_mcard_towncentres_*
-├─ BIDs (~80) → econ_busyness_mcard_bids_*
-├─ Bespoke Areas (~50) → econ_busyness_mcard_bespoke_*
-├─ Boroughs (33) → econ_busyness_mcard_boroughs_*
-├─ MSOAs (~1000) → econ_busyness_mcard_msoas_*
-└─ Inner/Outer (2) → econ_busyness_mcard_inner_outer_*
-```
+
+| Source Level | Output Table Pattern |
+|--------------|----------------------|
+| High Streets | `econ_busyness_mcard_highstreets_*` |
+| Town Centres | `econ_busyness_mcard_towncentres_*` |
+| BIDs | `econ_busyness_mcard_bids_*` |
+| Bespoke Areas | `econ_busyness_mcard_bespoke_*` |
+| Boroughs | `econ_busyness_mcard_boroughs_*` |
+| MSOAs | `econ_busyness_mcard_msoas_*` |
+| Inner/Outer | `econ_busyness_mcard_inner_outer_*` |
+
 
 ### **3. Distribution & Export**
 - **Partner Exports**: Monthly CSV files with geographic and temporal filtering
@@ -158,27 +156,28 @@ Raw Quads (25k) → Geographic Aggregation:
 
 ## 🔍 **AWS Infrastructure & Monitoring**
 
-### **Step Functions Orchestration**
-```
-Manual Trigger/Parameters
-       ↓
-AWS Step Functions
-   ├─ Date Processing (Lambda)
-   ├─ Job Dependencies (Parallel/Sequential)
-   ├─ Error Handling (Retry Logic)
-   └─ Status Monitoring
-       ↓
-AWS Batch Job Queue (hsds-e2e)
-   ├─ Docker Container Execution
-   ├─ Auto-scaling Compute Environment
-   ├─ Job Definition Management
-   └─ Resource Optimization
-       ↓
-PostgreSQL Database + S3 Storage
-   ├─ Data Loading & Validation
-   ├─ Partner Export Generation
-   └─ Quality Reporting
-```
+https://miro.com/app/board/uXjVKeHa9kQ=/?moveToWidget=3458764636832263342&cot=14
+
+| Stage | Step | Description |
+|-------|------|-------------|
+| Manual Trigger / Parameters | — | Initiates workflow |
+| AWS Step Functions | Date Processing | Lambda function for processing dates |
+| AWS Step Functions | Job Dependencies | Parallel or sequential execution handling |
+| AWS Step Functions | Error Handling | Retry logic for failed steps |
+| AWS Step Functions | Status Monitoring | Real-time workflow tracking |
+| AWS Batch Job Queue (`hsds-e2e`) | Docker Container Execution | Runs workloads in containerized environments |
+| AWS Batch Job Queue (`hsds-e2e`) | Auto-scaling Compute Environment | Dynamically adjusts compute resources |
+| AWS Batch Job Queue (`hsds-e2e`) | Job Definition Management | Maintains job specifications and configurations |
+| AWS Batch Job Queue (`hsds-e2e`) | Resource Optimization | Efficient usage of CPU/memory for jobs |
+| PostgreSQL Database + S3 Storage | Data Loading & Validation | Inserts and verifies incoming data |
+| PostgreSQL Database + S3 Storage | Partner Export Generation | Produces partner-ready data exports |
+| PostgreSQL Database + S3 Storage | Quality Reporting | Generates reports on data quality |
+
+
+*[📋 Interactive Miro Board -  Full Architecture ](https://miro.com/app/board/uXjVKeHa9kQ=/?moveToWidget=3458764636832263342&cot=14)*
+
+**Note:** Visual diagram available above. The interactive board provides complete technical workflow details.
+
 
 ### **Quality Monitoring**
 | Check Type | Frequency | Monitoring Method | Action |
@@ -188,14 +187,14 @@ PostgreSQL Database + S3 Storage
 | **Data Quality** | Post-processing | Automated validation | Quality scoring |
 | **Partner Delivery** | Weekly/Monthly | S3 upload confirmation | Delivery tracking |
 
-## ⚡ **Performance & Optimization**
+##  **Performance & Optimization**
 
 ### **Processing Performance**
 | Workflow | Trigger Frequency | Processing Time | AWS Infrastructure |
 |----------|------------------|-----------------|-------------------|
 | **BT Footfall** | Weekly (manual trigger) | 45-60 minutes | Parallel Step Functions + Batch |
 | **Mastercard Transactions** | Monthly (manual trigger) | 2-3 hours | Sequential Step Functions + Batch |
-| **Lookup Updates** | As needed | 15-30 minutes | Shared Batch job |
+| **Lookup Updates** | As needed | 10-15 minutes | Shared Batch job |
 
 ### **Resource Optimization**
 - **Parallel Processing**: BT workflow uses parallel branches for independent jobs
@@ -206,41 +205,17 @@ PostgreSQL Database + S3 Storage
 ## 🚨 **Error Handling & Recovery**
 
 ### **Step Functions Error Handling**
-```
+
 Job Failure Detection
        ↓
 Automatic Retry (3x with exponential backoff)
        ↓
-CloudWatch Alert + Team Notification
+CloudWatch 
        ↓
 Manual Investigation & Recovery
        ↓
 Process Documentation & Improvement
-```
 
-### **Common Recovery Scenarios**
-| Error Type | Detection Method | Recovery Action | Prevention |
-|------------|------------------|-----------------|------------|
-| **AWS Batch Job Failure** | Step Functions status | Restart failed job | Improved error handling |
-| **Data Volume Anomaly** | Volume validation | Manual investigation | Enhanced monitoring |
-| **S3 Upload Failure** | S3 API response | Retry upload operation | Network optimization |
-| **Database Connection** | Connection timeout | Database health check | Connection pooling |
-
-## 📊 **Workflow Monitoring Dashboard**
-
-### **Key Performance Indicators**
-| Metric | BT Workflow | Mastercard Workflow | Monitoring Method |
-|--------|-------------|-------------------|------------------|
-| **Success Rate** | 99.5% | 98.8% | Step Functions logs |
-| **Processing Time** | 45 min average | 3 hours average | CloudWatch metrics |
-| **Data Quality Score** | 97.5% | 96.2% | Automated validation |
-| **Partner SLA Compliance** | 99.2% | 98.8% | Delivery tracking |
-
-### **Operational Metrics**
-- **AWS Batch Job Status**: Success/failure rates by job definition
-- **Resource Utilization**: Compute environment efficiency
-- **Cost Analysis**: Processing costs by workflow and time period
-- **Data Freshness**: Time from trigger to partner delivery
 
 ## 🔗 **Related Information**
 

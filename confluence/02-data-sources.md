@@ -53,13 +53,13 @@ The Highstreets Data Platform integrates two primary commercial datasets to prov
 ### **Data Collection Process**
 
 #### **Multi-Resolution Data Streams**
-| Data Stream | Resolution | Output Table | Purpose |
-|-------------|------------|--------------|----------|
-| **Hex Grid** | 3-hourly | `bt_footfall_tfl_hex_3hourly` | Primary detailed analysis |
-| **MSOA** | Hourly | `bt_footfall_msoa_hourly` | Statistical area analysis |
-| **LSOA** | Hourly | `bt_footfall_lsoa_hourly` | Local area detailed analysis |
-| **Daily Totals** | Daily | `econ_busyness_bt_daily_agg_cust_raw` | Summary reporting |
-| **Outage Monitoring** | Daily | `econ_busyness_bt_outage_data` | Data quality tracking |
+| Data Stream | Resolution | Output Table |
+|-------------|------------|--------------|
+| **Hex Grid** | 3-hourly | `bt_footfall_tfl_hex_3hourly` |
+| **MSOA** | Hourly | `bt_footfall_msoa_hourly` |
+| **LSOA** | Hourly | `bt_footfall_lsoa_hourly` |
+| **Daily Totals** | Daily | `econ_busyness_bt_daily_agg_cust_raw` |
+| **Outage Monitoring** | Daily | `econ_busyness_bt_outage_data` |
 
 #### **Processing Steps**
 1. **Weekly API Calls**: Automated collection every Wednesday across all endpoints
@@ -99,11 +99,11 @@ The Highstreets Data Platform integrates two primary commercial datasets to prov
   - **Weekly data**: For trend analysis and comparison
 
 #### **Transaction Categories**
-| Category | Description | Sectors Included |
-|----------|-------------|------------------|
-| **Total Retail** | All retail transactions | All retail sectors combined |
-| **Eating & Drinking** | Food service establishments | Restaurants, cafes, pubs, takeaways |
-| **Apparel** | Clothing and fashion retail | Clothing stores, shoes, accessories |
+| Category | Description |
+|----------|-------------|
+| **Total Retail** | All retail transactions |
+| **Eating Places** | Food service establishments |
+| **Total Apparel** | Clothing and fashion retail |
 
 #### **Transaction Metrics**
 | Metric | Description | Use Case |
@@ -164,7 +164,7 @@ inflation_adjusted_amount = adjusted_amount * (cpi_2018 / cpi_current_period)
 ### **Geographic Boundary Data**
 - **High Streets**: Designated high street boundaries
 - **Town Centres**: Designated town centre boundaries  
-- **Business Improvement Districts (BIDs)**: ~80 active BID areas
+- **Business Improvement Districts (BIDs)**: Designated BID areas
 - **Bespoke Areas**: custom-defined areas for specific projects
 - **Administrative Boundaries**: Boroughs, MSOAs, LSOAs
 
