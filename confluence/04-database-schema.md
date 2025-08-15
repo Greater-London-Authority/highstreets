@@ -14,6 +14,12 @@ The Highstreets Data Platform uses PostgreSQL with monthly partitioning on large
 
 ## 📊 Schema Architecture
 
+*[📋 Interactive Miro Board -  BT data schema ](https://miro.com/app/board/uXjVKeHa9kQ=/?moveToWidget=3458764637428028345&cot=14)*
+
+*[📋 Interactive Miro Board -  Mastercard data schema ](https://miro.com/app/board/uXjVKeHa9kQ=/?moveToWidget=3458764637419889095&cot=14)*
+
+**Note:** Visual diagram available above. The interactive board provides complete technical workflow details.
+
 ### Database Structure
 
 #### Raw Data Tables
@@ -108,16 +114,17 @@ BT Footfall data at hex grid level with 3-hourly temporal resolution
 
 | Column | Data Type | Nullable | Description |
 |--------|-----------|----------|-------------|
-| hex_id | VARCHAR(20) | NOT NULL | TfL hex ID |
+| hex_id | INTEGER | NOT NULL | TfL hex ID |
 | count_date | DATE | NOT NULL | Measurement date |
-| hours | VARCHAR(5) | NOT NULL | 3-hour slot (e.g. 09-12) |
+| day | VARCHAR(10) | NOT NULL | Mon-Sun |
+| time_indicator | VARCHAR(5) | NOT NULL | 3-hour slot (e.g. 09-12) |
 | resident | INTEGER | NULL | Estimated residents |
 | visitor | INTEGER | NULL | Estimated visitors |
 | worker | INTEGER | NULL | Estimated workers |
-| loyalty_percentage | FLOAT | NULL | Avg loyalty (%) |
-| dwell_time | FLOAT | NULL | Avg dwell time (mins) |
+| loyalty_percentage | FLOAT(10,2) | NULL | Avg loyalty (%) |
+| dwell_time | FLOAT(10,2) | NULL | Avg dwell time (mins) |
 
-Primary Key: (hex_id, count_date, hours)
+Primary Key: (hex_id, count_date, time_indicator)
 
 ### bt_footfall_msoa_hourly
 BT Footfall data at MSOA (Middle Super Output Area) level with hourly resolution
@@ -125,7 +132,9 @@ BT Footfall data at MSOA (Middle Super Output Area) level with hourly resolution
 | Column | Data Type | Nullable | Description |
 |--------|-----------|----------|-------------|
 | msoa_id | TEXT | NOT NULL | MSOA code |
+| msoa_name | TEXT | NOT NULL | MSOA name |
 | count_date | DATE | NOT NULL | Date |
+| day | TEXT | NOT NULL | Mon-Sun |
 | hour | INTEGER | NOT NULL | Hour of day (0–23) |
 | resident | INTEGER | NULL | Residents |
 | visitor | INTEGER | NULL | Visitors |
@@ -142,6 +151,7 @@ BT Footfall data at LSOA (Lower Super Output Area) level with hourly resolution
 |--------|-----------|----------|-------------|
 | lsoa_id | TEXT | NOT NULL | LSOA code |
 | lsoa_name | TEXT | NULL | LSOA name |
+| day | TEXT | NULL | Mon-Sun |
 | count_date | DATE | NOT NULL | Date |
 | hour | INTEGER | NOT NULL | Hour of day (0–23) |
 | resident | INTEGER | NULL | Residents |
@@ -157,12 +167,12 @@ BT Daily Aggregated Customer Shapes (API output post-lookup)
 
 | Column | Type | Notes |
 |--------|------|-------|
-| poi_id | TEXT | Mapped from `poi_uid` via UID lookup |
-| poi_uid | TEXT | Source UID from BT API |
+| poi_id | VARCHAR(9) | Mapped from `poi_uid` via UID lookup |
+| poi_uid | VARCHAR(14) | Source UID from BT API |
 | poi_name | TEXT | Name |
-| poi_type | TEXT | bids/highstreet/towncentre/bespoke |
+| poi_type | TEXT | bids/highstreet/towncentre/custom/major parks/gla boundary/borough |
 | count_date | DATE | Date |
-| time_indicator | TEXT | 3-hour period |
+| time_indicator | TEXT | DAY/AM/PM |
 | total_unique_volume | INT | Total |
 | total_unique_intl_only_visitors | INT | Intl |
 | total_unique_domestic_visitors | INT | Domestic |
@@ -176,19 +186,21 @@ Outage history for data quality assurance
 | Column | Type | Notes |
 |--------|------|-------|
 | count_date | DATE | Date |
-| region | TEXT | Region (filtered to London) |
-| ... | ... | API-sourced fields |
+| lad_name | VARCHAR(255) | borough name |
+| region | VARCHAR(255) | Region (filtered to London) |
+| outage_flag | VARCHAR(50) | Red/Green/Amber |
 
 ### econ_busyness_mrli_3hourly
 Mastercard raw 3-hourly quad data (pre-adjustment)
 
 | Column | Type | Notes |
 |--------|------|-------|
+| ldn_ref | BIGINT | refernce created for easy use of quads |
 | quad_id | BIGINT | Quad ID |
 | count_date | DATE | Date |
-| hours | VARCHAR(5) | 3-hour slot |
+| hours | TEXT | 3-hour slot(00-03/03-06/..) |
 | txn_amt | DECIMAL | Raw spend |
-| txn_cnt | INTEGER | Txn count |
+| txn_cnt | DECIMAL | Txn count |
 | avg_spend_amt | DECIMAL | Avg ticket |
 
 PK: (quad_id, count_date, hours)
@@ -198,12 +210,13 @@ CPI-adjusted 3-hourly Mastercard data
 
 | Column | Type | Notes |
 |--------|------|-------|
+| ldn_ref | BIGINT | refernce created for easy use of quads |
 | quad_id | BIGINT | Quad ID |
 | count_date | DATE | Date |
-| hours | VARCHAR(5) | Slot |
+| hours | TEXT | 3-hour slot(00-03/03-06/..) |
 | txn_amt | DECIMAL | Raw spend |
 | txn_amt_adj | DECIMAL | CPI-adjusted spend |
-| txn_cnt | INTEGER | Txn count |
+| txn_cnt | DECIMAL | Txn count |
 
 PK: (quad_id, count_date, hours)
 
@@ -215,18 +228,22 @@ Mastercard raw weekly data staging table (zoom level 18)
 | yr | FLOAT | ISO calendar year |
 | wk | FLOAT | ISO week number |
 | industry | TEXT | Industry sector |
-| segment | TEXT | Overall/International |
-| geo_name | TEXT | Geographic area (London) |
+| segment | TEXT | Overall/International/.. |
+| geo_type | TEXT | State/Country/Msa |
+| geo_name | TEXT | Geographic area (London/United Kingdom/Outer London etc) |
 | quad_id | TEXT | Quad identifier |
-| txn_amt | DECIMAL | Transaction amount |
-| txn_cnt | INTEGER | Transaction count |
-| acct_cnt | INTEGER | Account count |
-| avg_ticket | DECIMAL | Average ticket size |
-| avg_freq | DECIMAL | Average frequency |
-| avg_spend_amt | DECIMAL | Average spend amount |
+| txn_amt | FLOAT | Transaction amount |
+| txn_cnt | FLOAT | Transaction count |
+| acct_cnt | FLOAT | Account count |
+| avg_ticket | FLOAT | Average ticket size |
+| avg_freq | FLOAT | Average frequency |
+| avg_spend_amt | FLOAT | Average spend amount |
+| yoy_txn_amt | TEXT | YoY spend amount |
+| yoy_txn_cnt | TEXT | YoY spend count |
 | weekday_weekend | TEXT | weekdays/weekends |
 | central_latitude | FLOAT | Quad center latitude |
 | central_longitude | FLOAT | Quad center longitude |
+| bounding_box | TEXT | location info |
 | file_name | TEXT | Source file name |
 
 ---
@@ -238,30 +255,33 @@ Cleaned and complete Mastercard weekly data
 
 | Column | Type | Notes |
 |--------|------|-------|
-| yr | INTEGER | ISO calendar year |
-| wk | INTEGER | ISO week number |
+| yr | FLOAT | ISO calendar year |
+| wk | FLOAT | ISO week number |
 | industry | TEXT | Total Retail/Total Apparel/Eating Places |
-| segment | TEXT | Overall/International |
-| geo_name | TEXT | London |
-| quad_id | BIGINT | Quad identifier |
-| txn_amt | DECIMAL | Transaction amount |
-| txn_cnt | INTEGER | Transaction count |
+| quad_id | TEXT | Quad identifier |
 | weekday_weekend | TEXT | weekdays/weekends |
+| txn_amt | FLOAT | Transaction amount |
+| txn_cnt | FLOAT | Transaction count |
+| acct_cnt | FLOAT | account count |
+| avg_ticket | FLOAT | average ticket size |
+| avg_freq | FLOAT | average frequency|
 | week_start | DATE | Monday of the ISO week |
+| central_latitude | DATE | Monday of the ISO week |
+| central_longitude | DATE | Monday of the ISO week |
 
 ### econ_busyness_mcard_stg_18_zoom
 Staging table for incremental Mastercard weekly processing
 
 | Column | Type | Notes |
 |--------|------|-------|
-| yr | INTEGER | ISO calendar year |
-| wk | INTEGER | ISO week number |
+| yr | FLOAT | ISO calendar year |
+| wk | FLOAT | ISO week number |
 | industry | TEXT | Industry sector |
 | segment | TEXT | Overall/International |
 | geo_name | TEXT | London |
-| quad_id | BIGINT | Quad identifier |
-| txn_amt | DECIMAL | Transaction amount |
-| txn_cnt | INTEGER | Transaction count |
+| quad_id | TEXT | Quad identifier |
+| txn_amt | FLOAT | Transaction amount |
+| txn_cnt | FLOAT | Transaction count |
 | weekday_weekend | TEXT | weekdays/weekends |
 
 ### econ_busyness_mcard_inner_outer_txn_pre_adj
@@ -269,10 +289,10 @@ Pre-adjustment inner/outer London weekly transaction aggregation
 
 | Column | Type | Notes |
 |--------|------|-------|
-| yr | INTEGER | ISO calendar year |
-| wk | INTEGER | ISO week number |
-| week_start | DATE | Monday of the ISO week |
+| week_start | TIMESTAMP | Monday of the ISO week |
 | inner_outer | TEXT | Inner/Outer London designation |
+| month | INTEGER | 1-12 |
+| yr | INTEGER | ISO calendar year |
 | txn_amt_wd_retail | DECIMAL | Weekday retail spend |
 | txn_amt_we_retail | DECIMAL | Weekend retail spend |
 | txn_amt_wd_eating | DECIMAL | Weekday eating spend |
@@ -314,7 +334,7 @@ Maps Mastercard quads to BID boundaries
 
 ### econ_busyness_mcard_bespoke_quad_lookup
 Maps Mastercard quads to custom geographic areas
-| quad_id | bespoke_area_id | name |
+| quad_id | bespoke_area_id | name | x | y | gss_code | borough |
 
 ### econ_busyness_mcard_inner_outer_quad_lookup
 Classifies Mastercard quads as Inner or Outer London
@@ -322,7 +342,7 @@ Classifies Mastercard quads as Inner or Outer London
 
 ### econ_busyness_mcard_towncentre_caz_lookup
 Maps Town Centres to Central Activities Zone designation
-| tc_id | tc_name | (CAZ indicator) |
+| tc_id | tc_name |
 
 ### econ_busyness_mcard_boroughs_quad_lookup
 Maps Mastercard quads to London Borough boundaries
@@ -338,7 +358,7 @@ Maps Mastercard quads to Central Activities Zone
 
 ### econ_busyness_bt_uid_jan25_lookup
 POI UID→ID mapping used in BT daily aggregated customer shapes transform
-| uid | id | layer | name |
+| uid | id | layer | name | name_old | change_name | change_shape | new_name_shape | del_name_shape | bt_changed_2024
 
 ---
 
@@ -407,7 +427,7 @@ Monthly market-share and cash-to-card correction factors used for weekly process
 | Column | Type | Description |
 |--------|------|-------------|
 | inner_outer | TEXT | Inner/Outer London |
-| date | DATE | First day of month |
+| date | Timestamp | First day of month |
 | yr | INTEGER | Year |
 | month | INTEGER | Month |
 | adjustment_factor_retail | DECIMAL | Retail sector adjustment |
@@ -421,8 +441,8 @@ CPIH (Consumer Price Index including Housing) data from ONS API
 |--------|------|-------------|
 | yr | INTEGER | Year |
 | month | INTEGER | Month |
-| aggregate | TEXT | CPI category |
-| cpi_index | DECIMAL | CPI index value |
+| aggregate | VARCHAR(150) | CPI category |
+| cpi_index | DECIMAL(15,6) | CPI index value |
 
 ### econ_busyness_borough_hs_lookup_3
 Borough and Highstreet spatial relationships for lookup refresh
