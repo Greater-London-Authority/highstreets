@@ -10,7 +10,6 @@ from sqlalchemy import create_engine, text
 from highstreets.core.logger import setup_logger
 from highstreets.data_transformation.mcard_transform import McardTransform
 from highstreets.core.sql_manager import SQLManager
-from glob import glob
 import logging
 from itertools import product
 
@@ -30,6 +29,8 @@ class FileProcessor:
         self.adjustment_factor_dir = config.ADJUSTMENT_FACTOR_DIR
         self.inner_outer_quad_dir = config.INNER_OUTER_QUAD_DIR
         self.dir_path = dir_path
+        # Add filesystem support
+        self.fs = self._get_filesystem(dir_path)
         self.new_files = []
         self.existing_files = []
         self.sql_manager = SQLManager()
@@ -50,6 +51,13 @@ class FileProcessor:
             f"{self.host}:{self.port}/{self.database}"
         )
         logging.info("FileProcessor initialized.")
+
+    def _get_filesystem(self, path):
+        """Get appropriate filesystem based on path protocol"""
+        if path.startswith('s3://'):
+            return fsspec.filesystem('s3')
+        else:
+            return fsspec.filesystem('file')
 
     @staticmethod
     def extract_date_from_filename(filename: str):
@@ -736,7 +744,14 @@ class FileProcessor:
 
     def process_mcard_raw_files(self, table_name_map: dict):
         recent_dates = self.data_loader.get_most_recent_dates(table_name_map.values())
-        files = glob(os.path.join(self.dir_path, "*.csv"))
+
+        # Use fsspec to list files (works for both local and S3)
+        if self.dir_path.startswith('s3://'):
+            files = self.fs.glob(f"{self.dir_path}*.csv")
+            # Add s3:// prefix if needed
+            files = [f"s3://{file}" if not file.startswith("s3://") else file for file in files] # noqa
+        else:
+            files = self.fs.glob(os.path.join(self.dir_path, "*.csv"))
 
         for file in files:
             zoom_level_match = re.search(r"(\d+)_zoom", file.lower())
@@ -967,38 +982,40 @@ class FileProcessor:
         chunk_size = 200000
         # table_name = f"test_econ_busyness_mcard_raw_{zoom_level}_zoom"
 
-        reader = pd.read_csv(
-            file,
-            chunksize=chunk_size,
-            delimiter="|",
-            dtype={
-                "yr": float,
-                "wk": float,
-                "industry": str,
-                "segment": str,
-                "geo_type": str,
-                "geo_name": str,
-                "quad_id": str,
-                "central_latitude": float,
-                "central_longitude": float,
-                "bounding_box": str,
-                "txn_amt": float,
-                "txn_cnt": float,
-                "acct_cnt": float,
-                "avg_ticket": float,
-                "avg_freq": float,
-                "avg_spend_amt": float,
-                "yoy_txn_amt": str,
-                "yoy_txn_cnt": str,
-            },
-        )
-
-        for i, chunk in enumerate(reader):
-            chunk["weekday_weekend"] = (
-                "weekends" if day_end == "weekend" else "weekdays"
+        # Use fsspec to open file (works for both local and S3)
+        with self.fs.open(file, 'rb') as f:
+            reader = pd.read_csv(
+                f,
+                chunksize=chunk_size,
+                delimiter="|",
+                dtype={
+                    "yr": float,
+                    "wk": float,
+                    "industry": str,
+                    "segment": str,
+                    "geo_type": str,
+                    "geo_name": str,
+                    "quad_id": str,
+                    "central_latitude": float,
+                    "central_longitude": float,
+                    "bounding_box": str,
+                    "txn_amt": float,
+                    "txn_cnt": float,
+                    "acct_cnt": float,
+                    "avg_ticket": float,
+                    "avg_freq": float,
+                    "avg_spend_amt": float,
+                    "yoy_txn_amt": str,
+                    "yoy_txn_cnt": str,
+                },
             )
-            chunk["file_name"] = os.path.basename(file)
-            self.data_writer.append_chunk(chunk, table_name)
+
+            for i, chunk in enumerate(reader):
+                chunk["weekday_weekend"] = (
+                    "weekends" if day_end == "weekend" else "weekdays"
+                )
+                chunk["file_name"] = os.path.basename(file)
+                self.data_writer.append_chunk(chunk, table_name)
 
         self.new_files.append(os.path.basename(file))
         logging.info(f"Processed and uploaded file {file}.")

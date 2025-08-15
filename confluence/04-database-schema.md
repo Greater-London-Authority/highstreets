@@ -10,79 +10,102 @@ labels: ["database", "schema", "postgresql", "tables"]
 
 ## 🗄️ Overview
 
-The Highstreets Data Platform uses PostgreSQL with monthly partitioning on large time-series tables. Data is organized as raw, lookup, aggregated, consolidated, and reference tables to support BT footfall and Mastercard transaction workflows.
+The Highstreets Data Platform uses PostgreSQL with monthly partitioning on large time-series tables. Data is organized as raw, staging, lookup, aggregated, consolidated, and reference tables to support BT footfall and Mastercard transaction workflows.
 
 ## 📊 Schema Architecture
 
 ### Database Structure
 
 #### Raw Data Tables
-- [`bt_footfall_tfl_hex_3hourly`](#bt_footfall_tfl_hex_3hourly) – BT hex 3-hourly
-- [`bt_footfall_msoa_hourly`](#bt_footfall_msoa_hourly) – BT MSOA hourly
-- [`bt_footfall_lsoa_hourly`](#bt_footfall_lsoa_hourly) – BT LSOA hourly
+- [`bt_footfall_tfl_hex_3hourly`](#bt_footfall_tfl_hex_3hourly) – BT hex 3-hourly footfall
+- [`bt_footfall_msoa_hourly`](#bt_footfall_msoa_hourly) – BT MSOA hourly footfall
+- [`bt_footfall_lsoa_hourly`](#bt_footfall_lsoa_hourly) – BT LSOA hourly footfall
 - [`econ_busyness_bt_daily_agg_cust_raw`](#econ_busyness_bt_daily_agg_cust_raw) – BT daily aggregated customer shapes
 - [`econ_busyness_bt_outage_data`](#econ_busyness_bt_outage_data) – BT outage history
 - [`econ_busyness_mrli_3hourly`](#econ_busyness_mrli_3hourly) – Mastercard raw 3-hourly quads
-- [`econ_busyness_mrli_3hourly_adj`](#econ_busyness_mrli_3hourly_adj) – Mastercard adjusted 3-hourly quads
+- [`econ_busyness_mrli_3hourly_adj`](#econ_busyness_mrli_3hourly_adj) – Mastercard CPI-adjusted 3-hourly quads
+- [`econ_busyness_mcard_raw_18_zoom`](#econ_busyness_mcard_raw_18_zoom) – Mastercard raw weekly staging (zoom 18)
+
+#### Staging & Processing Tables
+- [`econ_busyness_mcard_clean_18_zoom`](#econ_busyness_mcard_clean_18_zoom) – Cleaned weekly data with complete records
+- [`econ_busyness_mcard_stg_18_zoom`](#econ_busyness_mcard_stg_18_zoom) – Staging table for incremental processing
+- [`econ_busyness_mcard_inner_outer_txn_pre_adj`](#econ_busyness_mcard_inner_outer_txn_pre_adj) – Pre-adjustment inner/outer weekly aggregation
 
 #### Geographic Lookup Tables
-- [`econ_busyness_hex_highstreet_lookup`](#econ_busyness_hex_highstreet_lookup)
-- [`econ_busyness_hex_towncentre_lookup`](#econ_busyness_hex_towncentre_lookup)
-- [`econ_busyness_hex_bid_lookup`](#econ_busyness_hex_bid_lookup)
-- [`econ_busyness_hex_bespoke_lookup`](#econ_busyness_hex_bespoke_lookup)
-- Mastercard quad lookups:
-  - [`econ_busyness_mcard_Highstreets_quad_lookup`](#econ_busyness_mcard_highstreets_quad_lookup)
-  - [`econ_busyness_mcard_TownCentres_quad_lookup`](#econ_busyness_mcard_towncentres_quad_lookup)
-  - [`econ_busyness_mcard_BIDs_quad_lookup`](#econ_busyness_mcard_bids_quad_lookup)
-  - [`econ_busyness_mcard_bespoke_quad_lookup`](#econ_busyness_mcard_bespoke_quad_lookup)
-  - [`econ_busyness_mcard_Inner_Outer_quad_lookup`](#econ_busyness_mcard_inner_outer_quad_lookup)
-  - [`econ_busyness_mcard_towncentre_caz_lookup`](#econ_busyness_mcard_towncentre_caz_lookup)
+- [`econ_busyness_hex_highstreet_lookup`](#econ_busyness_hex_highstreet_lookup) – Hex → Highstreet mapping
+- [`econ_busyness_hex_towncentre_lookup`](#econ_busyness_hex_towncentre_lookup) – Hex → Town Centre mapping
+- [`econ_busyness_hex_bid_lookup`](#econ_busyness_hex_bid_lookup) – Hex → BID mapping
+- [`econ_busyness_hex_bespoke_lookup`](#econ_busyness_hex_bespoke_lookup) – Hex → Bespoke Area mapping
+- [`econ_busyness_mcard_Highstreets_quad_lookup`](#econ_busyness_mcard_highstreets_quad_lookup) – Quad → Highstreet mapping
+- [`econ_busyness_mcard_TownCentres_quad_lookup`](#econ_busyness_mcard_towncentres_quad_lookup) – Quad → Town Centre mapping
+- [`econ_busyness_mcard_BIDs_quad_lookup`](#econ_busyness_mcard_bids_quad_lookup) – Quad → BID mapping
+- [`econ_busyness_mcard_bespoke_quad_lookup`](#econ_busyness_mcard_bespoke_quad_lookup) – Quad → Bespoke Area mapping
+- [`econ_busyness_mcard_inner_outer_quad_lookup`](#econ_busyness_mcard_inner_outer_quad_lookup) – Quad → Inner/Outer London mapping
+- [`econ_busyness_mcard_towncentre_caz_lookup`](#econ_busyness_mcard_towncentre_caz_lookup) – Town Centre → CAZ mapping
+- [`econ_busyness_mcard_boroughs_quad_lookup`](#econ_busyness_mcard_boroughs_quad_lookup) – Quad → Borough mapping
+- [`econ_busyness_mcard_msoas_quad_lookup`](#econ_busyness_mcard_msoas_quad_lookup) – Quad → MSOA mapping
+- [`econ_busyness_mcard_caz_quad_lookup`](#econ_busyness_mcard_caz_quad_lookup) – Quad → CAZ mapping
 - [`econ_busyness_bt_uid_jan25_lookup`](#econ_busyness_bt_uid_jan25_lookup) – POI UID→ID mapping for BT daily API
 
 #### BT Aggregated (3-hourly) Tables
-- [`econ_busyness_bt_highstreets_3hourly_counts`](#econ_busyness_bt_highstreets_3hourly_counts)
-- [`econ_busyness_bt_towncentres_3hourly_counts`](#econ_busyness_bt_towncentres_3hourly_counts)
-- [`econ_busyness_bt_bids_3hourly_counts`](#econ_busyness_bt_bids_3hourly_counts)
-- [`econ_busyness_bt_bespokes_3hourly_counts`](#econ_busyness_bt_bespokes_3hourly_counts)
-- Consolidated: [`econ_busyness_bt_3hourly_counts`](#econ_busyness_bt_3hourly_counts)
+- [`econ_busyness_bt_highstreets_3hourly_counts`](#econ_busyness_bt_highstreets_3hourly_counts) – BT Highstreet 3-hourly aggregation
+- [`econ_busyness_bt_towncentres_3hourly_counts`](#econ_busyness_bt_towncentres_3hourly_counts) – BT Town Centre 3-hourly aggregation
+- [`econ_busyness_bt_bids_3hourly_counts`](#econ_busyness_bt_bids_3hourly_counts) – BT BID 3-hourly aggregation
+- [`econ_busyness_bt_bespokes_3hourly_counts`](#econ_busyness_bt_bespokes_3hourly_counts) – BT Bespoke 3-hourly aggregation
+- Consolidated: [`econ_busyness_bt_3hourly_counts`](#econ_busyness_bt_3hourly_counts) – All BT boundary layers combined
 
-#### Mastercard Aggregated
-- 3-hourly by boundary:
-  - [`econ_busyness_mcard_highstreets_3hourly_txn`](#econ_busyness_mcard_3hourly_txn)
-  - [`econ_busyness_mcard_towncentres_3hourly_txn`](#econ_busyness_mcard_3hourly_txn)
-  - [`econ_busyness_mcard_bids_3hourly_txn`](#econ_busyness_mcard_3hourly_txn)
-  - [`econ_busyness_mcard_bespokes_3hourly_txn`](#econ_busyness_mcard_3hourly_txn)
-  - Consolidated: [`econ_busyness_mcard_3hourly_txn`](#econ_busyness_mcard_3hourly_txn)
-- Weekly by boundary:
-  - [`econ_busyness_mcard_highstreets_txn`](#econ_busyness_mcard_txn-weekly)
-  - [`econ_busyness_mcard_towncentres_txn`](#econ_busyness_mcard_txn-weekly)
-  - [`econ_busyness_mcard_bids_txn`](#econ_busyness_mcard_txn-weekly)
-  - [`econ_busyness_mcard_bespoke_txn`](#econ_busyness_mcard_txn-weekly)
-  - [`econ_busyness_mcard_boroughs_txn`](#econ_busyness_mcard_txn-weekly)
-  - [`econ_busyness_mcard_caz_txn`](#econ_busyness_mcard_txn-weekly)
-  - [`econ_busyness_mcard_msoas_txn`](#econ_busyness_mcard_txn-weekly)
-  - [`econ_busyness_mcard_inner_outer_txn`](#econ_busyness_mcard_txn-weekly)
-  - [`econ_busyness_mcard_london_txn`](#econ_busyness_mcard_txn-weekly)
-  - Consolidated: [`econ_busyness_mcard_txn`](#econ_busyness_mcard_txn-weekly)
-- Weekly YoY (per boundary) + consolidated:
-  - [`econ_busyness_mcard_*_yoy`](#econ_busyness_mcard_yoy)
+#### Mastercard 3-hourly Aggregated Tables
+- [`econ_busyness_mcard_highstreets_3hourly_txn`](#econ_busyness_mcard_3hourly_txn) – Mastercard Highstreet 3-hourly transactions
+- [`econ_busyness_mcard_towncentres_3hourly_txn`](#econ_busyness_mcard_3hourly_txn) – Mastercard Town Centre 3-hourly transactions
+- [`econ_busyness_mcard_bids_3hourly_txn`](#econ_busyness_mcard_3hourly_txn) – Mastercard BID 3-hourly transactions
+- [`econ_busyness_mcard_bespokes_3hourly_txn`](#econ_busyness_mcard_3hourly_txn) – Mastercard Bespoke 3-hourly transactions
+- Consolidated: [`econ_busyness_mcard_3hourly_txn`](#econ_busyness_mcard_3hourly_txn) – All Mastercard 3-hourly boundary layers combined
 
-#### Reference & Context
-- [`econ_busyness_mcard_adjustment_factors`](#econ_busyness_mcard_adjustment_factors)
-- [`econ_busyness_mcard_cpi_data`](#econ_busyness_mcard_cpi_data)
+#### Mastercard Weekly Aggregated Tables
+- [`econ_busyness_mcard_highstreets_txn`](#econ_busyness_mcard_txn-weekly) – Mastercard Highstreet weekly transactions
+- [`econ_busyness_mcard_towncentres_txn`](#econ_busyness_mcard_txn-weekly) – Mastercard Town Centre weekly transactions
+- [`econ_busyness_mcard_bids_txn`](#econ_busyness_mcard_txn-weekly) – Mastercard BID weekly transactions
+- [`econ_busyness_mcard_bespoke_txn`](#econ_busyness_mcard_txn-weekly) – Mastercard Bespoke weekly transactions
+- [`econ_busyness_mcard_boroughs_txn`](#econ_busyness_mcard_txn-weekly) – Mastercard Borough weekly transactions
+- [`econ_busyness_mcard_caz_txn`](#econ_busyness_mcard_txn-weekly) – Mastercard CAZ weekly transactions
+- [`econ_busyness_mcard_msoas_txn`](#econ_busyness_mcard_txn-weekly) – Mastercard MSOA weekly transactions
+- [`econ_busyness_mcard_inner_outer_txn`](#econ_busyness_mcard_txn-weekly) – Mastercard Inner/Outer London weekly transactions
+- [`econ_busyness_mcard_london_txn`](#econ_busyness_mcard_txn-weekly) – Mastercard London-wide weekly transactions
+- Consolidated: [`econ_busyness_mcard_txn`](#econ_busyness_mcard_txn-weekly) – All Mastercard weekly boundary layers combined
+
+#### Mastercard Weekly YoY Tables
+- [`econ_busyness_mcard_highstreets_yoy`](#econ_busyness_mcard_yoy) – Mastercard Highstreet YoY growth
+- [`econ_busyness_mcard_towncentres_yoy`](#econ_busyness_mcard_yoy) – Mastercard Town Centre YoY growth
+- [`econ_busyness_mcard_bids_yoy`](#econ_busyness_mcard_yoy) – Mastercard BID YoY growth
+- [`econ_busyness_mcard_bespoke_yoy`](#econ_busyness_mcard_yoy) – Mastercard Bespoke YoY growth
+- [`econ_busyness_mcard_boroughs_yoy`](#econ_busyness_mcard_yoy) – Mastercard Borough YoY growth
+- [`econ_busyness_mcard_caz_yoy`](#econ_busyness_mcard_yoy) – Mastercard CAZ YoY growth
+- [`econ_busyness_mcard_msoas_yoy`](#econ_busyness_mcard_yoy) – Mastercard MSOA YoY growth
+- [`econ_busyness_mcard_inner_outer_yoy`](#econ_busyness_mcard_yoy) – Mastercard Inner/Outer London YoY growth
+- [`econ_busyness_mcard_london_yoy`](#econ_busyness_mcard_yoy) – Mastercard London-wide YoY growth
+- Consolidated: [`econ_busyness_mcard_yoy`](#econ_busyness_mcard_yoy) – All Mastercard weekly YoY layers combined
+
+#### Reference & Context Tables
+- [`econ_busyness_mcard_adjustment_factors`](#econ_busyness_mcard_adjustment_factors) – Monthly cash-to-card and market share adjustment factors
+- [`econ_busyness_mcard_cpi_data`](#econ_busyness_mcard_cpi_data) – CPIH inflation data from ONS API
+- [`econ_busyness_borough_hs_lookup_3`](#econ_busyness_borough_hs_lookup_3) – Borough and Highstreet spatial relationships
 - [`hsds_bid_hs_tc`](#hsds_bid_hs_tc) – Combined geometry reference for BIDs/Highstreets/TownCentres
 
 ### Key Design Principles
-- Temporal partitioning on large date-series tables
-- Lookup-driven spatial aggregation (hex/quad→boundary)
-- Consolidated union tables for simplified analytics
-- Consistent identifiers and hours formatting
+- **Temporal partitioning** on large date-series tables for performance
+- **Multi-stage processing pipeline** for Mastercard weekly data (raw → staging → clean → aggregated)
+- **Lookup-driven spatial aggregation** (hex/quad → boundary)
+- **Consolidated union tables** for simplified analytics and cross-boundary analysis
+- **Consistent identifiers and time formatting** across all data sources
+- **CPI adjustment and market correction** for economic analysis
 
 ---
 
 ## 🏗️ Raw Data Tables
 
 ### bt_footfall_tfl_hex_3hourly
+BT Footfall data at hex grid level with 3-hourly temporal resolution
+
 | Column | Data Type | Nullable | Description |
 |--------|-----------|----------|-------------|
 | hex_id | VARCHAR(20) | NOT NULL | TfL hex ID |
@@ -97,6 +120,8 @@ The Highstreets Data Platform uses PostgreSQL with monthly partitioning on large
 Primary Key: (hex_id, count_date, hours)
 
 ### bt_footfall_msoa_hourly
+BT Footfall data at MSOA (Middle Super Output Area) level with hourly resolution
+
 | Column | Data Type | Nullable | Description |
 |--------|-----------|----------|-------------|
 | msoa_id | TEXT | NOT NULL | MSOA code |
@@ -111,6 +136,8 @@ Primary Key: (hex_id, count_date, hours)
 Primary Key: (msoa_id, count_date, hour)
 
 ### bt_footfall_lsoa_hourly
+BT Footfall data at LSOA (Lower Super Output Area) level with hourly resolution
+
 | Column | Data Type | Nullable | Description |
 |--------|-----------|----------|-------------|
 | lsoa_id | TEXT | NOT NULL | LSOA code |
@@ -144,7 +171,7 @@ BT Daily Aggregated Customer Shapes (API output post-lookup)
 | avg_dwell_time | INT | Minutes |
 
 ### econ_busyness_bt_outage_data
-Outage history for QA
+Outage history for data quality assurance
 
 | Column | Type | Notes |
 |--------|------|-------|
@@ -153,7 +180,7 @@ Outage history for QA
 | ... | ... | API-sourced fields |
 
 ### econ_busyness_mrli_3hourly
-Mastercard raw 3-hourly (pre-adjustment)
+Mastercard raw 3-hourly quad data (pre-adjustment)
 
 | Column | Type | Notes |
 |--------|------|-------|
@@ -167,7 +194,7 @@ Mastercard raw 3-hourly (pre-adjustment)
 PK: (quad_id, count_date, hours)
 
 ### econ_busyness_mrli_3hourly_adj
-Adjusted 3-hourly (market share + CPI)
+CPI-adjusted 3-hourly Mastercard data
 
 | Column | Type | Notes |
 |--------|------|-------|
@@ -175,63 +202,162 @@ Adjusted 3-hourly (market share + CPI)
 | count_date | DATE | Date |
 | hours | VARCHAR(5) | Slot |
 | txn_amt | DECIMAL | Raw spend |
-| txn_amt_adj | DECIMAL | Adjusted spend |
+| txn_amt_adj | DECIMAL | CPI-adjusted spend |
 | txn_cnt | INTEGER | Txn count |
 
 PK: (quad_id, count_date, hours)
+
+### econ_busyness_mcard_raw_18_zoom
+Mastercard raw weekly data staging table (zoom level 18)
+
+| Column | Type | Notes |
+|--------|------|-------|
+| yr | FLOAT | ISO calendar year |
+| wk | FLOAT | ISO week number |
+| industry | TEXT | Industry sector |
+| segment | TEXT | Overall/International |
+| geo_name | TEXT | Geographic area (London) |
+| quad_id | TEXT | Quad identifier |
+| txn_amt | DECIMAL | Transaction amount |
+| txn_cnt | INTEGER | Transaction count |
+| acct_cnt | INTEGER | Account count |
+| avg_ticket | DECIMAL | Average ticket size |
+| avg_freq | DECIMAL | Average frequency |
+| avg_spend_amt | DECIMAL | Average spend amount |
+| weekday_weekend | TEXT | weekdays/weekends |
+| central_latitude | FLOAT | Quad center latitude |
+| central_longitude | FLOAT | Quad center longitude |
+| file_name | TEXT | Source file name |
+
+---
+
+## 🔄 Staging & Processing Tables
+
+### econ_busyness_mcard_clean_18_zoom
+Cleaned and complete Mastercard weekly data
+
+| Column | Type | Notes |
+|--------|------|-------|
+| yr | INTEGER | ISO calendar year |
+| wk | INTEGER | ISO week number |
+| industry | TEXT | Total Retail/Total Apparel/Eating Places |
+| segment | TEXT | Overall/International |
+| geo_name | TEXT | London |
+| quad_id | BIGINT | Quad identifier |
+| txn_amt | DECIMAL | Transaction amount |
+| txn_cnt | INTEGER | Transaction count |
+| weekday_weekend | TEXT | weekdays/weekends |
+| week_start | DATE | Monday of the ISO week |
+
+### econ_busyness_mcard_stg_18_zoom
+Staging table for incremental Mastercard weekly processing
+
+| Column | Type | Notes |
+|--------|------|-------|
+| yr | INTEGER | ISO calendar year |
+| wk | INTEGER | ISO week number |
+| industry | TEXT | Industry sector |
+| segment | TEXT | Overall/International |
+| geo_name | TEXT | London |
+| quad_id | BIGINT | Quad identifier |
+| txn_amt | DECIMAL | Transaction amount |
+| txn_cnt | INTEGER | Transaction count |
+| weekday_weekend | TEXT | weekdays/weekends |
+
+### econ_busyness_mcard_inner_outer_txn_pre_adj
+Pre-adjustment inner/outer London weekly transaction aggregation
+
+| Column | Type | Notes |
+|--------|------|-------|
+| yr | INTEGER | ISO calendar year |
+| wk | INTEGER | ISO week number |
+| week_start | DATE | Monday of the ISO week |
+| inner_outer | TEXT | Inner/Outer London designation |
+| txn_amt_wd_retail | DECIMAL | Weekday retail spend |
+| txn_amt_we_retail | DECIMAL | Weekend retail spend |
+| txn_amt_wd_eating | DECIMAL | Weekday eating spend |
+| txn_amt_we_eating | DECIMAL | Weekend eating spend |
+| txn_amt_wd_apparel | DECIMAL | Weekday apparel spend |
+| txn_amt_we_apparel | DECIMAL | Weekend apparel spend |
 
 ---
 
 ## 🗺️ Geographic Lookup Tables
 
 ### econ_busyness_hex_highstreet_lookup
+Maps BT hex grids to Highstreet boundaries
 | hex_id | highstreet_id | highstreet_name |
 
 ### econ_busyness_hex_towncentre_lookup
+Maps BT hex grids to Town Centre boundaries
 | hex_id | tc_id | tc_name |
 
 ### econ_busyness_hex_bid_lookup
+Maps BT hex grids to Business Improvement District boundaries
 | hex_id | bid_id | bid_name |
 
 ### econ_busyness_hex_bespoke_lookup
+Maps BT hex grids to custom geographic areas
 | hex_id | bespoke_area_id | name |
 
 ### econ_busyness_mcard_Highstreets_quad_lookup
+Maps Mastercard quads to Highstreet boundaries with coordinate information
 | quad_id | highstreet_id | highstreet_name | x | y | borough |
 
 ### econ_busyness_mcard_TownCentres_quad_lookup
+Maps Mastercard quads to Town Centre boundaries with coordinate information
 | quad_id | tc_id | tc_name | x | y | borough |
 
 ### econ_busyness_mcard_BIDs_quad_lookup
+Maps Mastercard quads to BID boundaries
 | quad_id | bid_id | bid_name |
 
 ### econ_busyness_mcard_bespoke_quad_lookup
+Maps Mastercard quads to custom geographic areas
 | quad_id | bespoke_area_id | name |
 
-### econ_busyness_mcard_Inner_Outer_quad_lookup
+### econ_busyness_mcard_inner_outer_quad_lookup
+Classifies Mastercard quads as Inner or Outer London
 | quad_id | inner_outer |
 
 ### econ_busyness_mcard_towncentre_caz_lookup
-| tc_id | tc_name | (in CAZ) |
+Maps Town Centres to Central Activities Zone designation
+| tc_id | tc_name | (CAZ indicator) |
+
+### econ_busyness_mcard_boroughs_quad_lookup
+Maps Mastercard quads to London Borough boundaries
+| quad_id | gss_code | name |
+
+### econ_busyness_mcard_msoas_quad_lookup
+Maps Mastercard quads to MSOA boundaries
+| quad_id | msoa11cd | msoa11nm |
+
+### econ_busyness_mcard_caz_quad_lookup
+Maps Mastercard quads to Central Activities Zone
+| quad_id | objectid | name |
 
 ### econ_busyness_bt_uid_jan25_lookup
-POI UID→ID mapping used in BT daily transform
+POI UID→ID mapping used in BT daily aggregated customer shapes transform
 | uid | id | layer | name |
 
 ---
 
-## 📈 BT Aggregated (3-hourly)
+## 📈 BT Aggregated (3-hourly) Tables
 
 ### econ_busyness_bt_highstreets_3hourly_counts
+Aggregated BT footfall by Highstreet boundaries
 Columns: highstreet_id, highstreet_name, count_date, hours, x, y, borough, resident, visitor, worker, ave_loyalty_percentage, ave_dwell_time
 
 ### econ_busyness_bt_towncentres_3hourly_counts
+Aggregated BT footfall by Town Centre boundaries
 Columns: tc_id, tc_name, count_date, hours, x, y, borough, resident, visitor, worker, ave_loyalty_percentage, ave_dwell_time
 
 ### econ_busyness_bt_bids_3hourly_counts
+Aggregated BT footfall by BID boundaries
 Columns: bid_id, bid_name, count_date, hours, resident, visitor, worker, ave_loyalty_percentage, ave_dwell_time
 
 ### econ_busyness_bt_bespokes_3hourly_counts
+Aggregated BT footfall by bespoke area boundaries
 Columns: bespoke_area_id, name, count_date, hours, resident, visitor, worker, ave_loyalty_percentage, ave_dwell_time
 
 ### econ_busyness_bt_3hourly_counts
@@ -240,65 +366,132 @@ Columns: count_date, hours, id, name, layer, resident, visitor, worker, ave_loya
 
 ---
 
-## 💳 Mastercard Aggregated
+## 💳 Mastercard Aggregated Tables
 
-### econ_busyness_mcard_*_3hourly_txn
-Tables: highstreets, towncentres, bids, bespokes
+### Mastercard 3-hourly Tables
+**Tables**: econ_busyness_mcard_highstreets_3hourly_txn, econ_busyness_mcard_towncentres_3hourly_txn, econ_busyness_mcard_bids_3hourly_txn, econ_busyness_mcard_bespokes_3hourly_txn
 Columns: boundary_id, boundary_name, count_date, hours, txn_amt, txn_cnt, [x, y, borough where applicable]
 
 ### econ_busyness_mcard_3hourly_txn
 Consolidated union across all 3-hourly boundary layers
 Columns: count_date, hours, id, name, layer, txn_amt, txn_cnt
 
-### econ_busyness_mcard_*_txn (Weekly) and econ_busyness_mcard_txn
-Weekly aggregated by layer (plus consolidated `econ_busyness_mcard_txn`). Typical columns by layer:
-- boundary_id, boundary_name, week_start, yr, wk,
+### Mastercard Weekly Tables
+**Individual Layer Tables**: econ_busyness_mcard_*_txn (highstreets, towncentres, bids, bespoke, boroughs, caz, msoas, inner_outer, london)
+Typical columns by layer:
+- boundary_id, boundary_name, week_start, yr, wk
 - txn_amt_wd_retail, txn_amt_we_retail, txn_amt_wd_eating, txn_amt_we_eating, txn_amt_wd_apparel, txn_amt_we_apparel
-- Additional layer-specific fields as generated by weekly processor
+- txn_cnt_wd_retail, txn_cnt_we_retail, txn_cnt_wd_eating, txn_cnt_we_eating, txn_cnt_wd_apparel, txn_cnt_we_apparel
+- CPI-adjusted versions: *_adj columns
+- Additional layer-specific fields (x, y, borough for spatial layers)
 
-### econ_busyness_mcard_*_yoy and econ_busyness_mcard_yoy
-YoY growth per layer and consolidated view. Columns include: boundary_id, boundary_name, week_start, yr, wk, and yoy_* metrics.
+### econ_busyness_mcard_txn
+Consolidated weekly transactions across all boundary layers
+Columns: week_start, yr, wk, id, name, layer, [all txn_amt and txn_cnt columns by sector and weekend/weekday]
+
+### Mastercard Weekly YoY Tables
+**Individual Layer Tables**: econ_busyness_mcard_*_yoy (highstreets, towncentres, bids, bespoke, boroughs, caz, msoas, inner_outer, london)
+Contains YoY growth metrics: boundary_id, boundary_name, week_start, yr, wk, and yoy_* metrics for all transaction columns
+
+### econ_busyness_mcard_yoy
+Consolidated YoY growth across all boundary layers
+Columns: week_start, yr, wk, id, name, layer, [all yoy_* columns by sector and weekend/weekday]
 
 ---
 
-## 📋 Reference & Context
+## 📋 Reference & Context Tables
 
 ### econ_busyness_mcard_adjustment_factors
-Monthly market-share/cash-to-card correction factors used for weekly processing.
+Monthly market-share and cash-to-card correction factors used for weekly processing
+
+| Column | Type | Description |
+|--------|------|-------------|
+| inner_outer | TEXT | Inner/Outer London |
+| date | DATE | First day of month |
+| yr | INTEGER | Year |
+| month | INTEGER | Month |
+| adjustment_factor_retail | DECIMAL | Retail sector adjustment |
+| adjustment_factor_apparel | DECIMAL | Apparel sector adjustment |
+| adjustment_factor_eating | DECIMAL | Eating sector adjustment |
 
 ### econ_busyness_mcard_cpi_data
-CPIH data pulled from ONS API and stored for reference.
+CPIH (Consumer Price Index including Housing) data from ONS API
+
+| Column | Type | Description |
+|--------|------|-------------|
+| yr | INTEGER | Year |
+| month | INTEGER | Month |
+| aggregate | TEXT | CPI category |
+| cpi_index | DECIMAL | CPI index value |
+
+### econ_busyness_borough_hs_lookup_3
+Borough and Highstreet spatial relationships for lookup refresh
 
 ### hsds_bid_hs_tc
-Combined geometry reference of BIDs/Highstreets/TownCentres used by lookup refresh.
+Combined geometry reference of BIDs/Highstreets/TownCentres used by lookup refresh processes
 
 ---
 
-## 🎯 Table Relationships (textual)
+## 🎯 Data Flow & Table Relationships
 
-BT (3-hourly):
-- `bt_footfall_tfl_hex_3hourly` JOINs:
-  - `econ_busyness_hex_highstreet_lookup` → `econ_busyness_bt_highstreets_3hourly_counts`
-  - `econ_busyness_hex_towncentre_lookup` → `econ_busyness_bt_towncentres_3hourly_counts`
-  - `econ_busyness_hex_bid_lookup` → `econ_busyness_bt_bids_3hourly_counts`
-  - `econ_busyness_hex_bespoke_lookup` → `econ_busyness_bt_bespokes_3hourly_counts`
-- All four aggregate tables UNION → `econ_busyness_bt_3hourly_counts`
+### BT (3-hourly) Flow
+```
+bt_footfall_tfl_hex_3hourly
+├── JOIN econ_busyness_hex_highstreet_lookup → econ_busyness_bt_highstreets_3hourly_counts
+├── JOIN econ_busyness_hex_towncentre_lookup → econ_busyness_bt_towncentres_3hourly_counts
+├── JOIN econ_busyness_hex_bid_lookup → econ_busyness_bt_bids_3hourly_counts
+└── JOIN econ_busyness_hex_bespoke_lookup → econ_busyness_bt_bespokes_3hourly_counts
+    └── UNION ALL → econ_busyness_bt_3hourly_counts
+```
 
-BT (daily):
-- `econ_busyness_bt_daily_agg_cust_raw` uses `econ_busyness_bt_uid_jan25_lookup` to map `poi_uid`→`poi_id`.
+### BT Daily Flow
+```
+BT Daily API → raw_bt_daily_preprocess_data() 
+├── JOIN econ_busyness_bt_uid_jan25_lookup (poi_uid → poi_id)
+└── econ_busyness_bt_daily_agg_cust_raw
+```
 
-Mastercard (3-hourly):
-- `econ_busyness_mrli_3hourly_adj` JOINs:
-  - `econ_busyness_mcard_Highstreets_quad_lookup` → highstreets_3hourly_txn
-  - `econ_busyness_mcard_TownCentres_quad_lookup` → towncentres_3hourly_txn
-  - `econ_busyness_mcard_BIDs_quad_lookup` → bids_3hourly_txn
-  - `econ_busyness_mcard_bespoke_quad_lookup` → bespokes_3hourly_txn
-- All four UNION → `econ_busyness_mcard_3hourly_txn`
+### Mastercard 3-hourly Flow
+```
+econ_busyness_mrli_3hourly → CPI adjustment → econ_busyness_mrli_3hourly_adj
+├── JOIN econ_busyness_mcard_Highstreets_quad_lookup → econ_busyness_mcard_highstreets_3hourly_txn
+├── JOIN econ_busyness_mcard_TownCentres_quad_lookup → econ_busyness_mcard_towncentres_3hourly_txn
+├── JOIN econ_busyness_mcard_BIDs_quad_lookup → econ_busyness_mcard_bids_3hourly_txn
+└── JOIN econ_busyness_mcard_bespoke_quad_lookup → econ_busyness_mcard_bespokes_3hourly_txn
+    └── UNION ALL → econ_busyness_mcard_3hourly_txn
+```
 
-Mastercard (weekly):
-- Aggregations from `econ_busyness_mrli_3hourly_adj` plus `econ_busyness_mcard_Inner_Outer_quad_lookup` and `econ_busyness_mcard_adjustment_factors` → weekly `*_txn` and consolidated `econ_busyness_mcard_txn`
-- YoY derived from weekly `*_txn` → `econ_busyness_mcard_*_yoy` and consolidated `econ_busyness_mcard_yoy`
-- CPI reference stored in `econ_busyness_mcard_cpi_data` (also applied inline in processing)
+### Mastercard Weekly Flow
+```
+Raw Weekly Files (*.csv) → econ_busyness_mcard_raw_18_zoom
+└── Clean & Complete → econ_busyness_mcard_clean_18_zoom
+    └── Incremental Staging → econ_busyness_mcard_stg_18_zoom
+        └── Inner/Outer Aggregation → econ_busyness_mcard_inner_outer_txn_pre_adj
+            ├── Generate Adjustment Factors → econ_busyness_mcard_adjustment_factors
+            └── Weekly Boundary Aggregations:
+                ├── econ_busyness_mcard_highstreets_txn
+                ├── econ_busyness_mcard_towncentres_txn
+                ├── econ_busyness_mcard_bids_txn
+                ├── econ_busyness_mcard_bespoke_txn
+                ├── econ_busyness_mcard_boroughs_txn
+                ├── econ_busyness_mcard_caz_txn
+                ├── econ_busyness_mcard_msoas_txn
+                ├── econ_busyness_mcard_inner_outer_txn
+                └── econ_busyness_mcard_london_txn
+                    └── UNION ALL → econ_busyness_mcard_txn
+                        └── YoY Growth Calculation → econ_busyness_mcard_*_yoy
+                            └── UNION ALL → econ_busyness_mcard_yoy
+```
+
+### Key Processing Steps
+1. **Raw Data Ingestion**: CSV files → raw tables with file metadata
+2. **Data Cleaning**: Complete missing combinations, filter specific industries
+3. **Incremental Processing**: Only process new data since last run
+4. **Spatial Aggregation**: Quad/hex → boundary via lookup tables
+5. **Market Adjustment**: Apply cash-to-card and market share corrections
+6. **CPI Adjustment**: Apply sector-specific inflation adjustments
+7. **Consolidation**: UNION boundary layers for cross-boundary analysis
+8. **YoY Calculation**: Generate year-over-year growth metrics
 
 ---
 
@@ -307,3 +500,5 @@ Mastercard (weekly):
 - [BT Footfall Data Flow](03.1-bt-data-flow.md)
 - [Mastercard Transaction Data Flow](03.2-mastercard-data-flow.md)
 - [Sublicensing & Data Distribution](07-sublicensing.md)
+
+---
