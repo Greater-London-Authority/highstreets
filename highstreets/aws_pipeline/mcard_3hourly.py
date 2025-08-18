@@ -263,21 +263,16 @@ data_writer.upload_data_to_lds(
     ),
 )
 
-# Sublicenses - Fitzrovia & Knightsbridge
+# Sublicenses - Knightsbridge
 
-fitzrovia_ids = [21, 77]
+
 knightsbridge_ids = [64, 69]
 
 BIDS_quad_lookup = data_loader.get_full_data("econ_busyness_mcard_BIDs_quad_lookup")
 BIDS_quad_lookup['bid_id'] = BIDS_quad_lookup['bid_id'].astype('Int64')
 BIDS_quad_lookup['quad_id'] = BIDS_quad_lookup['quad_id'].astype('Int64')
 
-fitzrovia_mrli = spend_adj_full_range.merge(
-    BIDS_quad_lookup[BIDS_quad_lookup["bid_id"].isin(fitzrovia_ids)],
-    left_on="quad_id",
-    right_on="quad_id",
-    how="right",
-)
+
 knightsbridge_mrli = spend_adj_full_range.merge(
     BIDS_quad_lookup[BIDS_quad_lookup["bid_id"].isin(knightsbridge_ids)],
     left_on="quad_id",
@@ -296,14 +291,6 @@ columns_mrli_bid = [
     "txn_amt_adj",
 ]
 
-fitzrovia_mrli[columns_mrli_bid].assign(hours=lambda x: "'" + x["hours"])[
-    columns_mrli_bid
-].to_csv(
-    f"{base_dir}"
-    "mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/Fitzrovia/"
-    "Fitzrovia_mcard_quad_3hourly_txn.csv",
-    index=False,
-)
 knightsbridge_mrli[columns_mrli_bid].assign(hours=lambda x: "'" + x["hours"])[
     columns_mrli_bid
 ].to_csv(
@@ -311,18 +298,6 @@ knightsbridge_mrli[columns_mrli_bid].assign(hours=lambda x: "'" + x["hours"])[
     "mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/knightsbridge/"
     "Knightsbridge_mcard_quad_3hourly_txn.csv",
     index=False,
-)
-
-# Offloading Fitzrovia 3hourly txn data to datastore
-data_writer.upload_data_to_lds(
-    slug="rendle-intelligence-for-fitzrovia-partnership",
-    resource_title="Fitzrovia_mcard_quad_3hourly_txn.csv",
-    df=fitzrovia_mrli[columns_mrli_bid],
-    file_path=(
-        f"{base_dir}"
-        "mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/Fitzrovia/"
-        "Fitzrovia_mcard_quad_3hourly_txn.csv"
-    ),
 )
 
 # Offloading Knightsbridge 3hourly txn data to datastore
@@ -334,136 +309,6 @@ data_writer.upload_data_to_lds(
         f"{base_dir}"
         "mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/knightsbridge/"
         "Knightsbridge_mcard_quad_3hourly_txn.csv"
-    ),
-)
-
-# sublicense - jon_puleson
-jon_puleston_ids = [46]
-
-jon_puleston_mrli = spend_adj_full_range.merge(
-    BIDS_quad_lookup[BIDS_quad_lookup["bid_id"].isin(jon_puleston_ids)],
-    left_on="quad_id",
-    right_on="quad_id",
-    how="right",
-)
-
-jon_puleston_mrli[columns_mrli_bid].assign(hours=lambda x: "'" + x["hours"])[
-    columns_mrli_bid
-].to_csv(
-    f"{base_dir}"
-    "mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/jon_puleson/"
-    "jon_puleson_mcard_quad_3hourly_txn.csv",
-    index=False,
-)
-# Offloading jon_puleson data to datastore
-data_writer.upload_data_to_lds(
-    slug="jon-puleston-for-station-to-station-bid",
-    resource_title="jon_puleson_mcard_quad_3hourly_txn.csv",
-    file_path=(
-        f"{base_dir}"
-        "mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/jon_puleson/"
-        "jon_puleson_mcard_quad_3hourly_txn.csv"
-    ),
-)
-
-# towncentre quad data request aveson young
-
-aveson_young_tc_ids = [23, 33, 29, 37, 28, 46, 31]
-
-
-# TownCentres_quad_lookup = pd.read_csv(
-#     f"{base_dir}"
-#     "reference_data/TownCentres_quad_lookup.csv"
-# )
-TownCentres_quad_lookup = data_loader.get_full_data(
-    "econ_busyness_mcard_TownCentres_quad_lookup")
-TownCentres_quad_lookup['tc_id'] = TownCentres_quad_lookup['tc_id'].astype('Int64')
-TownCentres_quad_lookup['quad_id'] = TownCentres_quad_lookup['quad_id'].astype('Int64')
-
-aveson_young_tc = spend_adj_full_range.merge(
-    TownCentres_quad_lookup[TownCentres_quad_lookup["tc_id"].isin(aveson_young_tc_ids)],
-    left_on="quad_id",
-    right_on="quad_id",
-    how="right",
-)
-columns_mrli_tc = [
-    "ldn_ref",
-    "quad_id",
-    "tc_name",
-    "count_date",
-    "hours",
-    "txn_amt",
-    "txn_cnt",
-    "txn_amt_adj",
-]
-
-aveson_young_tc[columns_mrli_tc].assign(hours=lambda x: "'" + x["hours"])[
-    columns_mrli_tc
-].to_csv(
-    f"{base_dir}"
-    "mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/aveson_young/"
-    "aveson_young_tc_mcard_quad_3hourly_txn.csv",
-    index=False,
-)
-data_writer.upload_data_to_lds(
-    slug="avison-young",
-    resource_title="avison_young_tc_mcard_quad_3hourly_txn.csv",
-    file_path=(
-        f"{base_dir}"
-        "mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/"
-        "aveson_young/"
-        "aveson_young_tc_mcard_quad_3hourly_txn.csv"
-    ),
-)
-
-# bespoke areas - quads
-# sublicense - aveson young
-aveson_young_bespoke_ids = [249]
-
-bespoke_quad_lookup = data_loader.get_full_data(
-    "econ_busyness_mcard_bespoke_quad_lookup")
-bespoke_quad_lookup['quad_id'] = bespoke_quad_lookup['quad_id'].astype('Int64')
-bespoke_quad_lookup['bespoke_area_id'] = bespoke_quad_lookup[
-    'bespoke_area_id'].astype('Int64')
-# bespoke_quad_lookup = pd.read_csv(
-#     f"{base_dir}"
-#     "reference_data/bespoke_quad_lookup.csv"
-# )
-aveson_young_bespoke = spend_adj_full_range.merge(
-    bespoke_quad_lookup[bespoke_quad_lookup[
-        "bespoke_area_id"].isin(aveson_young_bespoke_ids)],
-    left_on="quad_id",
-    right_on="quad_id",
-    how="right",
-)
-columns_mrli_bespoke = [
-    "ldn_ref",
-    "quad_id",
-    "name",
-    "count_date",
-    "hours",
-    "txn_amt",
-    "txn_cnt",
-    "txn_amt_adj",
-]
-
-aveson_young_bespoke[columns_mrli_bespoke].assign(hours=lambda x: "'" + x["hours"])[
-    columns_mrli_bespoke
-].to_csv(
-    f"{base_dir}"
-    "mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/aveson_young/"
-    "aveson_young_bespoke_mcard_quad_3hourly_txn.csv",
-    index=False,
-)
-
-data_writer.upload_data_to_lds(
-    slug="avison-young",
-    resource_title="avison_young_bespoke_mcard_quad_3hourly_txn.csv",
-    file_path=(
-        f"{base_dir}"
-        "mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/"
-        "aveson_young/"
-        "aveson_young_bespoke_mcard_quad_3hourly_txn.csv"
     ),
 )
 

@@ -322,9 +322,8 @@ data_writer.upload_data_to_lds(
 )
 
 
-# Sublicenses - Fitzrovia & Knightsbridge
+# Sublicenses - Knightsbridge
 
-fitzrovia_ids = [21, 77]
 knightsbridge_ids = [64, 69]
 
 # reading full range txn_bid data from mastercard directory
@@ -332,30 +331,11 @@ mcard_weekly_bid = pd.read_csv(
     f"{base_dir}mastercard/weekly/processed/adjusted_weekly_data/txn_bids.csv"
 )
 
-# filtering all holba site weekly transaction data and writing it to csv
-mcard_weekly_bid[mcard_weekly_bid["bid_id"].isin(fitzrovia_ids)].to_csv(
-    f"{base_dir}"
-    "mastercard/weekly/processed/bid/"
-    "fitzrovia/Fitzrovia_hsds_mcard_weekly_txn.csv",
-    index=False,
-)
 mcard_weekly_bid[mcard_weekly_bid["bid_id"].isin(knightsbridge_ids)].to_csv(
     f"{base_dir}"
     "mastercard/weekly/processed/bid/"
     "knightsbridge/Knightsbridge_hsds_mcard_weekly_txn.csv",
     index=False,
-)
-
-# Offloading Fitzrovia bid weekly txn data to datastore
-data_writer.upload_data_to_lds(
-    slug="rendle-intelligence-for-fitzrovia-partnership",
-    custom_date_column="week_start",
-    resource_title="Fitzrovia_hsds_mcard_weekly_txn.csv",
-    df=mcard_weekly_bid[mcard_weekly_bid["bid_id"].isin(fitzrovia_ids)],
-    file_path=(
-        f"{base_dir}"
-        "mastercard/weekly/processed/bid/fitzrovia/Fitzrovia_hsds_mcard_weekly_txn.csv"
-    ),
 )
 
 # Offloading Knightsbridge bid weekly txn data to datastore

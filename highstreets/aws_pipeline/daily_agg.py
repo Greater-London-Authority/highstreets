@@ -73,24 +73,6 @@ data_writer.upload_data_to_lds(
     ),
 )
 
-# sublicense - southbank BID
-data_daily_full_range[(data_daily_full_range['poi_type'] == 'bids') & (
-    data_daily_full_range['poi_name'] == 'Station to Station')].to_csv(
-    f"{base_dir}bt/processed/daily/jon_puleston/jon_puleston_bt_daily_agg_counts.csv",
-    index=False
-)
-
-# offloading to London datastore
-data_writer.upload_data_to_lds(
-    slug="jon-puleston-for-station-to-station-bid",
-    custom_date_column="count_date",
-    resource_title="jon_puleston_bt_daily_agg_counts.csv",
-    file_path=(
-        f"{base_dir}"
-        "bt/processed/daily/jon_puleston/jon_puleston_bt_daily_agg_counts.csv"
-    ),
-)
-
 # offloading to London datastore
 data_writer.upload_data_to_lds(
     slug="footfall-bt-daily-people-counts-hsds",

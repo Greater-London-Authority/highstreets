@@ -77,8 +77,8 @@ If you have access to the GLA private repository:
 # Set GITHUB_TOKEN environment variable first
 export GITHUB_TOKEN=your_github_token
 
-# Install glapy (for London Datastore integration)
-poetry run python highstreets/scripts/install_glapy.py
+# glapy will be automatically installed when you import highstreets
+poetry run python -c "import highstreets"
 ```
 
 ## Configuration

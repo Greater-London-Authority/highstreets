@@ -226,142 +226,11 @@ columns_hex_bid = [
 
 bid_full_range = data_loader.get_full_data("econ_busyness_bt_bids_3hourly_counts")
 
-# sub license Jon Puleson BID
-jon_puleson_ids = [46]
 
-jon_puleson_hex = tfl_hex_full_range.merge(
-    hex_bid_lookup[hex_bid_lookup["bid_id"].isin(jon_puleson_ids)],
-    left_on="hex_id",
-    right_on="hex_id",
-    how="right",
-)
+# Sublicenses - Knightsbridge
 
-columns_hex_bid = [
-    "hex_id",
-    "bid_name",
-    "count_date",
-    "day",
-    "hours",
-    "resident",
-    "visitor",
-    "worker",
-    "loyalty_percentage",
-    "dwell_time",
-]
-
-jon_puleson_hex.assign(hours=lambda x: "'" + x["time_indicator"])[
-    columns_hex_bid].to_csv(
-    f"{base_dir}bt/"
-    "processed/hex_grid/jon_puleson/jon_puleson_bt_hex_3hourly_counts.csv",
-    index=False,
-)
-# Offloading rendle intel harrow 3hourly hex counts data to datastore
-data_writer.upload_data_to_lds(
-    slug="jon-puleston-for-station-to-station-bid",
-    resource_title="jon_puleson_bt_hex_3hourly_counts.csv",
-    file_path=(
-        f"{base_dir}bt/"
-        "processed/hex_grid/jon_puleson/jon_puleson_bt_hex_3hourly_counts.csv"
-    ),
-)
-
-# sublicnese - aveson young
-
-
-hex_towncentre_lookup = data_loader.get_full_data("econ_busyness_hex_towncentre_lookup")
-
-hex_bespoke_lookup = data_loader.get_full_data("econ_busyness_hex_bespoke_lookup")
-
-
-aveson_young_tc_ids = [23, 33, 29, 37, 28, 46, 31]
-aveson_young_bespoke_ids = [249]
-
-
-aveson_hex_tc = tfl_hex_full_range.merge(
-    hex_towncentre_lookup[hex_towncentre_lookup["tc_id"].isin(aveson_young_tc_ids)],
-    left_on="hex_id",
-    right_on="hex_id",
-    how="right",
-)
-aveson_hex_bespoke = tfl_hex_full_range.merge(
-    hex_bespoke_lookup[hex_bespoke_lookup["bespoke_area_id"].isin(
-        aveson_young_bespoke_ids)],
-    left_on="hex_id",
-    right_on="hex_id",
-    how="right",
-)
-
-columns_hex_tc = [
-    "hex_id",
-    "tc_name",
-    "count_date",
-    "day",
-    "hours",
-    "resident",
-    "visitor",
-    "worker",
-    "loyalty_percentage",
-    "dwell_time",
-]
-
-columns_hex_bespoke = [
-    "hex_id",
-    "name",
-    "count_date",
-    "day",
-    "hours",
-    "resident",
-    "visitor",
-    "worker",
-    "loyalty_percentage",
-    "dwell_time",
-]
-
-aveson_hex_tc.assign(hours=lambda x: "'" + x["time_indicator"])[columns_hex_tc].to_csv(
-    f"{base_dir}"
-    "bt/processed/hex_grid/avison_young/avison_tc_bt_hex_3hourly_counts.csv",
-    index=False,
-)
-aveson_hex_bespoke.assign(hours=lambda x: "'" + x["time_indicator"])[
-    columns_hex_bespoke
-].to_csv(
-    f"{base_dir}"
-    "bt/processed/hex_grid/avison_young/avison_bespoke_bt_hex_3hourly_counts.csv",
-    index=False,
-)
-
-# Offloading aveson 3hourly hex counts data to datastore
-data_writer.upload_data_to_lds(
-    slug="avison-young",
-    resource_title="avison_tc_bt_hex_3hourly_counts.csv",
-    file_path=(
-        f"{base_dir}"
-        "bt/processed/hex_grid/avison_young/avison_tc_bt_hex_3hourly_counts.csv"
-    ),
-)
-
-# Offloading aveson 3hourly hex counts data to datastore
-data_writer.upload_data_to_lds(
-    slug="avison-young",
-    resource_title="avison_bespoke_bt_hex_3hourly_counts.csv",
-    file_path=(
-        f"{base_dir}"
-        "bt/processed/hex_grid/avison_young/avison_bespoke_bt_hex_3hourly_counts.csv"
-    ),
-)
-
-
-# Sublicenses - Fitzrovia & Knightsbridge
-
-fitzrovia_ids = [21, 77]
 knightsbridge_ids = [64, 69]
 
-fitzrovia_hex = tfl_hex_full_range.merge(
-    hex_bid_lookup[hex_bid_lookup["bid_id"].isin(fitzrovia_ids)],
-    left_on="hex_id",
-    right_on="hex_id",
-    how="right",
-)
 knightsbridge_hex = tfl_hex_full_range.merge(
     hex_bid_lookup[hex_bid_lookup["bid_id"].isin(knightsbridge_ids)],
     left_on="hex_id",
@@ -382,28 +251,12 @@ columns_hex_bid = [
     "dwell_time",
 ]
 
-fitzrovia_hex.assign(hours=lambda x: "'" + x["time_indicator"])[columns_hex_bid].to_csv(
-    f"{base_dir}"
-    "bt/processed/hex_grid/fitzrovia/Fitzrovia_bt_hex_3hourly_counts.csv",
-    index=False,
-)
 knightsbridge_hex.assign(hours=lambda x: "'" + x["time_indicator"])[
     columns_hex_bid
 ].to_csv(
     f"{base_dir}"
     "bt/processed/hex_grid/knightsbridge/Knightsbridge_bt_hex_3hourly_counts.csv",
     index=False,
-)
-
-# Offloading Fitzrovia 3hourly hex counts data to datastore
-data_writer.upload_data_to_lds(
-    slug="rendle-intelligence-for-fitzrovia-partnership",
-    resource_title="Fitzrovia_bt_hex_3hourly_counts.csv",
-    df=fitzrovia_hex,
-    file_path=(
-        f"{base_dir}"
-        "bt/processed/hex_grid/fitzrovia/Fitzrovia_bt_hex_3hourly_counts.csv"
-    ),
 )
 
 # Offloading Knightsbridge 3hourly hex counts data to datastore
@@ -414,39 +267,5 @@ data_writer.upload_data_to_lds(
     file_path=(
         f"{base_dir}"
         "bt/processed/hex_grid/knightsbridge/Knightsbridge_bt_hex_3hourly_counts.csv"
-    ),
-)
-
-# sublicense - rendle intel harrow
-
-# to be added to the pipeline
-
-# Sublicenses - Southbank BID
-
-southbank_bid_id = [35]
-
-southbank_hex = tfl_hex_full_range.merge(
-    hex_bid_lookup[hex_bid_lookup["bid_id"].isin(southbank_bid_id)],
-    left_on="hex_id",
-    right_on="hex_id",
-    how="right",
-)
-
-southbank_bid_id = [35]
-
-southbank_hex.assign(hours=lambda x: "'" + x["time_indicator"])[columns_hex_bid].to_csv(
-    f"{base_dir}"
-    "bt/processed/hex_grid/southbank/Southbank_bt_hex_3hourly_counts.csv",
-    index=False,
-)
-
-# Offloading Southbank bid 3hourly hex counts data to southbank datastore page
-data_writer.upload_data_to_lds(
-    slug="southbank-centre",
-    resource_title="Southbank_bt_hex_3hourly_counts.csv",
-    df=southbank_hex,
-    file_path=(
-        f"{base_dir}"
-        "bt/processed/hex_grid/southbank/Southbank_bt_hex_3hourly_counts.csv"
     ),
 )
