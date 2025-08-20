@@ -119,6 +119,10 @@ for area in ['bespoke', 'bid', 'caz', 'highstreet', 'msoa', 'towncentre']:
     df['week_start'] = pd.to_datetime(df['week_start'])
     df_adj = adjust(df, cpi_table)
     df_adj.to_csv(f"{folder}mcard_weekly_{area}_international_txn_adj.csv", index=False)
+    data_writer.truncate_and_load_to_postgres(
+        df_adj,
+        table_name=f'econ_busyness_mcard_{area}_intl_txn',
+        schema='gisapdata')
 
 
 # Sublicense data
@@ -140,6 +144,7 @@ data_writer.upload_data_to_lds(
     ),
 )
 
+# upload the data to the LDS
 data_writer.upload_data_to_lds(
     slug="mastercard-retail-location-insights-international-spend",
     custom_date_column="week_start",

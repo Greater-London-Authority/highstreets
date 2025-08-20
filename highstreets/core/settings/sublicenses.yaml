@@ -1,0 +1,623 @@
+# Comprehensive Sublicense Configuration
+# This YAML file defines all sublicense agreements and their data requirements
+# Supports database-side filtering and flexible data source configuration
+
+# Global configuration
+config:
+  base_schema: "gisapdata"
+  date_formats:
+    mastercard_3hourly: "count_date"
+    mastercard_weekly: "week_start" 
+    bt_footfall: "count_date"
+    bt_hex: "count_date"
+  
+  # Database table mappings
+  data_sources:
+    bt_footfall:
+      aggregated_tables:
+        bespoke: "econ_busyness_bt_bespokes_3hourly_counts"
+        bid: "econ_busyness_bt_bids_3hourly_counts"
+        towncentre: "econ_busyness_bt_towncentres_3hourly_counts"
+        highstreet: "econ_busyness_bt_highstreets_3hourly_counts"
+      raw_table: "bt_footfall_tfl_hex_3hourly"
+      lookup_tables:
+        hex_bid: "econ_busyness_hex_bid_lookup"
+        hex_towncentre: "econ_busyness_hex_towncentre_lookup"
+        hex_bespoke: "econ_busyness_hex_bespoke_lookup"
+        hex_highstreet: "econ_busyness_hex_highstreet_lookup"
+    
+    mastercard_3hourly:
+      aggregated_tables:
+        bespoke: "econ_busyness_mcard_bespokes_3hourly_txn"
+        bid: "econ_busyness_mcard_bids_3hourly_txn"
+        towncentre: "econ_busyness_mcard_towncentres_3hourly_txn"
+        highstreet: "econ_busyness_mcard_highstreets_3hourly_txn"
+      raw_table: "econ_busyness_mrli_3hourly_adj"
+      lookup_tables:
+        quad_bid: "econ_busyness_mcard_BIDs_quad_lookup"
+        quad_towncentre: "econ_busyness_mcard_TownCentres_quad_lookup"
+        quad_bespoke: "econ_busyness_mcard_bespoke_quad_lookup"
+        quad_highstreet: "econ_busyness_mcard_Highstreets_quad_lookup"
+    
+    mastercard_weekly:
+      aggregated_tables:
+        bespoke: "econ_busyness_mcard_bespoke_txn"
+        bid: "econ_busyness_mcard_bids_txn"
+        towncentre: "econ_busyness_mcard_towncentres_txn"
+        highstreet: "econ_busyness_mcard_highstreets_txn"
+        borough: "econ_busyness_mcard_boroughs_txn"
+        caz: "econ_busyness_mcard_caz_txn"
+        msoa: "econ_busyness_mcard_msoas_txn"
+        inner_outer: "econ_busyness_mcard_inner_outer_txn"
+        london: "econ_busyness_mcard_london_txn"
+      yoy_tables:
+        bespoke: "econ_busyness_mcard_bespoke_yoy"
+        bid: "econ_busyness_mcard_bids_yoy"
+        towncentre: "econ_busyness_mcard_towncentres_yoy"
+        highstreet: "econ_busyness_mcard_highstreets_yoy"
+        borough: "econ_busyness_mcard_boroughs_yoy"
+        caz: "econ_busyness_mcard_caz_yoy"
+        msoa: "econ_busyness_mcard_msoas_yoy"
+        inner_outer: "econ_busyness_mcard_inner_outer_yoy"
+        london: "econ_busyness_mcard_london_yoy"
+    
+    mastercard_weekly_intl:
+      aggregated_tables:
+        bespoke: "econ_busyness_mcard_bespoke_intl_txn"
+        bid: "econ_busyness_mcard_bids_intl_txn"
+        towncentre: "econ_busyness_mcard_towncentres_intl_txn"
+        highstreet: "econ_busyness_mcard_highstreets_intl_txn"
+        caz: "econ_busyness_mcard_caz_intl_txn"
+        msoa: "econ_busyness_mcard_msoas_intl_txn"
+
+    bt_daily:
+      aggregated_tables:
+        all: "econ_busyness_bt_daily_agg_cust_raw"
+      raw_table: "econ_busyness_bt_daily_agg_cust_raw"
+      # add lookup_tables if needed
+
+  # Define formatting ONLY where you want it applied
+  data_formatting:
+    bt_footfall:
+      add_apostrophe_columns: ["hours"]
+    bt_hex:
+      column_renames:
+        time_indicator: "hours"
+      add_apostrophe_columns: ["hours"]
+    mastercard_3hourly:
+      add_apostrophe_columns: ["hours"]
+
+
+# Sublicense Agreements
+sublicenses:
+  sublicense-test-hsds:
+    slug: "hsds-sublicense-test"
+    description: "Testing the Automation of the Sublicense Manager"
+    contact: "test@example.com"
+    status: "active"
+    
+    data_sources:
+      - bt_footfall
+      - mastercard_3hourly
+      - mastercard_weekly
+      - mastercard_weekly_intl
+      - bt_daily
+    
+    filters:
+      bespoke_area_ids: [112, 113, 114, 115, 116, 117, 118, 197]
+    
+    query_templates:
+      bt_footfall_bespoke: |
+        SELECT * FROM {schema}.econ_busyness_bt_bespokes_3hourly_counts 
+        WHERE bespoke_area_id IN ({bespoke_area_ids})
+      
+      mastercard_3hourly_bespoke: |
+        SELECT * FROM {schema}.econ_busyness_mcard_bespokes_3hourly_txn 
+        WHERE bespoke_area_id IN ({bespoke_area_ids})
+      
+      mastercard_weekly_bespoke: |
+        SELECT * FROM {schema}.econ_busyness_mcard_bespoke_txn 
+        WHERE bespoke_area_id::int IN ({bespoke_area_ids})
+      
+      mastercard_weekly_bespoke_yoy: |
+        SELECT * FROM {schema}.econ_busyness_mcard_bespoke_yoy 
+        WHERE bespoke_area_id::int IN ({bespoke_area_ids})
+      
+      bt_daily: |
+        SELECT * FROM {schema}.econ_busyness_bt_daily_agg_cust_raw
+        WHERE poi_type = 'bids' AND poi_name = 'Heart of London'
+      
+      mastercard_weekly_bespoke_intl: |
+        SELECT * FROM {schema}.econ_busyness_mcard_bespoke_intl_txn 
+        WHERE bespoke_area_id::int IN ({bespoke_area_ids})
+    
+    output_configs:
+      bt_footfall:
+        resource_title: "colliers_hsds_bt_footfall_3hourly_counts.csv"
+        file_path: "bt/sublicense_test/processed/bespoke/Colliers agreement - Holba sites/"
+        custom_date_column: "count_date"
+      
+      mastercard_3hourly:
+        resource_title: "colliers_hsds_mcard_3hourly_txn.csv"
+        file_path: "mastercard/sublicense_test/mrli_3hourly/processed/bespoke/Colliers agreement - Holba sites/"
+        custom_date_column: "count_date"
+      
+      mastercard_weekly:
+        resource_title: "colliers_hsds_mcard_weekly_txn.csv"
+        file_path: "mastercard/sublicense_test/weekly/processed/bespoke/Colliers agreement - Holba sites/"
+        custom_date_column: "week_start"
+      
+      mastercard_weekly_bespoke_yoy:
+        resource_title: "colliers_hsds_mcard_weekly_yoy.csv"
+        file_path: "mastercard/sublicense_test/weekly/processed/bespoke/Colliers agreement - Holba sites/"
+        custom_date_column: "week_start"
+
+      bt_daily:
+        resource_title: "colliers_bt_daily_agg_counts.csv"
+        file_path: "bt/sublicense_test/processed/daily/Colliers agreement - Holba sites/"
+        custom_date_column: "count_date"
+      
+      mastercard_weekly_bespoke_intl:
+        resource_title: "colliers_mcard_weekly_intl_txn.csv"
+        file_path: "mastercard/sublicense_test/weekly/processed/bespoke/Colliers agreement - Holba sites/"
+        custom_date_column: "week_start"
+  
+  colliers-hsds:
+    slug: "colliers---hsds"
+    description: "Colliers HSDS sublicense agreement for HOLBA sites"
+    contact: "colliers_team@example.com"
+    status: "active"
+    
+    data_sources:
+      - bt_footfall
+      - mastercard_3hourly
+      - mastercard_weekly
+      - mastercard_weekly_intl
+      - bt_daily
+    
+    filters:
+      bespoke_area_ids: [112, 113, 114, 115, 116, 117, 118, 197]
+    
+    query_templates:
+      bt_footfall_bespoke: |
+        SELECT * FROM {schema}.econ_busyness_bt_bespokes_3hourly_counts 
+        WHERE bespoke_area_id IN ({bespoke_area_ids})
+      
+      mastercard_3hourly_bespoke: |
+        SELECT * FROM {schema}.econ_busyness_mcard_bespokes_3hourly_txn 
+        WHERE bespoke_area_id IN ({bespoke_area_ids})
+      
+      mastercard_weekly_bespoke: |
+        SELECT * FROM {schema}.econ_busyness_mcard_bespoke_txn 
+        WHERE bespoke_area_id::int IN ({bespoke_area_ids})
+      
+      bt_daily: |
+        SELECT * FROM {schema}.econ_busyness_bt_daily_agg_cust_raw
+        WHERE poi_type = 'bids' AND poi_name = 'Heart of London'
+      
+      mastercard_weekly_bespoke_intl: |
+        SELECT * FROM {schema}.econ_busyness_mcard_bespoke_intl_txn 
+        WHERE bespoke_area_id::int IN ({bespoke_area_ids})
+    
+    output_configs:
+      bt_footfall:
+        resource_title: "colliers_hsds_footfall_3hourly_counts.csv"
+        file_path: "bt/processed/bespoke/Colliers agreement - Holba sites/"
+        custom_date_column: "count_date"
+      
+      mastercard_3hourly:
+        resource_title: "colliers_hsds_mcard_3hourly_txn.csv"
+        file_path: "mastercard/mrli_3hourly/processed/bespoke/Colliers agreement - Holba sites/"
+        custom_date_column: "count_date"
+      
+      mastercard_weekly:
+        resource_title: "colliers_hsds_mcard_weekly_txn.csv"
+        file_path: "mastercard/weekly/processed/bespoke/Colliers agreement - Holba sites/"
+        custom_date_column: "week_start"
+      
+      bt_daily:
+        resource_title: "colliers_bt_daily_agg_counts.csv"
+        file_path: "bt/processed/daily/Colliers agreement - Holba sites/"
+        custom_date_column: "count_date"
+      
+      mastercard_weekly_bespoke_intl:
+        resource_title: "colliers_mcard_weekly_intl_txn.csv"
+        file_path: "mastercard/weekly/processed/bespoke/Colliers agreement - Holba sites/"
+        custom_date_column: "week_start"
+
+  fitzrovia-partnership:
+    slug: "rendle-intelligence-for-fitzrovia-partnership"
+    description: "Fitzrovia Partnership BID sublicense"
+    contact: "fitzrovia@example.com"
+    status: "inactive"
+    
+    data_sources:
+      - bt_footfall
+      - bt_hex
+      - mastercard_3hourly
+      - mastercard_weekly
+    
+    filters:
+      bid_ids: [21, 77]
+    
+    query_templates:
+      bt_footfall_bid: |
+        SELECT * FROM {schema}.econ_busyness_bt_bids_3hourly_counts 
+        WHERE bid_id IN ({bid_ids})
+      
+      bt_hex: |
+        SELECT h.*, b.bid_name 
+        FROM {schema}.bt_footfall_tfl_hex_3hourly h
+        JOIN {schema}.econ_busyness_hex_bid_lookup b ON h.hex_id = b.hex_id
+        WHERE b.bid_id IN ({bid_ids})
+      
+      mastercard_3hourly_quad: |
+        SELECT m.*, b.bid_name 
+        FROM {schema}.econ_busyness_mrli_3hourly_adj m
+        JOIN {schema}.econ_busyness_mcard_BIDs_quad_lookup b ON m.quad_id = b.quad_id
+        WHERE b.bid_id IN ({bid_ids})
+      
+      mastercard_weekly_bid: |
+        SELECT * FROM {schema}.econ_busyness_mcard_bids_txn 
+        WHERE bid_id IN ({bid_ids})
+    
+    output_configs:
+      bt_footfall:
+        resource_title: "Fitzrovia_bt_3hourly_counts.csv"
+        file_path: "bt/processed/bid/fitzrovia/"
+        custom_date_column: "count_date"
+      
+      bt_hex:
+        resource_title: "Fitzrovia_bt_hex_3hourly_counts.csv"
+        file_path: "bt/processed/hex_grid/fitzrovia/"
+        custom_date_column: "count_date"
+      
+      mastercard_3hourly:
+        resource_title: "Fitzrovia_mcard_quad_3hourly_txn.csv"
+        file_path: "mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/Fitzrovia/"
+        custom_date_column: "count_date"
+      
+      mastercard_weekly:
+        resource_title: "Fitzrovia_hsds_mcard_weekly_txn.csv"
+        file_path: "mastercard/weekly/processed/bid/fitzrovia/"
+        custom_date_column: "week_start"
+
+  knightsbridge-partnership:
+    slug: "rendle-intelligence-for-knightsbridge-partnership"
+    description: "Knightsbridge Partnership BID sublicense"
+    contact: "knightsbridge@example.com"
+    status: "active"
+    
+    data_sources:
+      - bt_footfall
+      - bt_hex
+      - mastercard_3hourly
+      - mastercard_weekly
+    
+    filters:
+      bid_ids: [64, 69]
+    
+    query_templates:
+      bt_footfall_bid: |
+        SELECT * FROM {schema}.econ_busyness_bt_bids_3hourly_counts 
+        WHERE bid_id IN ({bid_ids})
+      
+      bt_hex: |
+        SELECT h.*, b.bid_name 
+        FROM {schema}.bt_footfall_tfl_hex_3hourly h
+        JOIN {schema}.econ_busyness_hex_bid_lookup b ON h.hex_id = b.hex_id
+        WHERE b.bid_id IN ({bid_ids})
+      
+      mastercard_3hourly_quad: |
+        SELECT m.*, b.bid_name 
+        FROM {schema}.econ_busyness_mrli_3hourly_adj m
+        JOIN {schema}.econ_busyness_mcard_BIDs_quad_lookup b ON m.quad_id = b.quad_id
+        WHERE b.bid_id IN ({bid_ids})
+      
+      mastercard_weekly_bid: |
+        SELECT * FROM {schema}.econ_busyness_mcard_bids_txn 
+        WHERE bid_id IN ({bid_ids})
+    
+    output_configs:
+      bt_footfall:
+        resource_title: "Knightsbridge_bt_3hourly_counts.csv"
+        file_path: "bt/processed/bid/knightsbridge/"
+        custom_date_column: "count_date"
+      
+      bt_hex:
+        resource_title: "Knightsbridge_bt_hex_3hourly_counts.csv"
+        file_path: "bt/processed/hex_grid/knightsbridge/"
+        custom_date_column: "count_date"
+      
+      mastercard_3hourly:
+        resource_title: "Knightsbridge_mcard_quad_3hourly_txn.csv"
+        file_path: "mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/knightsbridge/"
+        custom_date_column: "count_date"
+      
+      mastercard_weekly:
+        resource_title: "Knightsbridge_hsds_mcard_weekly_txn.csv"
+        file_path: "mastercard/weekly/processed/bid/knightsbridge/"
+        custom_date_column: "week_start"
+
+  jon-puleston-station-bid:
+    slug: "jon-puleston-for-station-to-station-bid"
+    description: "Jon Puleston Station to Station BID sublicense"
+    contact: "jon.puleston@example.com"
+    status: "inactive"
+    
+    data_sources:
+      - bt_footfall
+      - bt_hex
+      - mastercard_3hourly
+      - bt_daily
+    
+    filters:
+      bid_ids: [46]
+    
+    query_templates:      
+      bt_hex: |
+        SELECT h.*, b.bid_name 
+        FROM {schema}.bt_footfall_tfl_hex_3hourly h
+        JOIN {schema}.econ_busyness_hex_bid_lookup b ON h.hex_id = b.hex_id
+        WHERE b.bid_id IN ({bid_ids})
+      
+      mastercard_3hourly_quad: |
+        SELECT m.*, b.bid_name 
+        FROM {schema}.econ_busyness_mrli_3hourly_adj m
+        JOIN {schema}.econ_busyness_mcard_BIDs_quad_lookup b ON m.quad_id = b.quad_id
+        WHERE b.bid_id IN ({bid_ids})
+      
+      bt_daily: |
+        SELECT * FROM {schema}.econ_busyness_bt_daily_agg_cust_raw
+        WHERE poi_type = 'bids' AND poi_name = 'Station to Station'
+    
+    output_configs:
+      bt_hex:
+        resource_title: "jon_puleson_bt_hex_3hourly_counts.csv"
+        file_path: "bt/processed/hex_grid/jon_puleson/test/"
+        custom_date_column: "count_date"
+      
+      mastercard_3hourly:
+        resource_title: "jon_puleson_mcard_quad_3hourly_txn.csv"
+        file_path: "mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/jon_puleson/"
+        custom_date_column: "count_date"
+      
+      bt_daily:
+        resource_title: "jon_puleston_bt_daily_agg_counts.csv"
+        file_path: "bt/processed/daily/jon_puleston/"
+        custom_date_column: "count_date"
+
+  avison-young:
+    slug: "avison-young"
+    description: "Avison Young sublicense for town centres and bespoke areas"
+    contact: "avison.young@example.com"
+    status: "inactive"
+    
+    data_sources:
+      - bt_footfall
+      - bt_hex
+      - mastercard_3hourly
+    
+    filters:
+      tc_ids: [23, 33, 29, 37, 28, 46, 31]
+      bespoke_area_ids: [249]
+    
+    query_templates:
+      bt_footfall_towncentre: |
+        SELECT * FROM {schema}.econ_busyness_bt_towncentres_3hourly_counts 
+        WHERE tc_id IN ({tc_ids})
+      
+      bt_footfall_bespoke: |
+        SELECT * FROM {schema}.econ_busyness_bt_bespokes_3hourly_counts 
+        WHERE bespoke_area_id IN ({bespoke_area_ids})
+      
+      # bt_hex_towncentre: |
+      #   SELECT h.*, t.tc_name 
+      #   FROM {schema}.bt_footfall_tfl_hex_3hourly h
+      #   JOIN {schema}.econ_busyness_hex_towncentre_lookup t ON h.hex_id = t.hex_id
+      #   WHERE t.tc_id IN ({tc_ids})
+      
+      # bt_hex_bespoke: |
+      #   SELECT h.*, b.name 
+      #   FROM {schema}.bt_footfall_tfl_hex_3hourly h
+      #   JOIN {schema}.econ_busyness_hex_bespoke_lookup b ON h.hex_id = b.hex_id
+      #   WHERE b.bespoke_area_id IN ({bespoke_area_ids})
+      
+      # mastercard_3hourly_towncentre: |
+      #   SELECT m.*, t.tc_name 
+      #   FROM {schema}.econ_busyness_mrli_3hourly_adj m
+      #   JOIN {schema}.econ_busyness_mcard_TownCentres_quad_lookup t ON m.quad_id = t.quad_id
+      #   WHERE t.tc_id IN ({tc_ids})
+      
+      # mastercard_3hourly_bespoke: |
+      #   SELECT m.*, b.name 
+      #   FROM {schema}.econ_busyness_mrli_3hourly_adj m
+      #   JOIN {schema}.econ_busyness_mcard_bespoke_quad_lookup b ON m.quad_id = b.quad_id
+      #   WHERE b.bespoke_area_id IN ({bespoke_area_ids})
+    
+    output_configs:
+      bt_footfall:
+        resource_title: "avison_young_bt_3hourly_counts.csv"
+        file_path: "bt/processed/avison_young/"
+        custom_date_column: "count_date"
+      
+      bt_hex_towncentre:
+        resource_title: "avison_tc_bt_hex_3hourly_counts.csv"
+        file_path: "bt/processed/hex_grid/avison_young/"
+        custom_date_column: "count_date"
+      
+      bt_hex_bespoke:
+        resource_title: "avison_bespoke_bt_hex_3hourly_counts.csv"
+        file_path: "bt/processed/hex_grid/avison_young/"
+        custom_date_column: "count_date"
+      
+      mastercard_3hourly_towncentre:
+        resource_title: "avison_young_tc_mcard_quad_3hourly_txn.csv"
+        file_path: "mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/aveson_young/"
+        custom_date_column: "count_date"
+      
+      mastercard_3hourly_bespoke:
+        resource_title: "avison_young_bespoke_mcard_quad_3hourly_txn.csv"
+        file_path: "mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/aveson_young/"
+        custom_date_column: "count_date"
+
+  westminster-university:
+    slug: "westminster-university"
+    description: "Westminster University academic research sublicense"
+    contact: "research@westminster.ac.uk"
+    status: "active"
+    
+    data_sources:
+      - mastercard_3hourly_yearly
+    
+    filters:
+      years: [2022, 2023, 2024, 2025]
+    
+    query_templates:
+      mastercard_3hourly_2022: |
+        SELECT * FROM {schema}.econ_busyness_mrli_3hourly_adj 
+        WHERE EXTRACT(YEAR FROM count_date) = 2022
+      
+      mastercard_3hourly_2023: |
+        SELECT * FROM {schema}.econ_busyness_mrli_3hourly_adj 
+        WHERE EXTRACT(YEAR FROM count_date) = 2023
+      
+      mastercard_3hourly_2024: |
+        SELECT * FROM {schema}.econ_busyness_mrli_3hourly_adj 
+        WHERE EXTRACT(YEAR FROM count_date) = 2024
+      
+      mastercard_3hourly_2025: |
+        SELECT * FROM {schema}.econ_busyness_mrli_3hourly_adj 
+        WHERE EXTRACT(YEAR FROM count_date) = 2025
+    
+    output_configs:
+      mastercard_3hourly_2022:
+        resource_title: "Mastercard_3hourly_2022.csv"
+        file_path: "mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/"
+      
+      mastercard_3hourly_2023:
+        resource_title: "Mastercard_3hourly_2023.csv"
+        file_path: "mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/"
+      
+      mastercard_3hourly_2024:
+        resource_title: "Mastercard_3hourly_2024.csv"
+        file_path: "mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/"
+      
+      mastercard_3hourly_2025:
+        resource_title: "Mastercard_3hourly_2025.csv"
+        file_path: "mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/"
+
+  southbank-centre:
+    slug: "southbank-centre"
+    description: "Southbank Centre BID and cultural venue sublicense"
+    contact: "data@southbankcentre.co.uk"
+    status: "inactive"
+    
+    data_sources:
+      - bt_footfall
+      - bt_hex
+      - mastercard_3hourly
+      - mastercard_weekly
+    
+    filters:
+      bid_ids: [35, 23, 16, 24]  # Multiple BIDs in Southbank area
+      bespoke_area_ids: [197]    # HOLBA site
+    
+    query_templates:
+      bt_footfall_bid: |
+        SELECT * FROM {schema}.econ_busyness_bt_bids_3hourly_counts 
+        WHERE bid_id IN ({bid_ids})
+      
+      bt_footfall_bespoke: |
+        SELECT * FROM {schema}.econ_busyness_bt_bespokes_3hourly_counts 
+        WHERE bespoke_area_id IN ({bespoke_area_ids})
+      
+      bt_hex: |
+        SELECT h.*, b.bid_name 
+        FROM {schema}.bt_footfall_tfl_hex_3hourly h
+        JOIN {schema}.econ_busyness_hex_bid_lookup b ON h.hex_id = b.hex_id
+        WHERE b.bid_id IN ({bid_ids})
+      
+      mastercard_3hourly_bid: |
+        SELECT m.*, b.bid_name 
+        FROM {schema}.econ_busyness_mrli_3hourly_adj m
+        JOIN {schema}.econ_busyness_mcard_BIDs_quad_lookup b ON m.quad_id = b.quad_id
+        WHERE b.bid_id IN ({bid_ids})
+      
+      mastercard_3hourly_bespoke: |
+        SELECT * FROM {schema}.econ_busyness_mcard_bespokes_3hourly_txn 
+        WHERE bespoke_area_id IN ({bespoke_area_ids})
+      
+      mastercard_weekly_bespoke: |
+        SELECT * FROM {schema}.econ_busyness_mcard_bespoke_txn 
+        WHERE bespoke_area_id IN ({bespoke_area_ids})
+    
+    output_configs:
+      bt_footfall_bid:
+        resource_title: "southbank_bids_bt_footfall_3hourly_counts.csv"
+        file_path: "bt/processed/bid/southbank/"
+        custom_date_column: "count_date"
+      
+      bt_footfall_bespoke:
+        resource_title: "southbank_holba_bt_footfall_3hourly_counts.csv"
+        file_path: "bt/processed/bespoke/southbank/"
+        custom_date_column: "count_date"
+      
+      bt_hex:
+        resource_title: "Southbank_bt_hex_3hourly_counts.csv"
+        file_path: "bt/processed/hex_grid/southbank/"
+        custom_date_column: "count_date"
+      
+      mastercard_3hourly_bid:
+        resource_title: "southbank_bids_mcard_3hourly_txn.csv"
+        file_path: "mastercard/mrli_3hourly/processed/bid/southbank/"
+        custom_date_column: "count_date"
+      
+      mastercard_3hourly_bespoke:
+        resource_title: "southbank_holba_mcard_3hourly_txn.csv"
+        file_path: "mastercard/mrli_3hourly/processed/bespoke/southbank/"
+        custom_date_column: "count_date"
+      
+      mastercard_weekly_bespoke:
+        resource_title: "southbank_holba_mcard_weekly_txn.csv"
+        file_path: "mastercard/weekly/processed/bespoke/southbank/"
+        custom_date_column: "week_start"
+
+  # Commented out - for future activation
+  # andrew-scott-ltn:
+  #   slug: "andrew-scott-project"
+  #   description: "Andrew Scott Low Traffic Neighbourhood research project"
+  #   contact: "andrew.scott@example.com"
+  #   status: "inactive"
+  #   
+  #   data_sources:
+  #     - bt_footfall
+  #     - mastercard_3hourly
+  #     - mastercard_weekly
+  #   
+  #   filters:
+  #     bespoke_area_ids: [220, 221, 222, 223, 224, 225, 226, 227, 228]
+  #   
+  #   query_templates:
+  #     bt_footfall_bespoke: |
+  #       SELECT * FROM {schema}.econ_busyness_bt_bespoke_3hourly_counts 
+  #       WHERE bespoke_area_id IN ({bespoke_area_ids})
+  #     
+  #     mastercard_3hourly_bespoke: |
+  #       SELECT * FROM {schema}.econ_busyness_mcard_bespokes_3hourly_txn 
+  #       WHERE bespoke_area_id IN ({bespoke_area_ids})
+  #     
+  #     mastercard_weekly_bespoke: |
+  #       SELECT * FROM {schema}.econ_busyness_mcard_bespoke_txn 
+  #       WHERE bespoke_area_id IN ({bespoke_area_ids})
+  #   
+  #   output_configs:
+  #     bt_footfall:
+  #       resource_title: "BT_Islington_footfall_3hourly_counts.csv"
+  #       file_path: "bt/processed/bespoke/LTN/"
+  #       custom_date_column: "count_date"
+  #     
+  #     mastercard_weekly:
+  #       resource_title: "Mcard_Islington_weekly_txn.csv"
+  #       file_path: "mastercard/weekly/processed/bespoke/LTN/"
+  #       custom_date_column: "week_start"

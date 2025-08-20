@@ -31,7 +31,6 @@ requests = "^2.27.1"
 geopandas = "^0.9.0"
 geoalchemy2 = "^0.13.3"
 psycopg2 = "^2.8.6"
-# glapy = {git = "https://github.com/Greater-London-Authority/glapy", branch = "feature/lds-update-data"}
 shapely = "1.8.5"
 pygeos = "^0.14"
 fiona = "1.9.6"
