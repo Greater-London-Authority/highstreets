@@ -45,18 +45,16 @@ data_writer = DataWriter()
 # Append transformed data to PostgreSQL table
 data_writer.append_data_to_postgres(transformed_data, "bt_footfall_msoa_hourly")
 
-# Retrieve full range data from PostgreSQL
-msoa_full_range = data_loader.get_full_data("bt_footfall_msoa_hourly")
+# Export transformed data to S3
+latest_file_path = data_writer.export_table_to_s3(
+    table_name='bt_footfall_msoa_hourly',
+    s3_base_path=(f"{base_dir}bt/processed/msoa"),
+    file_prefix='msoa_hourly_counts',
+    add_date_range_to_filename=True,
+    date_column='count_date')
 
-# Write full range data to CSVs: writes to Q drive
-data_writer.write_threehourly_hs_to_csv(msoa_full_range, "bt")
-
-# update data in London Datastore along with start and end dates
 data_writer.upload_data_to_lds(
     slug="footfall-bt-people-counts-hsds",
     resource_title="msoa_hourly_counts.csv",
-    source="bt",
-    poi_type="msoa",
-    df=msoa_full_range,
-    file_name="msoa_3hourly_counts",
+    file_path=latest_file_path
 )

@@ -31,9 +31,6 @@ data_writer.append_data_to_postgres(
     mcard_latest_df_transformed, "econ_busyness_mrli_3hourly"
 )
 
-# Retrieve full range mastercard 3hrly quad data from PostgreSQL and write to CSV
-mrli_full_range_df = data_loader.get_full_data("econ_busyness_mrli_3hourly")
-
 cpi_success = mcard_transform.load_cpi_data_to_postgres(truncate=True)
 if not cpi_success:
     raise Exception("Failed to load CPI data")
@@ -114,80 +111,56 @@ mcard_transform.fetch_and_transform_mcard_data(
 )
 
 
-data_writer.export_table_to_s3(table_name='econ_busyness_mcard_bids_3hourly_txn',
-                               s3_base_path=(f"{base_dir}mastercard/mrli_3hourly/"
-                                             f"processed""/bid"),
-                               file_prefix='bid_3hourly_txn',
-                               add_date_range_to_filename=True,
-                               date_column='count_date')
-data_writer.export_table_to_s3(table_name='econ_busyness_mcard_highstreets_3hourly_txn',
-                               s3_base_path=(f"{base_dir}mastercard/mrli_3hourly/"
-                                             f"processed""/highstreet"),
-                               file_prefix='highstreet_3hourly_txn',
-                               add_date_range_to_filename=True,
-                               date_column='count_date')
-data_writer.export_table_to_s3(table_name='econ_busyness_mcard_towncentres_3hourly_txn',
-                               s3_base_path=(f"{base_dir}mastercard/mrli_3hourly/"
-                                             f"processed""/towncentre"),
-                               file_prefix='towncentre_3hourly_txn',
-                               add_date_range_to_filename=True,
-                               date_column='count_date')
-data_writer.export_table_to_s3(table_name='econ_busyness_mcard_bespokes_3hourly_txn',
-                               s3_base_path=(f"{base_dir}mastercard/mrli_3hourly/"
-                                             f"processed""/bespoke"),
-                               file_prefix='bespoke_3hourly_txn',
-                               add_date_range_to_filename=True,
-                               date_column='count_date')
+latest_file_path_bid = data_writer.export_table_to_s3(
+    table_name='econ_busyness_mcard_bids_3hourly_txn',
+    s3_base_path=(f"{base_dir}mastercard/mrli_3hourly/processed/bid"),
+    file_prefix='bid_3hourly_txn',
+    add_date_range_to_filename=True,
+    date_column='count_date')
+latest_file_path_highstreet = data_writer.export_table_to_s3(
+    table_name='econ_busyness_mcard_highstreets_3hourly_txn',
+    s3_base_path=(f"{base_dir}mastercard/mrli_3hourly/processed/highstreet"),
+    file_prefix='highstreet_3hourly_txn',
+    add_date_range_to_filename=True,
+    date_column='count_date')
+latest_file_path_towncentre = data_writer.export_table_to_s3(
+    table_name='econ_busyness_mcard_towncentres_3hourly_txn',
+    s3_base_path=(f"{base_dir}mastercard/mrli_3hourly/processed/towncentre"),
+    file_prefix='towncentre_3hourly_txn',
+    add_date_range_to_filename=True,
+    date_column='count_date')
+latest_file_path_bespoke = data_writer.export_table_to_s3(
+    table_name='econ_busyness_mcard_bespokes_3hourly_txn',
+    s3_base_path=(f"{base_dir}mastercard/mrli_3hourly/processed/bespoke"),
+    file_prefix='bespoke_3hourly_txn',
+    add_date_range_to_filename=True,
+    date_column='count_date')
 
+# upload to lds
 
-mrli_hs_full_range = data_loader.get_full_data(
-    "econ_busyness_mcard_highstreets_3hourly_txn")
-mrli_tc_full_range = data_loader.get_full_data(
-    "econ_busyness_mcard_towncentres_3hourly_txn")
-mrli_bid_full_range = data_loader.get_full_data(
-    "econ_busyness_mcard_bids_3hourly_txn")
-mrli_bespoke_full_range = data_loader.get_full_data(
-    "econ_busyness_mcard_bespokes_3hourly_txn")
-spend_adj_full_range = data_loader.get_full_data(
-    "econ_busyness_mrli_3hourly_adj")
-
-
-# update data in London Datastore along with start and end dates
+data_writer.upload_data_to_lds(
+    slug="spend-mastercard-retail-index-3-hourly",
+    resource_title="bids_3hourly_txn.csv",
+    file_path=latest_file_path_bid
+)
 data_writer.upload_data_to_lds(
     slug="spend-mastercard-retail-index-3-hourly",
     resource_title="highstreets_3hourly_txn.csv",
-    source="mastercard_3hourly",
-    poi_type="highstreet",
-    df=mrli_hs_full_range,
-    file_name="highstreet_3hourly_txn",
-)
-
-data_writer.upload_data_to_lds(
-    slug="spend-mastercard-retail-index-3-hourly",
-    resource_title="bespoke_3hourly_txn.csv",
-    source="mastercard_3hourly",
-    poi_type="bespoke",
-    df=mrli_bespoke_full_range,
-    file_name="bespoke_3hourly_txn",
+    file_path=latest_file_path_highstreet
 )
 
 data_writer.upload_data_to_lds(
     slug="spend-mastercard-retail-index-3-hourly",
     resource_title="towncentres_3hourly_txn.csv",
-    source="mastercard_3hourly",
-    poi_type="towncentre",
-    df=mrli_tc_full_range,
-    file_name="towncentre_3hourly_txn",
+    file_path=latest_file_path_towncentre
 )
 
 data_writer.upload_data_to_lds(
     slug="spend-mastercard-retail-index-3-hourly",
-    resource_title="bids_3hourly_txn.csv",
-    source="mastercard_3hourly",
-    poi_type="bid",
-    df=mrli_bid_full_range,
-    file_name="bid_3hourly_txn",
+    resource_title="bespoke_3hourly_txn.csv",
+    file_path=latest_file_path_bespoke
 )
+
 
 # sub-license: westminster University
 
@@ -228,87 +201,6 @@ data_writer.upload_data_to_lds(
         f"{base_dir}"
         f"mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/"
         f"MRLI_3yr_compressed_adj_2025.csv"
-    ),
-)
-
-
-# sub-licensing agreement for colliers
-# process HSDS data for the HOLBA sites
-# select ids cooresponding to HOLBA sites
-holba_ids = [112, 113, 114, 115, 116, 117, 118, 197]
-
-# filtering all holba site footfall data and writing it to csv
-mrli_bespoke_full_range[
-    mrli_bespoke_full_range["bespoke_area_id"].isin(holba_ids)
-].to_csv(
-    f"{base_dir}"
-    "mastercard/mrli_3hourly/processed/bespoke/"
-    "Colliers agreement - Holba sites/"
-    "colliers_hsds_mcard_3hourly_txn.csv",
-    index=False,
-)
-
-# Offloading Holba Site 3hourly txn data to datastore
-data_writer.upload_data_to_lds(
-    slug="colliers---hsds",
-    resource_title="colliers_hsds_mcard_3hourly_txn.csv",
-    df=mrli_bespoke_full_range[
-        mrli_bespoke_full_range["bespoke_area_id"].isin(holba_ids)
-    ],
-    file_path=(
-        f"{base_dir}"
-        "mastercard/mrli_3hourly/processed/bespoke/"
-        "Colliers agreement - Holba sites/"
-        "colliers_hsds_mcard_3hourly_txn.csv"
-    ),
-)
-
-# Sublicenses - Knightsbridge
-
-
-knightsbridge_ids = [64, 69]
-
-BIDS_quad_lookup = data_loader.get_full_data("econ_busyness_mcard_BIDs_quad_lookup")
-BIDS_quad_lookup['bid_id'] = BIDS_quad_lookup['bid_id'].astype('Int64')
-BIDS_quad_lookup['quad_id'] = BIDS_quad_lookup['quad_id'].astype('Int64')
-
-
-knightsbridge_mrli = spend_adj_full_range.merge(
-    BIDS_quad_lookup[BIDS_quad_lookup["bid_id"].isin(knightsbridge_ids)],
-    left_on="quad_id",
-    right_on="quad_id",
-    how="right",
-)
-
-columns_mrli_bid = [
-    "ldn_ref",
-    "quad_id",
-    "bid_name",
-    "count_date",
-    "hours",
-    "txn_amt",
-    "txn_cnt",
-    "txn_amt_adj",
-]
-
-knightsbridge_mrli[columns_mrli_bid].assign(hours=lambda x: "'" + x["hours"])[
-    columns_mrli_bid
-].to_csv(
-    f"{base_dir}"
-    "mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/knightsbridge/"
-    "Knightsbridge_mcard_quad_3hourly_txn.csv",
-    index=False,
-)
-
-# Offloading Knightsbridge 3hourly txn data to datastore
-data_writer.upload_data_to_lds(
-    slug="rendle-intelligence-for-knightsbridge-partnership",
-    resource_title="Knightsbridge_mcard_quad_3hourly_txn.csv",
-    df=knightsbridge_mrli[columns_mrli_bid],
-    file_path=(
-        f"{base_dir}"
-        "mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/knightsbridge/"
-        "Knightsbridge_mcard_quad_3hourly_txn.csv"
     ),
 )
 

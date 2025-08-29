@@ -48,15 +48,6 @@ data_writer = DataWriter()
 # Append transformed data to PostgreSQL table
 data_writer.append_data_to_postgres(transformed_data, "bt_footfall_tfl_hex_3hourly")
 
-# get full range BT hex data from postgres and write to csv
-tfl_hex_full_range = data_loader.get_full_data("bt_footfall_tfl_hex_3hourly")
-
-# # Retrieve full range BT hex data from PostgreSQL and write to CSV
-# data_writer.write_hex_to_csv_by_year(
-#     tfl_hex_full_range,
-#     f"{base_dir}bt/processed/hex_grid",
-# )
-
 # add here to offload hex data to s3
 data_writer.export_table_by_year_to_s3(
     table_name='bt_footfall_tfl_hex_3hourly',
@@ -131,14 +122,6 @@ hex_transform.concat_and_load_all_hex_layers(
     load_to_db=True
 )
 
-# Retrieve full range data from PostgreSQL
-hs_full_range = data_loader.get_full_data("econ_busyness_bt_highstreets_3hourly_counts")
-tc_full_range = data_loader.get_full_data("econ_busyness_bt_towncentres_3hourly_counts")
-bid_full_range = data_loader.get_full_data("econ_busyness_bt_bids_3hourly_counts")
-bespoke_full_range = data_loader.get_full_data(
-    "econ_busyness_bt_bespokes" "_3hourly_counts"
-)
-
 data_writer.export_table_to_s3(table_name='econ_busyness_bt_bids_3hourly_counts',
                                s3_base_path=f"{base_dir}bt/processed/bid",
                                file_prefix='bid_3hourly_counts')
@@ -179,93 +162,5 @@ data_writer.upload_data_to_lds(
     resource_title="bespokes_3hourly_counts.csv",
     file_path=(
         f"{base_dir}bt/processed/bespoke/bespoke_3hourly_counts.csv"
-    ),
-)
-
-# sub-licensing agreement for colliers
-# process HSDS data for the HOLBA sites
-# select ids cooresponding to HOLBA sites
-holba_ids = [112, 113, 114, 115, 116, 117, 118, 197]
-
-# filtering all holba site footfall data and writing it to csv
-bespoke_full_range[bespoke_full_range["bespoke_area_id"].isin(
-    holba_ids)].assign(hours=lambda x: "'" + x["hours"]).to_csv(
-    f"{base_dir}"
-    "bt/processed/bespoke/Colliers agreement - Holba sites/"
-    "colliers_hsds_bt_footfall_3hourly_counts.csv",
-    index=False,
-)
-
-# Offloading Holba site data to datastore
-data_writer.upload_data_to_lds(
-    slug="colliers---hsds",
-    resource_title="colliers_hsds_footfall_3hourly_counts.csv",
-    df=bespoke_full_range[bespoke_full_range["bespoke_area_id"].isin(holba_ids)],
-    file_path=(
-        f"{base_dir}"
-        "bt/processed/bespoke/"
-        "Colliers agreement - Holba sites/"
-        "colliers_hsds_bt_footfall_3hourly_counts.csv"
-    ),
-)
-
-hex_bid_lookup = data_loader.get_full_data('econ_busyness_hex_bid_lookup')
-
-columns_hex_bid = [
-    "hex_id",
-    "bid_name",
-    "count_date",
-    "day",
-    "hours",
-    "resident",
-    "visitor",
-    "worker",
-    "loyalty_percentage",
-    "dwell_time",
-]
-
-bid_full_range = data_loader.get_full_data("econ_busyness_bt_bids_3hourly_counts")
-
-
-# Sublicenses - Knightsbridge
-
-knightsbridge_ids = [64, 69]
-
-knightsbridge_hex = tfl_hex_full_range.merge(
-    hex_bid_lookup[hex_bid_lookup["bid_id"].isin(knightsbridge_ids)],
-    left_on="hex_id",
-    right_on="hex_id",
-    how="right",
-)
-
-columns_hex_bid = [
-    "hex_id",
-    "bid_name",
-    "count_date",
-    "day",
-    "hours",
-    "resident",
-    "visitor",
-    "worker",
-    "loyalty_percentage",
-    "dwell_time",
-]
-
-knightsbridge_hex.assign(hours=lambda x: "'" + x["time_indicator"])[
-    columns_hex_bid
-].to_csv(
-    f"{base_dir}"
-    "bt/processed/hex_grid/knightsbridge/Knightsbridge_bt_hex_3hourly_counts.csv",
-    index=False,
-)
-
-# Offloading Knightsbridge 3hourly hex counts data to datastore
-data_writer.upload_data_to_lds(
-    slug="rendle-intelligence-for-knightsbridge-partnership",
-    resource_title="Knightsbridge_bt_hex_3hourly_counts.csv",
-    df=knightsbridge_hex,
-    file_path=(
-        f"{base_dir}"
-        "bt/processed/hex_grid/knightsbridge/Knightsbridge_bt_hex_3hourly_counts.csv"
     ),
 )

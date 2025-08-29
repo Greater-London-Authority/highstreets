@@ -298,10 +298,6 @@ sublicenses:
       bid_ids: [64, 69]
     
     query_templates:
-      bt_footfall_bid: |
-        SELECT * FROM {schema}.econ_busyness_bt_bids_3hourly_counts 
-        WHERE bid_id IN ({bid_ids})
-      
       bt_hex: |
         SELECT h.*, b.bid_name 
         FROM {schema}.bt_footfall_tfl_hex_3hourly h
@@ -311,19 +307,14 @@ sublicenses:
       mastercard_3hourly_quad: |
         SELECT m.*, b.bid_name 
         FROM {schema}.econ_busyness_mrli_3hourly_adj m
-        JOIN {schema}.econ_busyness_mcard_BIDs_quad_lookup b ON m.quad_id = b.quad_id
-        WHERE b.bid_id IN ({bid_ids})
+        JOIN {schema}.econ_busyness_mcard_BIDs_quad_lookup b ON m.quad_id::bigint = b.quad_id::bigint
+        WHERE b.bid_id::int IN ({bid_ids})
       
       mastercard_weekly_bid: |
         SELECT * FROM {schema}.econ_busyness_mcard_bids_txn 
-        WHERE bid_id IN ({bid_ids})
+        WHERE bid_id::int IN ({bid_ids})
     
     output_configs:
-      bt_footfall:
-        resource_title: "Knightsbridge_bt_3hourly_counts.csv"
-        file_path: "bt/processed/bid/knightsbridge/"
-        custom_date_column: "count_date"
-      
       bt_hex:
         resource_title: "Knightsbridge_bt_hex_3hourly_counts.csv"
         file_path: "bt/processed/hex_grid/knightsbridge/"
@@ -582,42 +573,3 @@ sublicenses:
         resource_title: "southbank_holba_mcard_weekly_txn.csv"
         file_path: "mastercard/weekly/processed/bespoke/southbank/"
         custom_date_column: "week_start"
-
-  # Commented out - for future activation
-  # andrew-scott-ltn:
-  #   slug: "andrew-scott-project"
-  #   description: "Andrew Scott Low Traffic Neighbourhood research project"
-  #   contact: "andrew.scott@example.com"
-  #   status: "inactive"
-  #   
-  #   data_sources:
-  #     - bt_footfall
-  #     - mastercard_3hourly
-  #     - mastercard_weekly
-  #   
-  #   filters:
-  #     bespoke_area_ids: [220, 221, 222, 223, 224, 225, 226, 227, 228]
-  #   
-  #   query_templates:
-  #     bt_footfall_bespoke: |
-  #       SELECT * FROM {schema}.econ_busyness_bt_bespoke_3hourly_counts 
-  #       WHERE bespoke_area_id IN ({bespoke_area_ids})
-  #     
-  #     mastercard_3hourly_bespoke: |
-  #       SELECT * FROM {schema}.econ_busyness_mcard_bespokes_3hourly_txn 
-  #       WHERE bespoke_area_id IN ({bespoke_area_ids})
-  #     
-  #     mastercard_weekly_bespoke: |
-  #       SELECT * FROM {schema}.econ_busyness_mcard_bespoke_txn 
-  #       WHERE bespoke_area_id IN ({bespoke_area_ids})
-  #   
-  #   output_configs:
-  #     bt_footfall:
-  #       resource_title: "BT_Islington_footfall_3hourly_counts.csv"
-  #       file_path: "bt/processed/bespoke/LTN/"
-  #       custom_date_column: "count_date"
-  #     
-  #     mastercard_weekly:
-  #       resource_title: "Mcard_Islington_weekly_txn.csv"
-  #       file_path: "mastercard/weekly/processed/bespoke/LTN/"
-  #       custom_date_column: "week_start"

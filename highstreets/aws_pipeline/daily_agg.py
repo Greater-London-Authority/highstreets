@@ -45,33 +45,24 @@ data_writer = DataWriter()
 data_writer.append_data_to_postgres(
     data, table_name="econ_busyness_bt_daily_agg_cust_raw")
 
-data_daily_full_range = data_loader.get_full_data(
-    "econ_busyness_bt_daily_agg_cust_raw")
+# data_daily_full_range = data_loader.get_full_data(
+#     "econ_busyness_bt_daily_agg_cust_raw")
 
-# writing to csv by year
-data_writer.write_hex_to_csv_by_year(
-    data_daily_full_range,
-    output_dir=f"{base_dir}bt/processed/daily",
-    custom_file_name="BT_daily_agg_counts",
+# offloading to s3
+data_writer.export_table_by_year_to_s3(
+    table_name='econ_busyness_bt_daily_agg_cust_raw',
+    date_column='count_date',
+    s3_base_path=f"{base_dir}bt/processed/daily",
+    file_prefix='BT_daily_agg_counts',
+    latest=True
 )
 
-# sublicense - colliers
-data_daily_full_range[(data_daily_full_range['poi_type'] == 'bids') & (
-    data_daily_full_range['poi_name'] == 'Heart of London')].to_csv(
-    f"{base_dir}bt/processed/daily/Colliers agreement"
-    f" - Holba sites/colliers_bt_daily_agg_counts.csv", index=False
-)
-
-data_writer.upload_data_to_lds(
-    slug="colliers---hsds",
-    custom_date_column="count_date",
-    resource_title="colliers_bt_daily_agg_counts.csv",
-    file_path=(
-        f"{base_dir}"
-        f"bt/processed/daily/"
-        f"Colliers agreement - Holba sites/colliers_bt_daily_agg_counts.csv"
-    ),
-)
+# # writing to csv by year
+# data_writer.write_hex_to_csv_by_year(
+#     data_daily_full_range,
+#     output_dir=f"{base_dir}bt/processed/daily",
+#     custom_file_name="BT_daily_agg_counts",
+# )
 
 # offloading to London datastore
 data_writer.upload_data_to_lds(

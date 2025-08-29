@@ -1102,6 +1102,46 @@ class DataWriter:
                 f"{resource_title}: {str(e)}"
             )
 
+    # Add this new method to the DataWriter class
+    def get_latest_s3_file(self, s3_base_path, file_prefix):
+        """
+        Find the latest file in S3 directory with the given prefix.
+
+        Parameters:
+        s3_base_path (str): The S3 base path to search in
+        file_prefix (str): The file prefix to match (e.g., 'msoa_hourly_counts')
+
+        Returns:
+        str: The full S3 path to the latest file
+        """
+        try:
+            # Remove s3:// prefix and extract bucket and prefix
+            s3_path = s3_base_path.replace('s3://', '').strip('/')
+            if '/' in s3_path:
+                bucket = s3_path.split('/')[0]
+                prefix = '/'.join(s3_path.split('/')[1:]) + '/'
+            else:
+                bucket = s3_path
+                prefix = ''
+
+            # List objects with the file prefix
+            response = self.s3_client.list_objects_v2(
+                Bucket=bucket,
+                Prefix=f"{prefix}{file_prefix}"
+            )
+
+            if 'Contents' not in response:
+                raise FileNotFoundError(
+                    f"No files found with prefix {file_prefix} in {s3_base_path}")
+
+            # Sort by LastModified and get the latest
+            latest_file = max(response['Contents'], key=lambda x: x['LastModified'])
+            return f"s3://{bucket}/{latest_file['Key']}"
+
+        except Exception as e:
+            logging.error(f"Error finding latest S3 file: {str(e)}")
+            raise
+
     def export_table_to_s3(
         self,
         table_name: str,
@@ -1193,3 +1233,4 @@ class DataWriter:
             if 'conn' in locals():
                 conn.close()
             logging.info("Database connection closed")
+            return s3_file_path

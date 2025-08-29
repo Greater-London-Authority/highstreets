@@ -124,26 +124,6 @@ for area in ['bespoke', 'bid', 'caz', 'highstreet', 'msoa', 'towncentre']:
         table_name=f'econ_busyness_mcard_{area}_intl_txn',
         schema='gisapdata')
 
-
-# Sublicense data
-
-bespoke_adj = pd.read_csv(f"{folder}mcard_weekly_bespoke_international_txn.csv")
-
-# sublicense - colliers
-holba_ids = [112, 113, 114, 115, 116, 117, 118, 197]
-bespoke_adj[bespoke_adj['bespoke_area_id'].isin(holba_ids)].to_csv(
-    f"{folder}bespoke/Colliers agreement - Holba sites/"
-    "colliers_mcard_weekly_intl_txn.csv", index=False)
-data_writer.upload_data_to_lds(
-    slug="colliers---hsds",
-    custom_date_column="week_start",
-    resource_title="colliers_mcard_weekly_intl_txn.csv",
-    file_path=(
-        f"{folder}bespoke/Colliers agreement - Holba sites/"
-        "colliers_mcard_weekly_intl_txn.csv"
-    ),
-)
-
 # upload the data to the LDS
 data_writer.upload_data_to_lds(
     slug="mastercard-retail-location-insights-international-spend",
