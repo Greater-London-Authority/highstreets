@@ -11,7 +11,7 @@ results = manager.process_sublicense_complete(
     upload_to_datastore=True)
 
 # Process Knightsbridge HSDS sublicense
-results = manager.process_sublicense_complete(
-    'knightsbridge-partnership',
-    save_files=True,
-    upload_to_datastore=True)
+# results = manager.process_sublicense_complete(
+#     'knightsbridge-partnership',
+#     save_files=True,
+#     upload_to_datastore=True)

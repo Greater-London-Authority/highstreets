@@ -121,6 +121,8 @@ class MsoaTransform(DataLoader):
         transformed_data["visitor"] = np.round(
             pd.to_numeric(transformed_data["visitor"], errors="coerce")
         ).astype("Int64", errors="ignore")
+        # Ensure visitor values are not negative - set negative values to 0
+        transformed_data["visitor"] = transformed_data["visitor"].clip(lower=0)
         transformed_data["day"] = (
             transformed_data["date"].dt.strftime("%a").astype("category")
         )

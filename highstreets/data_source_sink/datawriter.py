@@ -486,7 +486,8 @@ class DataWriter:
             logging.error(f"An error occurred while writing CSV files: {e}")
 
     def export_table_by_year_to_s3(self, table_name, date_column, s3_base_path,
-                                   file_prefix=None, latest=False):
+                                   file_prefix=None, latest=False,
+                                   apostrophe_columns=None):
         """
         Exports data from a PostgreSQL table into yearly partitions as CSV files on S3.
 
@@ -499,6 +500,7 @@ class DataWriter:
         file_prefix (str): The prefix to use for CSV filenames (default is
         "hex_3hourly_counts").
         latest (bool): If True, only exports the latest year's data. Default is False.
+        apostrophe_columns (list): List of column names to prefix with apostrophe.
 
         The function:
         1. Determines the full date range from the table.
@@ -531,6 +533,31 @@ class DataWriter:
             start_year = max_date.year if latest else min_date.year
             end_year = max_date.year
 
+            # Build the SELECT statement with optional apostrophe formatting
+            if apostrophe_columns:
+                # Get all columns in their original order
+                all_columns_query = f"""
+                    SELECT column_name
+                    FROM information_schema.columns
+                    WHERE table_name = '{table_name}'
+                    ORDER BY ordinal_position
+                """
+
+                cur.execute(all_columns_query)
+                all_columns = [row[0] for row in cur.fetchall()]
+
+                # Build SELECT list maintaining original order
+                select_parts = []
+                for col in all_columns:
+                    if col in apostrophe_columns:
+                        select_parts.append(
+                            f"'''' || COALESCE({col}::text, '') AS {col}")
+                    else:
+                        select_parts.append(col)
+                select_statement = ', '.join(select_parts)
+            else:
+                select_statement = "*"
+
             # Initialize S3 filesystem via fsspec
             fs = fsspec.filesystem("s3")
 
@@ -543,7 +570,7 @@ class DataWriter:
                 # Build the COPY command query with optimized date filtering
                 copy_sql = f"""
                     COPY (
-                        SELECT *
+                        SELECT {select_statement}
                         FROM {table_name}
                         WHERE {date_column} >= '{year}-01-01'::date
                         AND {date_column} < '{year+1}-01-01'::date
@@ -1148,7 +1175,8 @@ class DataWriter:
         s3_base_path: str,
         file_prefix: str,
         add_date_range_to_filename: bool = False,
-        date_column: str = None
+        date_column: str = None,
+        apostrophe_columns: list = None  # Add this parameter back
     ):
         """
         Exports entire data from a PostgreSQL table as a single CSV file to S3.
@@ -1156,15 +1184,17 @@ class DataWriter:
         Parameters:
         table_name (str): The name of the PostgreSQL table.
         s3_base_path (str): The base S3 path where the CSV file will be written
-                            (e.g., "s3://your-bucket/path/to/data").
+                        (e.g., "s3://your-bucket/path/to/data").
         file_prefix (str): The prefix to use for CSV filename.
         add_date_range_to_filename (bool): If True, appends _startdate_enddate to
         filename.
         date_column (str): The name of the date column to use for min/max date.
+        apostrophe_columns (list): List of column names to prefix with apostrophe.
 
         Example:
-        export_table_to_s3("my_table", "s3://bucket/folder", "my_data", True, "count_date") # noqa
-        -> Creates: s3://bucket/folder/my_data_2022-01-01_2024-12-31.csv
+        export_table_to_s3("my_table", "s3://bucket/folder", "my_data", True,
+                       "count_date", ["hours"])
+        -> Creates CSV with 'hours column prefixed with apostrophe
         """
         try:
             # Optionally fetch min/max date for filename
@@ -1199,10 +1229,36 @@ class DataWriter:
 
             logging.info(f"Exporting data to {s3_file_path}...")
 
-            # Build the COPY command query
+            # Build the COPY command query with optional apostrophe formatting
+            if apostrophe_columns:
+                # Get all columns in their original order
+                all_columns_query = f"""
+                    SELECT column_name
+                    FROM information_schema.columns
+                    WHERE table_name = '{table_name}'
+                    ORDER BY ordinal_position
+                """
+
+                with self.engine.connect() as conn:
+                    result = conn.execute(text(all_columns_query)).fetchall()
+                    all_columns = [row[0] for row in result]
+
+                # Build SELECT list maintaining original order
+                select_parts = []
+                for col in all_columns:
+                    if col in apostrophe_columns:
+                        select_parts.append(
+                            f"'''' || COALESCE({col}::text, '') AS {col}")
+                    else:
+                        select_parts.append(col)
+
+                select_statement = ', '.join(select_parts)
+            else:
+                select_statement = "*"
+
             copy_sql = f"""
                 COPY (
-                    SELECT *
+                    SELECT {select_statement}
                     FROM {table_name}
                     ORDER BY 1
                 ) TO STDOUT WITH CSV HEADER;
@@ -1234,3 +1290,116 @@ class DataWriter:
                 conn.close()
             logging.info("Database connection closed")
             return s3_file_path
+
+    def append_raw_json_to_monthly_s3(self, raw_data, start_date, end_date,
+                                      s3_base_path):
+        """
+        Appends raw JSON data to monthly files in S3. If the monthly file doesn't exist,
+        creates it. If it exists, downloads it, appends the new data, and uploads it
+        back.
+
+        Parameters:
+        raw_data: The raw JSON data to append (list of dictionaries or JSON string)
+        start_date (str): Start date in YYYY-MM-DD format
+        end_date (str): End date in YYYY-MM-DD format
+        s3_base_path (str): Base S3 path where monthly JSON files are stored
+
+        Returns:
+        list: List of monthly file paths that were updated
+        """
+        import json
+        from datetime import datetime
+        import pandas as pd
+
+        try:
+            # Ensure raw_data is a list of dictionaries
+            if isinstance(raw_data, str):
+                raw_data = json.loads(raw_data)
+            elif hasattr(raw_data, 'to_dict'):  # pandas DataFrame
+                raw_data = raw_data.to_dict('records')
+
+            # Parse date range
+            start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+            end_dt = datetime.strptime(end_date, '%Y-%m-%d')  # noqa: F841
+
+            # Group data by month
+            monthly_data = {}
+            for record in raw_data:
+                # Extract date from record (assuming 'date' field exists)
+                record_date = None
+                if 'date' in record:
+                    record_date = pd.to_datetime(record['date']).to_pydatetime()
+                elif 'count_date' in record:
+                    record_date = pd.to_datetime(record['count_date']).to_pydatetime()
+                else:
+                    # If no date field, use start_date as fallback
+                    record_date = start_dt
+
+                # Create monthly key (YYYY-MM)
+                month_key = record_date.strftime('%Y-%m')
+                if month_key not in monthly_data:
+                    monthly_data[month_key] = []
+                monthly_data[month_key].append(record)
+
+            # Initialize S3 filesystem
+            fs = fsspec.filesystem("s3")
+            updated_files = []
+
+            # Process each month
+            for month_key, month_records in monthly_data.items():
+                # Construct monthly file path
+                monthly_filename = f"{month_key}.json"
+                s3_monthly_path = f"{s3_base_path.rstrip('/')}/{monthly_filename}"
+
+                existing_data = []
+
+                # Check if monthly file already exists
+                try:
+                    with fs.open(s3_monthly_path, 'r') as f:
+                        existing_data = json.load(f)
+                    logging.info(f"Found existing monthly file: {s3_monthly_path}")
+                except FileNotFoundError:
+                    logging.info(f"Creating new monthly file: {s3_monthly_path}")
+                except Exception as e:
+                    logging.warning(
+                        f"Error reading existing file {s3_monthly_path}: {e}")
+
+                # Combine existing data with new data
+                combined_data = existing_data + month_records
+
+                # Remove duplicates if needed (based on a unique field combination)
+                # This prevents duplicate data when reprocessing the same date range
+                seen = set()
+                unique_data = []
+                for record in combined_data:
+                    # Create a unique key (adjust fields as needed for your data)
+                    unique_key = (
+                        record.get('poi_id', ''),
+                        record.get('date', ''),
+                        record.get('time_indicator', '')
+                    )
+                    if unique_key not in seen:
+                        seen.add(unique_key)
+                        unique_data.append(record)
+
+                # Sort data by date for better organization
+                try:
+                    unique_data.sort(key=lambda x: x.get('date', ''))
+                except:  # noqa: E722
+                    pass  # Skip sorting if date format issues
+
+                # Upload updated monthly file
+                with fs.open(s3_monthly_path, 'w') as f:
+                    json.dump(unique_data, f, indent=2, default=str)
+
+                updated_files.append(s3_monthly_path)
+                logging.info(
+                    f"Updated monthly file {s3_monthly_path} with {len(month_records)} "
+                    f"new records (total: {len(unique_data)} records)"
+                )
+
+            return updated_files
+
+        except Exception as e:
+            logging.error(f"Error in append_raw_json_to_monthly_s3: {str(e)}")
+            raise

@@ -45,7 +45,8 @@ data_writer.export_table_by_year_to_s3(
     date_column='count_date',
     s3_base_path=f"{base_dir}mastercard/mrli_3hourly/processed/MRLI_3yr_compressed",
     file_prefix='MRLI_3yr_compressed_adj',
-    latest=True
+    latest=True,
+    apostrophe_columns=['hours']
 )
 
 # add here to offload hex data to s3
@@ -54,7 +55,8 @@ data_writer.export_table_by_year_to_s3(
     date_column='count_date',
     s3_base_path=f"{base_dir}mastercard/mrli_3hourly/processed/MRLI_3yr_compressed",
     file_prefix='MRLI_3yr_compressed',
-    latest=True
+    latest=True,
+    apostrophe_columns=['hours']
 )
 
 # automatic upload for Mastercard 3-hourly data to London Datastore
@@ -116,25 +118,29 @@ latest_file_path_bid = data_writer.export_table_to_s3(
     s3_base_path=(f"{base_dir}mastercard/mrli_3hourly/processed/bid"),
     file_prefix='bid_3hourly_txn',
     add_date_range_to_filename=True,
-    date_column='count_date')
+    date_column='count_date',
+    apostrophe_columns=['hours'])
 latest_file_path_highstreet = data_writer.export_table_to_s3(
     table_name='econ_busyness_mcard_highstreets_3hourly_txn',
     s3_base_path=(f"{base_dir}mastercard/mrli_3hourly/processed/highstreet"),
     file_prefix='highstreet_3hourly_txn',
     add_date_range_to_filename=True,
-    date_column='count_date')
+    date_column='count_date',
+    apostrophe_columns=['hours'])
 latest_file_path_towncentre = data_writer.export_table_to_s3(
     table_name='econ_busyness_mcard_towncentres_3hourly_txn',
     s3_base_path=(f"{base_dir}mastercard/mrli_3hourly/processed/towncentre"),
     file_prefix='towncentre_3hourly_txn',
     add_date_range_to_filename=True,
-    date_column='count_date')
+    date_column='count_date',
+    apostrophe_columns=['hours'])
 latest_file_path_bespoke = data_writer.export_table_to_s3(
     table_name='econ_busyness_mcard_bespokes_3hourly_txn',
     s3_base_path=(f"{base_dir}mastercard/mrli_3hourly/processed/bespoke"),
     file_prefix='bespoke_3hourly_txn',
     add_date_range_to_filename=True,
-    date_column='count_date')
+    date_column='count_date',
+    apostrophe_columns=['hours'])
 
 # upload to lds
 
