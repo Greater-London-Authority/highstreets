@@ -1633,6 +1633,226 @@ class FileProcessor:
             self.logger.error(traceback.format_exc())
             raise
 
+    def incremental_refresh_mcard_mopac_db(self,
+                                           mopac_db_credentials=None,
+                                           target_table='econ_busyness_mcard_stg_alt',
+                                           schema=None,
+                                           batch_size=10000):
+        """
+        OPTIMIZED: Performs an efficient incremental refresh to mopac database.
+        Only loads new data since the last high watermark.
+        Maps to different column names: cal_year, cal_week, week_commencing, industry,
+        segment, quad_id, txn_amt, txn_count, weekday_weekend.
+        No industry filter applied, segment filter: ('International', 'Overall')
+
+        Parameters
+        ----------
+        mopac_db_credentials : dict
+            Dictionary containing alternative database credentials
+        target_table : str
+            Target table name in the mopac database
+        schema : str, optional
+            Target schema name in the mopac database
+        batch_size : int
+            Number of records to process in each batch (default: 10000)
+        """
+        self.logger.info(
+            f"Starting OPTIMIZED incremental refresh of {target_table}"
+            f" in mopac database")
+
+        # Use provided credentials or default environment variables for alt DB
+        if mopac_db_credentials is None:
+            mopac_db_credentials = {
+                'database': os.getenv("MOPAC_PG_DATABASE"),
+                'username': os.getenv("MOPAC_PG_USER"),
+                'password': os.getenv("MOPAC_PG_PASSWORD"),
+                'host': os.getenv("MOPAC_PG_HOST"),
+                'port': os.getenv("MOPAC_PG_PORT")
+            }
+
+        # Create alternative database engine
+        mopac_engine = create_engine(
+            f"postgresql+psycopg2://{mopac_db_credentials['username']}:"
+            f"{mopac_db_credentials['password']}@{mopac_db_credentials['host']}:"
+            f"{mopac_db_credentials['port']}/{mopac_db_credentials['database']}"
+        )
+
+        # Construct full table name with schema if provided
+        full_table_name = f"{schema}.{target_table}" if schema else target_table
+
+        try:
+            with mopac_engine.begin() as mopac_conn:
+                # Step 1: Determine high watermark from existing table
+                high_watermark_result = mopac_conn.execute(text(f"""
+                    -- Get the true latest data point by ordering by year and week
+                    WITH ranked_dates AS (
+                        SELECT
+                            cal_year,
+                            cal_week,
+                            ROW_NUMBER() OVER (ORDER BY cal_year DESC,
+                                                        cal_week DESC
+                            ) as rn
+                        FROM {full_table_name}
+                        GROUP BY cal_year, cal_week
+                    )
+                    SELECT cal_year, cal_week
+                    FROM ranked_dates
+                    WHERE rn = 1;
+                """)).fetchone()
+
+                if high_watermark_result:
+                    max_yr = high_watermark_result[0]
+                    max_wk = high_watermark_result[1]
+                    self.logger.info(
+                        f"Found existing data up to Year {max_yr}, Week {max_wk}")
+                else:
+                    # If table is empty, set default values
+                    max_yr = 2010
+                    max_wk = 1
+                    self.logger.info(
+                        "No existing data found, starting from Year 2010, Week 1")
+
+            # OPTIMIZATION 1: Get count first for progress tracking
+            with self.engine.begin() as source_conn:
+                count_query = text("""
+                    SELECT COUNT(DISTINCT (
+                    yr, wk, industry, segment, quad_id, weekday_weekend))
+                    FROM econ_busyness_mcard_raw_18_zoom
+                    WHERE segment IN ('International', 'Overall')
+                    AND geo_name = 'London'
+                    AND (yr > :max_yr OR (yr = :max_yr AND wk > :max_wk))
+                """)
+                total_new_records = source_conn.execute(
+                    count_query, {"max_yr": max_yr, "max_wk": max_wk}).scalar()
+
+                if total_new_records == 0:
+                    self.logger.info("No new data to load")
+                    return 0
+
+                self.logger.info(f"Found {total_new_records:,} new records to process")
+
+            # OPTIMIZATION 2: Use streaming cursor + batched processing
+            total_inserted = 0
+            batch_count = 0
+
+            with self.engine.begin() as source_conn:
+                # OPTIMIZATION 3: Improved query with explicit type casting
+                source_query = text("""
+                    SELECT DISTINCT ON (
+                        yr, wk, industry, segment, quad_id, weekday_weekend
+                    )
+                        CAST(ROUND(yr) AS INTEGER) as cal_year,
+                        CAST(ROUND(wk) AS INTEGER) as cal_week,
+                        -- Calculate week_commencing based on yr and wk
+                        (DATE_TRUNC('week',
+                        TO_DATE(CONCAT(CAST(ROUND(yr) AS TEXT), '0104'), 'YYYYMMDD')
+                        + INTERVAL '1 day' * (7 * (CAST(ROUND(wk) AS INTEGER) - 1))
+                        ))::DATE as week_commencing,
+                        COALESCE(TRIM(industry), 'Unknown') as industry,
+                        COALESCE(TRIM(segment), 'Unknown') as segment,
+                        CAST(quad_id AS BIGINT) as quad_id,
+                        COALESCE(CAST(txn_amt AS NUMERIC), 0) as txn_amt,
+                        COALESCE(CAST(txn_cnt AS INTEGER), 0) as txn_count,
+                        COALESCE(TRIM(weekday_weekend), 'Unknown') as weekday_weekend
+                    FROM econ_busyness_mcard_raw_18_zoom
+                    WHERE segment IN ('International', 'Overall')
+                    AND geo_name = 'London'
+                    AND (yr > :max_yr OR (yr = :max_yr AND wk > :max_wk))
+                    AND yr IS NOT NULL AND wk IS NOT NULL
+                    ORDER BY yr, wk, industry, segment, quad_id,
+                        weekday_weekend, txn_amt;
+                """)
+
+                # OPTIMIZATION 4: Use server-side cursor for memory efficiency
+                result = source_conn.execution_options(stream_results=True).execute(
+                    source_query, {"max_yr": max_yr, "max_wk": max_wk}
+                )
+
+                # OPTIMIZATION 5: Process in batches with bulk INSERT
+                while True:
+                    batch = result.fetchmany(batch_size)
+                    if not batch:
+                        break
+
+                    batch_count += 1
+                    batch_size_actual = len(batch)
+
+                    self.logger.info(
+                        f"Processing batch {batch_count},"
+                        f" size: {batch_size_actual:,}")
+
+                    # Convert to list of dictionaries for bulk insert
+                    columns = [
+                        'cal_year', 'cal_week', 'week_commencing', 'industry',
+                        'segment', 'quad_id', 'txn_amt',
+                        'txn_count', 'weekday_weekend']
+                    data_dicts = [dict(zip(columns, row)) for row in batch]
+
+                    # OPTIMIZATION 6: Bulk insert with better performance
+                    with mopac_engine.begin() as mopac_conn:
+                        # Use VALUES clause for better performance than executemany
+                        if batch_size_actual > 1:
+                            # Multi-row INSERT for better performance
+                            values_clause = ','.join([
+                                f"({row['cal_year']}, {row['cal_week']}, "
+                                f"'{row['week_commencing']}', '{row['industry']}', '{row['segment']}', "  # noqa: E501
+                                f"{row['quad_id']}, {row['txn_amt']}, {row['txn_count']}, '{row['weekday_weekend']}')"  # noqa: E501
+                                for row in data_dicts
+                            ])
+
+                            bulk_insert_stmt = text(f"""
+                                INSERT INTO {full_table_name} (
+                                    cal_year, cal_week, week_commencing, industry,
+                                    segment, quad_id, txn_amt, txn_count, weekday_weekend
+                                ) VALUES {values_clause}
+                            """)
+
+                            mopac_conn.execute(bulk_insert_stmt)
+                        else:
+                            # Single row INSERT for small batches
+                            insert_stmt = text(f"""
+                                INSERT INTO {full_table_name} (
+                                    cal_year, cal_week, week_commencing, industry,
+                                    segment, quad_id, txn_amt, txn_count, weekday_weekend
+                                ) VALUES (
+                                    :cal_year, :cal_week, :week_commencing, :industry,
+                                    :segment, :quad_id, :txn_amt, :txn_count,
+                                    :weekday_weekend
+                                )
+                            """)
+                            mopac_conn.execute(insert_stmt, data_dicts)
+
+                        total_inserted += batch_size_actual
+
+                        # Progress update
+                        progress = (
+                            total_inserted / total_new_records * 100) if total_new_records > 0 else 0  # noqa: E501
+                        self.logger.info(
+                            f"✅ Inserted batch {batch_count}: {total_inserted:,}/"
+                            f"{total_new_records:,} ({progress:.1f}%)")
+
+            # Step 3: Final statistics update
+            with mopac_engine.begin() as mopac_conn:
+                if total_inserted > 0:
+                    mopac_conn.execute(text(f"""
+                        -- Update statistics for query planner
+                        ANALYZE {full_table_name};
+                    """))
+
+            self.logger.info(f"✅ Completed: Added {total_inserted:,}"
+                             f"new records to {full_table_name}")
+            return total_inserted
+
+        except Exception as e:
+            self.logger.error(f"Error during incremental refresh to mopac DB: {e}")
+            # Log the full traceback for debugging
+            import traceback
+            self.logger.error(traceback.format_exc())
+            raise
+        finally:
+            # Close mopac engine
+            mopac_engine.dispose()
+
     def concat_and_load_all_mcard_weekly_txn_layers(
         self,
         query_file: str = 'weekly_txn_all_layers_concat_query.sql',

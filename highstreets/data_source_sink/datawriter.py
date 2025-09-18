@@ -8,9 +8,12 @@ import geopandas as gpd
 import pandas as pd
 from datetime import date
 from dotenv import find_dotenv, load_dotenv
-from glapy import lds
 from glapy.database.utils import fast_write
 from sqlalchemy import create_engine, text
+import tempfile
+import shutil
+from datapress import DataPressClient
+from typing import Dict, Any
 
 from highstreets import config
 
@@ -27,7 +30,6 @@ class DataWriter:
         self.password = os.getenv("PG_PASSWORD")
         self.host = os.getenv("PG_HOST")
         self.port = os.getenv("PG_PORT")
-        self.lds_api_key = os.getenv("LDS_API_KEY")
         self.base_dir = config.BASE_DIR
         self.base_path = f"{self.base_dir}"
         self.s3_bucket = config.S3_BUCKET
@@ -42,6 +44,10 @@ class DataWriter:
             "mastercard_3hourly": f"{self.base_path}mastercard/mrli_3hourly/processed/",
             "bt": f"{self.base_path}bt/processed/",
         }
+
+        # Add datapress client initialization
+        self.datapress_client = None
+        self._initialize_datapress_client()
 
     def _get_filesystem(self, directory):
         if directory.startswith('s3://'):
@@ -992,142 +998,264 @@ class DataWriter:
             )
             raise  # Re-raise the exception for better error handling
 
+    def _initialize_datapress_client(self):
+        """Initialize the DataPress client for London Data Store uploads."""
+        try:
+            datapress_api_key = os.getenv("LDS_API_KEY")
+            datapress_url = "https://data.london.gov.uk"
+
+            if datapress_api_key and datapress_url:
+                self.datapress_client = DataPressClient(
+                    api_key=datapress_api_key,
+                    base_url=datapress_url
+                )
+                logging.info("DataPress client initialized successfully")
+            else:
+                logging.warning(
+                    "DataPress credentials not found in environment variables")
+        except Exception as e:
+            logging.error(f"Failed to initialize DataPress client: {str(e)}")
+            self.datapress_client = None
+
+    def _upload_file_with_s3_support_streaming(
+        self,
+        dataset_id: str,
+        file_path: str,
+        chunk_size: int = 4 * 1024 * 1024,  # 4MB chunks for large files
+        show_progress: bool = False,
+        **kwargs
+    ) -> Dict[str, Any]:
+        """
+        Enhanced streaming version that handles large files efficiently.
+
+        Args:
+            dataset_id: Dataset ID for the upload
+            file_path: File path (local or S3)
+            chunk_size: Size of chunks for streaming (default 4MB)
+            show_progress: Whether to show download progress
+            **kwargs: Additional arguments to pass to client.upload_file()
+
+        Returns:
+            Result from client.upload_file()
+        """
+
+        if not self.datapress_client:
+            raise ValueError("DataPress client not initialized. Check your credentials.")
+
+        if file_path.startswith('s3://'):
+            # Create a temporary file with appropriate suffix
+            file_extension = os.path.splitext(file_path)[1] or '.csv'
+
+            with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as temp_file:  # noqa: E501
+                temp_path = temp_file.name
+
+            try:
+                # Get file size for progress tracking (optional)
+                if show_progress:
+                    fs = fsspec.filesystem('s3')
+                    try:
+                        file_size = fs.size(file_path)
+                        logging.info(
+                            f"Downloading {file_path}"
+                            f" ({file_size / 1024 / 1024:.1f} MB)...")
+                    except Exception:
+                        file_size = None
+                        logging.info(f"Downloading {file_path}...")
+
+                # Stream from S3 to local file with custom chunk size
+                with fsspec.open(file_path, 'rb') as s3_file:
+                    with open(temp_path, 'wb') as local_file:
+                        if show_progress and file_size:
+                            # Progress tracking version
+                            downloaded = 0
+                            while True:
+                                chunk = s3_file.read(chunk_size)
+                                if not chunk:
+                                    break
+                                local_file.write(chunk)
+                                downloaded += len(chunk)
+                                progress = (downloaded / file_size) * 100
+                                # Log every 10MB
+                                if downloaded % (10 * 1024 * 1024) == 0:
+                                    logging.info(f"Download progress: {progress:.1f}%")
+                        else:
+                            # Simple streaming without progress
+                            shutil.copyfileobj(s3_file, local_file, length=chunk_size)
+
+                if show_progress:
+                    logging.info("Download complete. Uploading to London Data Store...")
+
+                # Upload using datapress client
+                result = self.datapress_client.upload_file(
+                    dataset_id=dataset_id,
+                    file_path=temp_path,
+                    **kwargs
+                )
+
+                if show_progress:
+                    logging.info(f"Upload complete! Resource ID:"
+                                 f" {result.get('resource_id', 'N/A')}")
+
+                return result
+
+            except Exception as e:
+                logging.error(f"Error processing S3 file {file_path}: {str(e)}")
+                raise
+
+            finally:
+                # Clean up temporary file
+                if os.path.exists(temp_path):
+                    try:
+                        os.unlink(temp_path)
+                    except Exception as e:
+                        logging.warning(
+                            f"Could not delete temp file {temp_path}: {str(e)}")
+
+        else:
+            # For local files, use the client directly
+            return self.datapress_client.upload_file(
+                dataset_id=dataset_id,
+                file_path=file_path,
+                **kwargs
+            )
+
     def upload_data_to_lds(
         self,
-        slug,
-        resource_title,
-        source=None,
-        poi_type=None,
-        df=None,
-        file_path=None,
-        file_name=None,
-        custom_date_column="count_date",  # Added parameter for custom date column
+        slug: str,
+        resource_title: str,
+        file_path: str = None,
+        df: pd.DataFrame = None,
+        description: str = None,
+        custom_date_column: str = "count_date",
+        show_progress: bool = True,
+        chunk_size: int = 4 * 1024 * 1024
     ):
         """
-        Upload data to the Linked Data Service (LDS) for a given resource.
+        Upload data to London Data Store using the DataPress client.
 
         Parameters:
-        - slug (str): The slug identifier for the dataset.
-        - resource_title (str): The title of the resource to be uploaded.
-        - source (str, optional): The data source identifier. Default is None.
-        - poi_type (str, optional): The point of interest type.
-          highstreet/bid/towncentre/bespoke/msoa
-          Default is None.
-        - df (pd.DataFrame, optional): The DataFrame containing the data to be uploaded.
-          Default is None.
-        - file_path (str, optional): The path to the file if not using a DataFrame.
-          Default is None.
-        - file_name (str, optional): The name of the file to be uploaded.
-          Default is None.
+        - slug (str): The dataset slug/ID for the upload
+        - resource_title (str): The title of the resource to update
+        - file_path (str, optional): The path to the file (local or S3)
+        - df (pd.DataFrame, optional): DataFrame containing the data
+        - description (str, optional): Description of the resource
+        - custom_date_column (str): Date column name for timeframe calculation
+        - show_progress (bool): Whether to show upload progress
+        - chunk_size (int): Chunk size for streaming large files
 
-        Raises:
-        - ValueError: If neither DataFrame nor file path is provided, or if the
-          'count_date' column is not found in the DataFrame.
-
-        Note:
-        - If a DataFrame is provided, it calculates 'temporal_coverage_from' and
-          'temporal_coverage_to'.
-        - If 'file_path' is not provided, a default path is constructed based on the
-          provided parameters.
-        - It uses the Linked Data Service (LDS) API to replace the resource.
-        - Logs successful or failed data upload attempts with appropriate messages.
-
-        Example:
-        ```
-        lds_instance.upload_data_to_lds(slug='dataset_slug', resource_title='Resource1',
-                                        source='BT', poi_type='bid', df=data_frame)
-        ```
-
+        Returns:
+        - dict: Result from the upload operation
         """
+
+        if not self.datapress_client:
+            raise ValueError(
+                "DataPress client not initialized. Check your environment variables.")
+
         if df is None and file_path is None:
             raise ValueError("Either a DataFrame or a file path must be provided.")
 
-        if df is not None:
-            # If DataFrame is provided, calculate temporal_coverage_from
-            # and temporal_coverage_to
-            if custom_date_column not in df.columns:
-                raise ValueError(
-                    f"Date column {custom_date_column!r} not found in the DataFrame."
-                )
-            temporal_coverage_from = str(
-                pd.to_datetime(df[custom_date_column]).min().date()
-            )
-            temporal_coverage_to = str(
-                pd.to_datetime(df[custom_date_column]).max().date()
-            )
-
-        if file_path is not None and df is None:
-            # Read the file into a DataFrame
-            with fsspec.open(file_path, mode="rt") as file:
-                df = pd.read_csv(file)
-            if custom_date_column not in df.columns:
-                raise ValueError(
-                    f"Date column {custom_date_column!r} not found in the file."
-                )
-            temporal_coverage_from = str(
-                pd.to_datetime(df[custom_date_column]).min().date()
-            )
-            temporal_coverage_to = str(
-                pd.to_datetime(df[custom_date_column]).max().date()
-            )
-
-        # Construct default file path if not provided
-        if file_path is None:
-            if source == 'mastercard_3hourly':
-                file_path = (
-                    f"{self.base_path}mastercard/mrli_3hourly/processed/{poi_type}/"
-                    f"{file_name}_{temporal_coverage_from}"
-                    f"_{temporal_coverage_to}.csv"
-                )
-            elif source == 'bt':
-                file_path = (
-                    f"{self.base_path}{source}/processed/{poi_type}/"
-                    f"{file_name}_{temporal_coverage_from}"
-                    f"_{temporal_coverage_to}.csv"
-                )
+        # Get dataset information and find the resource_id
         try:
-            # Replace resource using lds.replace_resource
-            df_metadata = lds.meta_dataset(slug, self.lds_api_key)[
-                ["resource_id", "resource_title", "description_y"]
-            ]
-            resource_id = df_metadata.loc[
-                df_metadata["resource_title"] == resource_title, "resource_id"
-            ].values[0]
-            resource_description = df_metadata.loc[
-                df_metadata["resource_title"] == resource_title, "description_y"
-            ].values[0]
-            if df is not None:
-                lds.replace_resource_s3(
-                    file_path=file_path,
-                    slug=slug,
-                    api_key=self.lds_api_key,
-                    res_id=resource_id,
-                    temporal_coverage_from=pd.to_datetime(temporal_coverage_from),
-                    temporal_coverage_to=pd.to_datetime(temporal_coverage_to),
-                    res_title=resource_title,
-                    description=resource_description,
-                )
-                logging.info(
-                    f"Data uploaded successfully to LDS for resource {resource_title}"
-                    f"from {temporal_coverage_from} to {temporal_coverage_to}"
-                )
-            else:
-                lds.replace_resource_s3(
-                    file_path=file_path,
-                    slug=slug,
-                    api_key=self.lds_api_key,
-                    res_title=resource_title,
-                    res_id=resource_id,
-                    description=resource_description,
-                )
-                logging.info(
-                    f"Data uploaded successfully to LDS for resource {resource_title}"
-                )
+            dataset = self.datapress_client.get_dataset(slug)
+            resources = dataset.get('resources', {})
+
+            # Find resource_id by matching resource_title
+            resource_id = None
+            for res_id, res_info in resources.items():
+                if res_info.get('title') == resource_title:
+                    resource_id = res_id
+                    break
+
+            if not resource_id:
+                raise ValueError(f"Resource with title '{resource_title}'"
+                                 f" not found in dataset '{slug}'")
+
+            logging.info(f"Found resource ID: {resource_id} for title: {resource_title}")
+
         except Exception as e:
-            logging.error(
-                f"Failed to upload data to LDS for resource '"
-                f"{resource_title}: {str(e)}"
+            logging.error(f"Failed to get dataset information: {str(e)}")
+            raise
+
+        # Handle DataFrame - save to temporary file if needed
+        temp_df_file = None
+        if df is not None and file_path is None:
+            # Create a temporary file for the DataFrame
+            temp_df_file = tempfile.NamedTemporaryFile(
+                mode='w', suffix='.csv', delete=False)
+            df.to_csv(temp_df_file.name, index=False)
+            file_path = temp_df_file.name
+            temp_df_file.close()
+            logging.info(f"DataFrame saved to temporary file: {file_path}")
+
+        # Calculate timeframe from file or DataFrame
+        timeframe = None
+        try:
+            if df is not None:
+                # Use the DataFrame directly
+                if custom_date_column not in df.columns:
+                    raise ValueError(f"Date column {custom_date_column!r}"
+                                     f" not found in the DataFrame.")
+
+                min_date = pd.to_datetime(df[custom_date_column]).min()
+                max_date = pd.to_datetime(df[custom_date_column]).max()
+            else:
+                # Read file to get date range
+                with fsspec.open(file_path, mode="rt") as file:
+                    temp_df = pd.read_csv(file)
+                if custom_date_column not in temp_df.columns:
+                    raise ValueError(
+                        f"Date column {custom_date_column!r} not found in the file.")
+
+                min_date = pd.to_datetime(temp_df[custom_date_column]).min()
+                max_date = pd.to_datetime(temp_df[custom_date_column]).max()
+
+            # Format timeframe as YYYY-MM (year and month only)
+            timeframe = {
+                "from": min_date.strftime("%Y-%m"),
+                "to": max_date.strftime("%Y-%m")
+            }
+
+            logging.info(f"Calculated timeframe: {timeframe}")
+
+        except Exception as e:
+            logging.warning(f"Could not calculate timeframe: {str(e)}")
+            # Continue without timeframe if calculation fails
+
+        try:
+            # Upload using the streaming method
+            result = self._upload_file_with_s3_support_streaming(
+                dataset_id=slug,
+                file_path=file_path,
+                resource_id=resource_id,
+                title=resource_title,
+                description=description,
+                timeframe=timeframe,
+                show_progress=show_progress,
+                chunk_size=chunk_size
             )
+
+            logging.info(
+                f"Data uploaded successfully to LDS using DataPress for resource"
+                f" '{resource_title}'"
+                f" (Resource ID: {result.get('resource_id', 'N/A')})"
+            )
+
+            return result
+
+        except Exception as e:
+            logging.error(f"Failed to upload data to LDS using DataPress for resource"
+                          f" '{resource_title}': {str(e)}")
+            raise
+
+        finally:
+            # Clean up temporary DataFrame file if created
+            if temp_df_file and os.path.exists(temp_df_file.name):
+                try:
+                    os.unlink(temp_df_file.name)
+                    logging.info("Cleaned up temporary DataFrame file")
+                except Exception as e:
+                    logging.warning(
+                        f"Could not delete temporary DataFrame file: {str(e)}")
 
     # Add this new method to the DataWriter class
     def get_latest_s3_file(self, s3_base_path, file_prefix):

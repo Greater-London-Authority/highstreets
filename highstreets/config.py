@@ -122,3 +122,7 @@ BT_CATCHMENT_WORKER_API_ENDPOINT = (
     "https://api.business.bt.com/v1/footfall/reports/monthly-aggregate/"
     "home-catchment-worker/lsoa?agg=time_indicator"
 )
+
+# ================ LDC CONFIG ==================================================
+LDC_OUTPUT_DIR = f"{BASE_DIR}ldc/"
+LDC_BACKUP_DIR = f"{BASE_DIR}ldc/ldc_backups/"
