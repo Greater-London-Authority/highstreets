@@ -14,6 +14,8 @@ import tempfile
 import shutil
 from datapress import DataPressClient
 from typing import Dict, Any
+import time
+import random
 
 from highstreets import config
 
@@ -48,6 +50,44 @@ class DataWriter:
         # Add datapress client initialization
         self.datapress_client = None
         self._initialize_datapress_client()
+
+    def _initialize_datapress_client(self):
+        """Initialize the DataPress client for London Data Store uploads."""
+        try:
+            datapress_api_key = os.getenv("LDS_API_KEY")
+            datapress_url = "https://data.london.gov.uk"
+
+            if datapress_api_key and datapress_url:
+                self.datapress_client = DataPressClient(
+                    api_key=datapress_api_key,
+                    base_url=datapress_url
+                )
+                logging.info("DataPress client initialized successfully")
+            else:
+                logging.warning(
+                    "DataPress credentials not found in environment variables")
+        except Exception as e:
+            logging.error(f"Failed to initialize DataPress client: {str(e)}")
+            self.datapress_client = None
+
+    def _retry_operation(self, operation, max_retries=3, operation_name="operation"):
+        """Generic retry wrapper with exponential backoff."""
+        for attempt in range(max_retries):
+            try:
+                return operation()
+            except Exception as e:
+                if attempt == max_retries - 1:  # Last attempt
+                    logging.error(
+                        f"{operation_name} failed after"
+                        f" {max_retries} attempts: {str(e)}")
+                    raise
+
+                # Exponential backoff with jitter
+                wait_time = (2 ** attempt) + random.uniform(0, 1)
+                logging.warning(f"{operation_name} failed (attempt"
+                                f" {attempt + 1}): {str(e)}")
+                logging.info(f"Retrying in {wait_time:.1f} seconds...")
+                time.sleep(wait_time)
 
     def _get_filesystem(self, directory):
         if directory.startswith('s3://'):
@@ -998,25 +1038,6 @@ class DataWriter:
             )
             raise  # Re-raise the exception for better error handling
 
-    def _initialize_datapress_client(self):
-        """Initialize the DataPress client for London Data Store uploads."""
-        try:
-            datapress_api_key = os.getenv("LDS_API_KEY")
-            datapress_url = "https://data.london.gov.uk"
-
-            if datapress_api_key and datapress_url:
-                self.datapress_client = DataPressClient(
-                    api_key=datapress_api_key,
-                    base_url=datapress_url
-                )
-                logging.info("DataPress client initialized successfully")
-            else:
-                logging.warning(
-                    "DataPress credentials not found in environment variables")
-        except Exception as e:
-            logging.error(f"Failed to initialize DataPress client: {str(e)}")
-            self.datapress_client = None
-
     def _upload_file_with_s3_support_streaming(
         self,
         dataset_id: str,
@@ -1154,9 +1175,12 @@ class DataWriter:
         if df is None and file_path is None:
             raise ValueError("Either a DataFrame or a file path must be provided.")
 
-        # Get dataset information and find the resource_id
+        # Get dataset information and find the resource_id with retry
         try:
-            dataset = self.datapress_client.get_dataset(slug)
+            dataset = self._retry_operation(
+                lambda: self.datapress_client.get_dataset(slug),
+                operation_name="Get dataset"
+            )
             resources = dataset.get('resources', {})
 
             # Find resource_id by matching resource_title
@@ -1222,16 +1246,19 @@ class DataWriter:
             # Continue without timeframe if calculation fails
 
         try:
-            # Upload using the streaming method
-            result = self._upload_file_with_s3_support_streaming(
-                dataset_id=slug,
-                file_path=file_path,
-                resource_id=resource_id,
-                title=resource_title,
-                description=description,
-                timeframe=timeframe,
-                show_progress=show_progress,
-                chunk_size=chunk_size
+            # Upload using the streaming method with retry
+            result = self._retry_operation(
+                lambda: self._upload_file_with_s3_support_streaming(
+                    dataset_id=slug,
+                    file_path=file_path,
+                    resource_id=resource_id,
+                    title=resource_title,
+                    description=description,
+                    timeframe=timeframe,
+                    show_progress=show_progress,
+                    chunk_size=chunk_size
+                ),
+                operation_name="File upload"
             )
 
             logging.info(
