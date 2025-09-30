@@ -1140,7 +1140,7 @@ class DataWriter:
                 **kwargs
             )
 
-    def upload_data_to_lds(
+    def upload_data_to_lds(  # noqa: C901
         self,
         slug: str,
         resource_title: str,
@@ -1153,19 +1153,6 @@ class DataWriter:
     ):
         """
         Upload data to London Data Store using the DataPress client.
-
-        Parameters:
-        - slug (str): The dataset slug/ID for the upload
-        - resource_title (str): The title of the resource to update
-        - file_path (str, optional): The path to the file (local or S3)
-        - df (pd.DataFrame, optional): DataFrame containing the data
-        - description (str, optional): Description of the resource
-        - custom_date_column (str): Date column name for timeframe calculation
-        - show_progress (bool): Whether to show upload progress
-        - chunk_size (int): Chunk size for streaming large files
-
-        Returns:
-        - dict: Result from the upload operation
         """
 
         if not self.datapress_client:
@@ -1176,6 +1163,7 @@ class DataWriter:
             raise ValueError("Either a DataFrame or a file path must be provided.")
 
         # Get dataset information and find the resource_id with retry
+        resource_id = None
         try:
             dataset = self._retry_operation(
                 lambda: self.datapress_client.get_dataset(slug),
@@ -1184,105 +1172,167 @@ class DataWriter:
             resources = dataset.get('resources', {})
 
             # Find resource_id by matching resource_title
-            resource_id = None
             for res_id, res_info in resources.items():
                 if res_info.get('title') == resource_title:
                     resource_id = res_id
                     break
 
-            if not resource_id:
-                raise ValueError(f"Resource with title '{resource_title}'"
-                                 f" not found in dataset '{slug}'")
-
-            logging.info(f"Found resource ID: {resource_id} for title: {resource_title}")
+            if resource_id:
+                logging.info(f"Found existing resource ID: {resource_id}"
+                             f" for title: {resource_title}")
+            else:
+                logging.info(f"No existing resource found with title '{resource_title}'"
+                             f". Will create new resource.")
 
         except Exception as e:
             logging.error(f"Failed to get dataset information: {str(e)}")
             raise
 
-        # Handle DataFrame - save to temporary file if needed
+        # Always create a properly named temporary file
         temp_df_file = None
-        if df is not None and file_path is None:
-            # Create a temporary file for the DataFrame
-            temp_df_file = tempfile.NamedTemporaryFile(
-                mode='w', suffix='.csv', delete=False)
-            df.to_csv(temp_df_file.name, index=False)
-            file_path = temp_df_file.name
-            temp_df_file.close()
-            logging.info(f"DataFrame saved to temporary file: {file_path}")
+        original_file_path = file_path  # Store original for cleanup logic # noqa: F841
 
-        # Calculate timeframe from file or DataFrame
-        timeframe = None
+        # Sanitize resource_title for use as filename
+        safe_filename = "".join(c for c in resource_title if c.isalnum() or c in (' ', '-', '_', '.')).rstrip()  # noqa: E501
+        safe_filename = safe_filename.replace(' ', '_')
+
+        # Ensure it has .csv extension if not already present
+        if not safe_filename.lower().endswith('.csv'):
+            safe_filename += '.csv'
+
+        # Create temporary file with meaningful name
+        import tempfile
+        import os
+        import shutil
+        temp_dir = tempfile.gettempdir()
+        temp_file_path = os.path.join(temp_dir, safe_filename)
+
+        # Remove existing file if it exists, instead of adding timestamp
+        if os.path.exists(temp_file_path):
+            try:
+                os.remove(temp_file_path)
+                logging.info(f"Removed existing temporary file: {temp_file_path}")
+            except Exception as e:
+                logging.warning(f"Could not remove existing temp file: {e}")
+                # Only fall back to timestamp if we absolutely
+                # can't remove the existing file
+                from datetime import datetime
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                name_part = safe_filename.rsplit('.', 1)[0]
+                ext_part = safe_filename.rsplit('.', 1)[1] if '.' in safe_filename else 'csv'  # noqa: E501
+                temp_file_path = os.path.join(
+                    temp_dir, f"{name_part}_{timestamp}.{ext_part}")
+
         try:
             if df is not None:
-                # Use the DataFrame directly
-                if custom_date_column not in df.columns:
-                    raise ValueError(f"Date column {custom_date_column!r}"
-                                     f" not found in the DataFrame.")
+                # Save DataFrame to properly named temporary file
+                df.to_csv(temp_file_path, index=False)
+                logging.info(f"DataFrame saved to temporary file: {temp_file_path}")
+            elif file_path is not None:
+                # Copy existing file to properly named temporary file
+                if file_path.startswith('s3://'):
+                    # For S3 files, download to properly named temp file
+                    with fsspec.open(file_path, 'rb') as s3_file:
+                        with open(temp_file_path, 'wb') as local_file:
+                            shutil.copyfileobj(s3_file, local_file)
+                    logging.info(f"S3 file copied to temporary file: {temp_file_path}")
+                else:
+                    # For local files, copy to properly named temp file
+                    import shutil
+                    shutil.copy2(file_path, temp_file_path)
+                    logging.info(f"Local file copied to"
+                                 f" temporary file: {temp_file_path}")
 
-                min_date = pd.to_datetime(df[custom_date_column]).min()
-                max_date = pd.to_datetime(df[custom_date_column]).max()
-            else:
-                # Read file to get date range
-                with fsspec.open(file_path, mode="rt") as file:
-                    temp_df = pd.read_csv(file)
-                if custom_date_column not in temp_df.columns:
-                    raise ValueError(
-                        f"Date column {custom_date_column!r} not found in the file.")
+            # Update file_path to point to our properly named temporary file
+            file_path = temp_file_path
+            temp_df_file = type('TempFile', (), {'name': temp_file_path})()
 
-                min_date = pd.to_datetime(temp_df[custom_date_column]).min()
-                max_date = pd.to_datetime(temp_df[custom_date_column]).max()
+            # Calculate timeframe from file or DataFrame
+            timeframe = None
+            try:
+                if df is not None:
+                    # Use the DataFrame directly
+                    if custom_date_column not in df.columns:
+                        raise ValueError(f"Date column {custom_date_column!r}"
+                                         f" not found in the DataFrame.")
 
-            # Format timeframe as YYYY-MM (year and month only)
-            timeframe = {
-                "from": min_date.strftime("%Y-%m"),
-                "to": max_date.strftime("%Y-%m")
-            }
+                    min_date = pd.to_datetime(df[custom_date_column]).min()
+                    max_date = pd.to_datetime(df[custom_date_column]).max()
+                else:
+                    # Read file to get date range
+                    with fsspec.open(file_path, mode="rt") as file:
+                        temp_df = pd.read_csv(file)
 
-            logging.info(f"Calculated timeframe: {timeframe}")
+                    if custom_date_column not in temp_df.columns:
+                        raise ValueError(f"Date column {custom_date_column!r}"
+                                         f" not found in the file.")
 
-        except Exception as e:
-            logging.warning(f"Could not calculate timeframe: {str(e)}")
-            # Continue without timeframe if calculation fails
+                    min_date = pd.to_datetime(temp_df[custom_date_column]).min()
+                    max_date = pd.to_datetime(temp_df[custom_date_column]).max()
 
-        try:
-            # Upload using the streaming method with retry
-            result = self._retry_operation(
-                lambda: self._upload_file_with_s3_support_streaming(
-                    dataset_id=slug,
-                    file_path=file_path,
-                    resource_id=resource_id,
-                    title=resource_title,
-                    description=description,
-                    timeframe=timeframe,
-                    show_progress=show_progress,
-                    chunk_size=chunk_size
-                ),
-                operation_name="File upload"
-            )
+                # Format dates for timeframe
+                timeframe = {
+                    "from": min_date.strftime("%Y-%m"),
+                    "to": max_date.strftime("%Y-%m")
+                }
 
-            logging.info(
-                f"Data uploaded successfully to LDS using DataPress for resource"
-                f" '{resource_title}'"
-                f" (Resource ID: {result.get('resource_id', 'N/A')})"
-            )
+            except Exception as e:
+                logging.warning(f"Could not calculate timeframe: {str(e)}")
+                # Continue without timeframe if calculation fails
 
-            return result
+            try:
+                # Upload using the streaming method with retry
+                upload_kwargs = {
+                    "dataset_id": slug,
+                    "file_path": file_path,
+                    "title": resource_title,
+                    "description": description,
+                    "timeframe": timeframe,
+                    "show_progress": show_progress,
+                    "chunk_size": chunk_size
+                }
 
-        except Exception as e:
-            logging.error(f"Failed to upload data to LDS using DataPress for resource"
-                          f" '{resource_title}': {str(e)}")
-            raise
+                # Only add resource_id if we found an existing resource
+                if resource_id:
+                    upload_kwargs["resource_id"] = resource_id
+
+                result = self._retry_operation(
+                    lambda: self._upload_file_with_s3_support_streaming(**upload_kwargs),
+                    operation_name="File upload"
+                )
+
+                if resource_id:
+                    logging.info(
+                        f"Data uploaded successfully to LDS using DataPress"
+                        f" for existing resource"
+                        f" '{resource_title}' (Resource ID:"
+                        f" {result.get('resource_id', 'N/A')})"
+                    )
+                else:
+                    logging.info(
+                        f"Data uploaded successfully to LDS using"
+                        f" DataPress as new resource"
+                        f" '{resource_title}' (Resource ID:"
+                        f" {result.get('resource_id', 'N/A')})"
+                    )
+
+                return result
+
+            except Exception as e:
+                logging.error(f"Failed to upload data to LDS using"
+                              f" DataPress for resource"
+                              f" '{resource_title}': {str(e)}")
+                raise
 
         finally:
-            # Clean up temporary DataFrame file if created
+            # Clean up temporary file if we created one
             if temp_df_file and os.path.exists(temp_df_file.name):
                 try:
                     os.unlink(temp_df_file.name)
-                    logging.info("Cleaned up temporary DataFrame file")
+                    logging.info("Cleaned up temporary file")
                 except Exception as e:
                     logging.warning(
-                        f"Could not delete temporary DataFrame file: {str(e)}")
+                        f"Could not delete temporary file: {str(e)}")
 
     # Add this new method to the DataWriter class
     def get_latest_s3_file(self, s3_base_path, file_prefix):
