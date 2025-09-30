@@ -11,15 +11,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Set the working directory in the container
 WORKDIR /app
 
-# Copy README.md and install Poetry
+# Copy README.md and install Poetry with retry logic
 COPY README.md /app/README.md
-RUN pip install --no-cache-dir poetry python-dotenv
+RUN pip install --no-cache-dir --retries 3 --timeout 60 poetry python-dotenv
 
 # Copy only necessary files for Poetry installation first (for better caching)
 COPY pyproject.toml poetry.lock ./
 
-# Install project dependencies without installing the project itself
-RUN poetry install --no-root
+# Install project dependencies with retry logic and reduced parallelism
+RUN poetry config installer.max-workers 1 && \
+    poetry config installer.parallel false && \
+    for i in 1 2 3; do \
+        poetry install --no-root && break || \
+        (echo "Poetry install attempt $i failed, retrying in 15 seconds..." && sleep 15); \
+    done
 
 # Copy the entire project into the container at /app
 COPY . .
@@ -28,7 +33,7 @@ COPY . .
 RUN poetry run pip install -e .
 
 # Install additional libraries and dependencies needed for AWS
-RUN pip install psycopg2
+RUN pip install --retries 3 --timeout 60 psycopg2
 
 # Set the PYTHONPATH environment variable to ensure /app is included
 ENV PYTHONPATH /app
