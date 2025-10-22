@@ -71,17 +71,6 @@ data_writer.upload_data_to_lds(
         f"hex_3hourly_counts_{latest_year}.csv"
     ),
 )
-# sub-license westminster University-upload to lds
-data_writer.upload_data_to_lds(
-    slug="westminster-university",
-    custom_date_column="count_date",
-    resource_title=f"BT_3hourly_counts_{latest_year}.csv",
-    file_path=(
-        f"{base_dir}"
-        f"bt/processed/hex_grid/"
-        f"hex_3hourly_counts_{latest_year}.csv"
-    ),
-)
 
 # Initialize DataProcessor to obtain new hex IDs from tracking table
 data_processor = DataProcessor()

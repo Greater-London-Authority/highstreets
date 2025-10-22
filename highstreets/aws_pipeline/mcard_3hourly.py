@@ -168,48 +168,6 @@ data_writer.upload_data_to_lds(
 )
 
 
-# sub-license: westminster University
-
-data_writer.upload_data_to_lds(
-    slug="westminster-university",
-    resource_title="Mastercard_3hourly_2022.csv",
-    file_path=(
-        f"{base_dir}"
-        f"mastercard/mrli_3hourly/processed/"
-        f"MRLI_3yr_compressed/MRLI_3yr_compressed_adj_2022.csv"
-    ),
-)
-
-data_writer.upload_data_to_lds(
-    slug="westminster-university",
-    resource_title="Mastercard_3hourly_2023.csv",
-    file_path=(
-        f"{base_dir}"
-        f"mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/"
-        f"MRLI_3yr_compressed_adj_2023.csv"
-    ),
-)
-
-data_writer.upload_data_to_lds(
-    slug="westminster-university",
-    resource_title="Mastercard_3hourly_2024.csv",
-    file_path=(
-        f"{base_dir}"
-        f"mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/"
-        f"MRLI_3yr_compressed_adj_2024.csv"
-    ),
-)
-
-data_writer.upload_data_to_lds(
-    slug="westminster-university",
-    resource_title="Mastercard_3hourly_2025.csv",
-    file_path=(
-        f"{base_dir}"
-        f"mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/"
-        f"MRLI_3yr_compressed_adj_2025.csv"
-    ),
-)
-
 # Concatenate latest data from different layers
 mcard_transform.concat_and_load_all_mcard_quad_layers(
     query_file='quad_all_layer_concat_query.sql',

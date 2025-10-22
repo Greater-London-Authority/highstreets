@@ -269,6 +269,53 @@ class LookupManager:
                 'tc_id', 'bespoke_id', 'bespoke_name']]
         return df
 
+    def generate_borough_lookup(self):
+        """
+        Generate borough lookup with centroid coordinates.
+
+        Returns:
+            pd.DataFrame: Borough lookup with coordinates
+        """
+        try:
+            # Get borough data
+            boroughs = self.get_query_context(layers=["Boroughs"])
+
+            # Calculate centroid coordinates
+            boroughs = boroughs.assign(
+                x=boroughs.geometry.centroid.x,
+                y=boroughs.geometry.centroid.y
+            )
+
+            # Drop unnecessary columns and rename for consistency
+            borough_lookup = boroughs.drop(columns=['layer', 'geometry'])
+            borough_lookup = borough_lookup.rename(columns={
+                'id': 'gss_code',
+                'name': 'borough_name'
+            })
+
+            # Select and order columns
+            borough_lookup = borough_lookup[['gss_code', 'borough_name', 'x', 'y']]
+            borough_lookup = borough_lookup.sort_values('borough_name')
+
+            # Save to CSV
+            output_path = f"{self.base_dir}mastercard/lookups/borough_lookup.csv"
+            # borough_lookup.to_csv(output_path, index=False)
+            self.logger.info(f"Saved borough lookup to {output_path}")
+
+            # Write to PostgreSQL
+            self.data_writer.truncate_and_load_to_postgres(
+                dataframe=borough_lookup,
+                table_name='econ_busyness_borough_lookup_test',
+                schema="gisapdata"
+            )
+            self.logger.info("Wrote borough lookup to PostgreSQL")
+
+            return borough_lookup
+
+        except Exception as e:
+            self.logger.error(f"Error generating borough lookup: {str(e)}")
+            raise
+
     def query_mcard_grids(self):
         """
         Query Mastercard grid data from PostgreSQL.
