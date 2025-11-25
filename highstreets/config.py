@@ -69,17 +69,13 @@ CPI_CATEGORIES = [
     "03 Clothing and footwear",
     "04 Housing, water, electricity, gas and other fuels",
     "05 Furniture, household equipment and maintenance",
-    "05.1 Furniture, furnishings and carpets",
     "06 Health",
     "07 Transport",
-    "07.2.2 Fuels and lubricants",
     "08 Communication",
     "09 Recreation and culture",
-    "09.1 Audio-visual equipment and related products",
     "10 Education",
     "11 Restaurants and hotels",
     "12 Miscellaneous goods and services",
-    "12.3.1 Jewellery, clocks and watches",
 ]
 
 # ================ BT CONFIG ==================================================

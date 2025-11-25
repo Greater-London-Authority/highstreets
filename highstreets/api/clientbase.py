@@ -2,7 +2,6 @@ import base64
 import logging
 import os
 import uuid
-import io
 import pandas as pd
 import requests
 from dotenv import find_dotenv, load_dotenv
@@ -61,21 +60,96 @@ class APIClient:
             raise APIClientException("Failed to obtain access token.") from None
 
     def fetch_cpi(self):
+        """
+        Fetch CPI data using ONS API v4.
+
+        Returns:
+            pd.DataFrame: CPI data with columns ['yr', 'month', 'Aggregate', 'cpi_index']
+        """
+        dataset_id = "cpih01"
+        edition = "time-series"
+
+        # Get latest version
         response = requests.get(self.cpi_api)
-        latest_version = requests.get(response.json()['links']['latest_version']['href'])
-        url = latest_version.json()['downloads']['csv']['href']
-        s = requests.get(url).content
-        cpi_table = pd.read_csv(io.StringIO(s.decode('utf-8')))
+        latest_version_url = response.json()['links']['latest_version']['href']
+        latest_version = requests.get(latest_version_url)
+        version = latest_version.json()['version']
+
+        logger.info(f"Fetching CPI data from ONS API v4, version: {version}")
+
+        # Step 1: Get all aggregate options to map labels to IDs
+        aggregate_options_url = (
+            f"https://api.beta.ons.gov.uk/v1/datasets/{dataset_id}/"
+            f"editions/{edition}/versions/{version}/dimensions/aggregate/options"
+        )
+        agg_response = requests.get(aggregate_options_url, timeout=30)
+        agg_items = agg_response.json().get('items', [])
+
+        # Create mapping of label to ID
+        agg_mapping = {item['label']: item['option'] for item in agg_items}
+
+        # Step 2: Fetch observations for each required CPI category
+        all_data = []
+        observations_url = (
+            f"https://api.beta.ons.gov.uk/v1/datasets/{dataset_id}/"
+            f"editions/{edition}/versions/{version}/observations"
+        )
+
+        for category_label in self.cpi_categories:
+            # Find matching aggregate ID
+            agg_id = agg_mapping.get(category_label)
+
+            if agg_id is None:
+                logger.warning(f"CPI category '{category_label}' not found in API")
+                continue
+
+            # Fetch all time periods for this aggregate
+            # (wildcard allowed for one dimension)
+            params = {
+                "time": "*",  # All time periods
+                "geography": "K02000001",  # UK
+                "aggregate": agg_id
+            }
+
+            obs_response = requests.get(observations_url, params=params, timeout=60)
+
+            if obs_response.status_code == 200:
+                observations = obs_response.json().get("observations", [])
+
+                # Extract data from each observation
+                for obs in observations:
+                    time_id = obs['dimensions']['Time']['id']  # Format: "mmm-yy"
+                    value = obs['observation']
+
+                    all_data.append({
+                        'mmm-yy': time_id,
+                        'Aggregate': category_label,
+                        'v4_0': value
+                    })
+            else:
+                logger.error(
+                    f"Failed to fetch data for '{category_label}': "
+                    f"Status {obs_response.status_code}"
+                )
+
+        # Step 3: Convert to DataFrame and process
+        cpi_table = pd.DataFrame(all_data)
+
+        # Parse dates and extract year/month
         cpi_table['date'] = pd.to_datetime(cpi_table["mmm-yy"], format="%b-%y")
         cpi_table['yr'] = cpi_table['date'].dt.year
         cpi_table['month'] = cpi_table['date'].dt.month
-        # there are sub-categories within these also
-        cpi_table = cpi_table[
-            cpi_table['Aggregate'].isin(
-                self.cpi_categories)].sort_values('date')[
-                    ['yr', 'month', 'Aggregate', 'v4_0']].rename(
-                        columns={'v4_0': 'cpi_index'}).reset_index().drop(
-                            columns='index')
+
+        # Filter, sort, and format to match original output structure
+        cpi_table = (
+            cpi_table[cpi_table['Aggregate'].isin(self.cpi_categories)]
+            .sort_values('date')[['yr', 'month', 'Aggregate', 'v4_0']]
+            .rename(columns={'v4_0': 'cpi_index'})
+            .reset_index(drop=True)
+        )
+
+        logger.info(f"Successfully fetched {len(cpi_table)} CPI observations")
+
         return cpi_table
 
     def get_data_request(self, endpoint, headers=None, params=None):
