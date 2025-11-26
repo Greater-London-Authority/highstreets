@@ -121,6 +121,14 @@ class APIClient:
                     time_id = obs['dimensions']['Time']['id']  # Format: "mmm-yy"
                     value = obs['observation']
 
+                    # Convert string to float
+                    try:
+                        value = float(value)
+                    except (ValueError, TypeError):
+                        logger.warning(f"Invalid observation value for"
+                                       f" {category_label} at {time_id}: {value}")
+                        continue
+
                     all_data.append({
                         'mmm-yy': time_id,
                         'Aggregate': category_label,
