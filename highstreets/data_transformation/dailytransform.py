@@ -136,7 +136,7 @@ class DailyTransform(DataLoader):
             raise ValueError(f"Failed to perform POI lookup: {str(e)}") from None
 
         # Continue with existing transformations
-        transformed_data["date"] = pd.to_datetime(transformed_data["date"])
+        transformed_data["date"] = pd.to_datetime(transformed_data["date"]).dt.date
         transformed_data = transformed_data.rename(
             columns={"date": "count_date"}
         )

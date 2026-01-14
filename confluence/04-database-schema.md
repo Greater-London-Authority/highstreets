@@ -135,12 +135,12 @@ BT Footfall data at MSOA (Middle Super Output Area) level with hourly resolution
 | msoa_name | TEXT | NOT NULL | MSOA name |
 | count_date | DATE | NOT NULL | Date |
 | day | TEXT | NOT NULL | Mon-Sun |
-| hour | INTEGER | NOT NULL | Hour of day (0–23) |
-| resident | INTEGER | NULL | Residents |
-| visitor | INTEGER | NULL | Visitors |
-| worker | INTEGER | NULL | Workers |
-| loyalty_percentage | FLOAT | NULL | Loyalty |
-| dwell_time | FLOAT | NULL | Dwell time |
+| hour | BIGINT | NOT NULL | Hour of day (0–23) |
+| resident | BIGINT | NULL | Residents |
+| visitor | BIGINT | NULL | Visitors |
+| worker | BIGINT | NULL | Workers |
+| loyalty_percentage | FLOAT(10,2) | NULL | Loyalty |
+| dwell_time | FLOAT(10,2) | NULL | Dwell time |
 
 Primary Key: (msoa_id, count_date, hour)
 
@@ -154,11 +154,11 @@ BT Footfall data at LSOA (Lower Super Output Area) level with hourly resolution
 | day | TEXT | NULL | Mon-Sun |
 | count_date | DATE | NOT NULL | Date |
 | hour | INTEGER | NOT NULL | Hour of day (0–23) |
-| resident | INTEGER | NULL | Residents |
-| visitor | INTEGER | NULL | Visitors |
-| worker | INTEGER | NULL | Workers |
-| loyalty_percentage | FLOAT | NULL | Loyalty |
-| dwell_time | FLOAT | NULL | Dwell time |
+| resident | BIGINT | NULL | Residents |
+| visitor | BIGINT | NULL | Visitors |
+| worker | BIGINT | NULL | Workers |
+| loyalty_percentage | FLOAT(10,2) | NULL | Loyalty |
+| dwell_time | FLOAT(10,2) | NULL | Dwell time |
 
 Primary Key: (lsoa_id, count_date, hour)
 
@@ -173,12 +173,12 @@ BT Daily Aggregated Customer Shapes (API output post-lookup)
 | poi_type | TEXT | bids/highstreet/towncentre/custom/major parks/gla boundary/borough |
 | count_date | DATE | Date |
 | time_indicator | TEXT | DAY/AM/PM |
-| total_unique_volume | INT | Total |
-| total_unique_intl_only_visitors | INT | Intl |
-| total_unique_domestic_visitors | INT | Domestic |
-| total_unique_workers | INT | Workers |
-| total_unique_residents | INT | Residents |
-| avg_dwell_time | INT | Minutes |
+| total_unique_volume | BIGINT | Total |
+| total_unique_intl_only_visitors | BIGINT | Intl |
+| total_unique_domestic_visitors | BIGINT | Domestic |
+| total_unique_workers | BIGINT | Workers |
+| total_unique_residents | BIGINT | Residents |
+| avg_dwell_time | BIGINT | Minutes |
 
 ### econ_busyness_bt_outage_data
 Outage history for data quality assurance

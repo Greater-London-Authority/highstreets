@@ -1260,8 +1260,9 @@ class DataWriter:
                     max_date = pd.to_datetime(df[custom_date_column]).max()
                 else:
                     # Read file to get date range
-                    with fsspec.open(file_path, mode="rt") as file:
-                        temp_df = pd.read_csv(file)
+                    with fsspec.open(file_path, mode="rb") as file:
+                        temp_df = pd.read_csv(file, encoding="utf-8",
+                                              encoding_errors="replace")
 
                     if custom_date_column not in temp_df.columns:
                         raise ValueError(f"Date column {custom_date_column!r}"

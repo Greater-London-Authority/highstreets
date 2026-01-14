@@ -103,3 +103,12 @@ data_writer.upload_data_to_lds(
         "bt/processed/daily/BT_daily_agg_counts_2025.csv"
     ),
 )
+data_writer.upload_data_to_lds(
+    slug="footfall-bt-daily-people-counts-hsds",
+    custom_date_column="count_date",
+    resource_title="BT_daily_agg_counts_2026.csv",
+    file_path=(
+        f"{base_dir}"
+        "bt/processed/daily/BT_daily_agg_counts_2026.csv"
+    ),
+)

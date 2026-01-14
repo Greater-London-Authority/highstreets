@@ -98,7 +98,7 @@ class LsoaTransform(DataLoader):
         )
         transformed_data.replace("IDE", np.nan, inplace=True)
         # Perform data transformation operations
-        transformed_data["date"] = pd.to_datetime(transformed_data["date"])
+        transformed_data["date"] = pd.to_datetime(transformed_data["date"]).dt.date
         transformed_data["worker"] = np.round(
             pd.to_numeric(
                 transformed_data["worker_population_percentage"]
