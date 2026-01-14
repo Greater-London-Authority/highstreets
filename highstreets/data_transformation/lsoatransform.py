@@ -98,7 +98,7 @@ class LsoaTransform(DataLoader):
         )
         transformed_data.replace("IDE", np.nan, inplace=True)
         # Perform data transformation operations
-        transformed_data["date"] = pd.to_datetime(transformed_data["date"]).dt.date
+        transformed_data["date"] = pd.to_datetime(transformed_data["date"])
         transformed_data["worker"] = np.round(
             pd.to_numeric(
                 transformed_data["worker_population_percentage"]
@@ -129,6 +129,7 @@ class LsoaTransform(DataLoader):
         transformed_data = transformed_data.rename(
             columns={"poi_id": "lsoa_id", "date": "count_date", "poi_name": "lsoa_name"}
         )
+        transformed_data["count_date"] = transformed_data["count_date"].dt.date
         transformed_data["lsoa_id"] = transformed_data["lsoa_id"].astype(str)
         transformed_data["hour"] = transformed_data["hour"].astype(int)
         # Select specific columns
