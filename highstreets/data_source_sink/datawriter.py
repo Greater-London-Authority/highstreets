@@ -645,6 +645,163 @@ class DataWriter:
                 conn.close()
             logging.info("Database connection closed")
 
+    def get_year_range(self, table_name, date_column):
+        """
+        Returns a list of years spanning MIN to MAX of a date column.
+
+        Parameters:
+            table_name (str): PostgreSQL table name.
+            date_column (str): Column containing date/timestamp values.
+
+        Returns:
+            list[int]: List of years from min to max (inclusive).
+        """
+        try:
+            conn = psycopg2.connect(
+                dbname=self.database,
+                host=self.host,
+                user=self.username,
+                password=self.password,
+                port=self.port
+            )
+            cur = conn.cursor()
+            cur.execute(
+                f"SELECT MIN({date_column}), MAX({date_column}) FROM {table_name};")
+            min_date, max_date = cur.fetchone()
+            if not min_date or not max_date:
+                logging.warning(f"Table {table_name} is empty or {date_column} "
+                                "is not populated.")
+                return []
+            return list(range(min_date.year, max_date.year + 1))
+        except Exception as e:
+            logging.error(f"Error in get_year_range: {str(e)}")
+            return []
+        finally:
+            if 'cur' in locals():
+                cur.close()
+            if 'conn' in locals():
+                conn.close()
+
+    def get_distinct_values(self, table_name, column_name):
+        """
+        Returns sorted distinct values of a column from a table.
+
+        Parameters:
+            table_name (str): PostgreSQL table name.
+            column_name (str): Column to retrieve distinct values from.
+
+        Returns:
+            list[str]: Sorted list of distinct values.
+        """
+        try:
+            conn = psycopg2.connect(
+                dbname=self.database,
+                host=self.host,
+                user=self.username,
+                password=self.password,
+                port=self.port
+            )
+            cur = conn.cursor()
+            cur.execute(
+                f"SELECT DISTINCT {column_name} FROM {table_name} "
+                f"ORDER BY {column_name};")
+            return [row[0] for row in cur.fetchall()]
+        except Exception as e:
+            logging.error(f"Error in get_distinct_values: {str(e)}")
+            return []
+        finally:
+            if 'cur' in locals():
+                cur.close()
+            if 'conn' in locals():
+                conn.close()
+
+    def export_table_by_partition_to_s3(self, table_name, partition_column,
+                                        s3_base_path, file_prefix,
+                                        source_query=None):
+        """
+        Exports data partitioned by distinct values of a categorical column
+        as separate CSV files on S3.
+
+        Parameters:
+            table_name (str): Base PostgreSQL table (used to discover partition
+                values).
+            partition_column (str): Column to partition by.
+            s3_base_path (str): S3 base path for output files.
+            file_prefix (str): Prefix for CSV filenames. Output files are named
+                {file_prefix}_{partition_value}.csv with spaces replaced by
+                underscores.
+            source_query (str, optional): If provided, wraps this query in a CTE
+                and exports the enriched result. The query should SELECT from the
+                base table aliased as 'd' and must NOT include a trailing
+                semicolon. If None, exports directly from the table.
+        """
+        try:
+            conn = psycopg2.connect(
+                dbname=self.database,
+                host=self.host,
+                user=self.username,
+                password=self.password,
+                port=self.port
+            )
+            cur = conn.cursor()
+
+            cur.execute(
+                f"SELECT DISTINCT {partition_column} FROM {table_name} "
+                f"ORDER BY {partition_column};")
+            partition_values = [row[0] for row in cur.fetchall()]
+
+            if not partition_values:
+                logging.warning(f"No distinct values found for {partition_column} "
+                                f"in {table_name}.")
+                return
+
+            logging.info(f"Found {len(partition_values)} partitions: "
+                         f"{partition_values}")
+
+            fs = fsspec.filesystem("s3")
+
+            for val in partition_values:
+                safe_val = val.replace(' ', '_')
+                file_name = f"{file_prefix}_{safe_val}.csv"
+                s3_file_path = f"{s3_base_path.rstrip('/')}/{file_name}"
+
+                if source_query:
+                    copy_sql = f"""
+                        COPY (
+                            WITH enriched AS ({source_query})
+                            SELECT * FROM enriched
+                            WHERE {partition_column} = '{val}'
+                            ORDER BY count_date
+                        ) TO STDOUT WITH CSV HEADER;
+                    """
+                else:
+                    copy_sql = f"""
+                        COPY (
+                            SELECT * FROM {table_name}
+                            WHERE {partition_column} = '{val}'
+                            ORDER BY 1
+                        ) TO STDOUT WITH CSV HEADER;
+                    """
+
+                logging.info(f"Exporting partition '{val}' to {s3_file_path}...")
+
+                try:
+                    with fs.open(s3_file_path, 'w') as s3_file:
+                        cur.copy_expert(copy_sql, s3_file)
+                    logging.info(f"Successfully exported: {file_name}")
+                except Exception as e:
+                    logging.error(f"Error exporting {file_name}: {str(e)}")
+                    continue
+
+        except Exception as e:
+            logging.error(f"Error in export_table_by_partition_to_s3: {str(e)}")
+        finally:
+            if 'cur' in locals():
+                cur.close()
+            if 'conn' in locals():
+                conn.close()
+            logging.info("Database connection closed")
+
     def export_table_by_year_half_to_s3(self, table_name, date_column, s3_base_path,
                                         file_prefix=None):
         """

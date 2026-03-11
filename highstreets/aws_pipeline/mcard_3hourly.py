@@ -113,59 +113,46 @@ mcard_transform.fetch_and_transform_mcard_data(
 )
 
 
-latest_file_path_bid = data_writer.export_table_to_s3(
-    table_name='econ_busyness_mcard_bids_3hourly_txn',
-    s3_base_path=(f"{base_dir}mastercard/mrli_3hourly/processed/bid"),
-    file_prefix='bid_3hourly_txn',
-    add_date_range_to_filename=True,
-    date_column='count_date',
-    apostrophe_columns=['hours'])
-latest_file_path_highstreet = data_writer.export_table_to_s3(
-    table_name='econ_busyness_mcard_highstreets_3hourly_txn',
-    s3_base_path=(f"{base_dir}mastercard/mrli_3hourly/processed/highstreet"),
-    file_prefix='highstreet_3hourly_txn',
-    add_date_range_to_filename=True,
-    date_column='count_date',
-    apostrophe_columns=['hours'])
-latest_file_path_towncentre = data_writer.export_table_to_s3(
-    table_name='econ_busyness_mcard_towncentres_3hourly_txn',
-    s3_base_path=(f"{base_dir}mastercard/mrli_3hourly/processed/towncentre"),
-    file_prefix='towncentre_3hourly_txn',
-    add_date_range_to_filename=True,
-    date_column='count_date',
-    apostrophe_columns=['hours'])
-latest_file_path_bespoke = data_writer.export_table_to_s3(
-    table_name='econ_busyness_mcard_bespokes_3hourly_txn',
-    s3_base_path=(f"{base_dir}mastercard/mrli_3hourly/processed/bespoke"),
-    file_prefix='bespoke_3hourly_txn',
-    add_date_range_to_filename=True,
-    date_column='count_date',
-    apostrophe_columns=['hours'])
+mcard_poi_layers = [
+    {
+        'table': 'econ_busyness_mcard_bids_3hourly_txn',
+        's3_path': f"{base_dir}mastercard/mrli_3hourly/processed/bid",
+        'prefix': 'bids_3hourly_txn',
+    },
+    {
+        'table': 'econ_busyness_mcard_highstreets_3hourly_txn',
+        's3_path': f"{base_dir}mastercard/mrli_3hourly/processed/highstreet",
+        'prefix': 'highstreets_3hourly_txn',
+    },
+    {
+        'table': 'econ_busyness_mcard_towncentres_3hourly_txn',
+        's3_path': f"{base_dir}mastercard/mrli_3hourly/processed/towncentre",
+        'prefix': 'towncentres_3hourly_txn',
+    },
+    {
+        'table': 'econ_busyness_mcard_bespokes_3hourly_txn',
+        's3_path': f"{base_dir}mastercard/mrli_3hourly/processed/bespoke",
+        'prefix': 'bespokes_3hourly_txn',
+    },
+]
 
-# upload to lds
+for layer in mcard_poi_layers:
+    data_writer.export_table_by_year_to_s3(
+        table_name=layer['table'],
+        date_column='count_date',
+        s3_base_path=layer['s3_path'],
+        file_prefix=layer['prefix'],
+        apostrophe_columns=['hours']
+    )
 
-data_writer.upload_data_to_lds(
-    slug="spend-mastercard-retail-index-3-hourly",
-    resource_title="bids_3hourly_txn.csv",
-    file_path=latest_file_path_bid
-)
-data_writer.upload_data_to_lds(
-    slug="spend-mastercard-retail-index-3-hourly",
-    resource_title="highstreets_3hourly_txn.csv",
-    file_path=latest_file_path_highstreet
-)
-
-data_writer.upload_data_to_lds(
-    slug="spend-mastercard-retail-index-3-hourly",
-    resource_title="towncentres_3hourly_txn.csv",
-    file_path=latest_file_path_towncentre
-)
-
-data_writer.upload_data_to_lds(
-    slug="spend-mastercard-retail-index-3-hourly",
-    resource_title="bespoke_3hourly_txn.csv",
-    file_path=latest_file_path_bespoke
-)
+for layer in mcard_poi_layers:
+    years = data_writer.get_year_range(layer['table'], 'count_date')
+    for year in years:
+        data_writer.upload_data_to_lds(
+            slug="spend-mastercard-retail-index-3-hourly",
+            resource_title=f"{layer['prefix']}_{year}.csv",
+            file_path=f"{layer['s3_path']}/{layer['prefix']}_{year}.csv",
+        )
 
 
 # Concatenate latest data from different layers

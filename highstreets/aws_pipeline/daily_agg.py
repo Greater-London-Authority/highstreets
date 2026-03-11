@@ -1,6 +1,7 @@
 import os
 import warnings
 from highstreets import config
+from highstreets.core.sql_manager import SQLManager
 from highstreets.data_source_sink.dataloader import DataLoader
 from highstreets.data_source_sink.datawriter import DataWriter
 from highstreets.data_transformation.dailytransform import DailyTransform
@@ -45,70 +46,28 @@ data_writer = DataWriter()
 data_writer.append_data_to_postgres(
     data, table_name="econ_busyness_bt_daily_agg_cust_raw")
 
-# data_daily_full_range = data_loader.get_full_data(
-#     "econ_busyness_bt_daily_agg_cust_raw")
+sql_manager = SQLManager()
+enrichment_query = sql_manager.get_query(
+    'daily_agg_borough_enriched', category='bt')
 
-# offloading to s3
-data_writer.export_table_by_year_to_s3(
+data_writer.export_table_by_partition_to_s3(
     table_name='econ_busyness_bt_daily_agg_cust_raw',
-    date_column='count_date',
+    partition_column='poi_type',
     s3_base_path=f"{base_dir}bt/processed/daily",
     file_prefix='BT_daily_agg_counts',
-    latest=True
+    source_query=enrichment_query
 )
 
-# # writing to csv by year
-# data_writer.write_hex_to_csv_by_year(
-#     data_daily_full_range,
-#     output_dir=f"{base_dir}bt/processed/daily",
-#     custom_file_name="BT_daily_agg_counts",
-# )
-
-# offloading to London datastore
-data_writer.upload_data_to_lds(
-    slug="footfall-bt-daily-people-counts-hsds",
-    custom_date_column="count_date",
-    resource_title="BT_daily_agg_counts_2022.csv",
-    file_path=(
-        f"{base_dir}"
-        "bt/processed/daily/BT_daily_agg_counts_2022.csv"
-    ),
-)
-
-data_writer.upload_data_to_lds(
-    slug="footfall-bt-daily-people-counts-hsds",
-    custom_date_column="count_date",
-    resource_title="BT_daily_agg_counts_2023.csv",
-    file_path=(
-        f"{base_dir}"
-        "bt/processed/daily/BT_daily_agg_counts_2023.csv"
-    ),
-)
-
-data_writer.upload_data_to_lds(
-    slug="footfall-bt-daily-people-counts-hsds",
-    custom_date_column="count_date",
-    resource_title="BT_daily_agg_counts_2024.csv",
-    file_path=(
-        f"{base_dir}"
-        "bt/processed/daily/BT_daily_agg_counts_2024.csv"
-    ),
-)
-data_writer.upload_data_to_lds(
-    slug="footfall-bt-daily-people-counts-hsds",
-    custom_date_column="count_date",
-    resource_title="BT_daily_agg_counts_2025.csv",
-    file_path=(
-        f"{base_dir}"
-        "bt/processed/daily/BT_daily_agg_counts_2025.csv"
-    ),
-)
-data_writer.upload_data_to_lds(
-    slug="footfall-bt-daily-people-counts-hsds",
-    custom_date_column="count_date",
-    resource_title="BT_daily_agg_counts_2026.csv",
-    file_path=(
-        f"{base_dir}"
-        "bt/processed/daily/BT_daily_agg_counts_2026.csv"
-    ),
-)
+poi_types = data_writer.get_distinct_values(
+    'econ_busyness_bt_daily_agg_cust_raw', 'poi_type')
+for poi_type in poi_types:
+    safe_name = poi_type.replace(' ', '_')
+    data_writer.upload_data_to_lds(
+        slug="footfall-bt-daily-people-counts-hsds",
+        custom_date_column="count_date",
+        resource_title=f"BT_daily_agg_counts_{safe_name}.csv",
+        file_path=(
+            f"{base_dir}"
+            f"bt/processed/daily/BT_daily_agg_counts_{safe_name}.csv"
+        ),
+    )

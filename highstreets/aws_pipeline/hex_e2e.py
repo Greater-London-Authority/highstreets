@@ -112,49 +112,43 @@ hex_transform.concat_and_load_all_hex_layers(
     load_to_db=True
 )
 
-data_writer.export_table_to_s3(table_name='econ_busyness_bt_bids_3hourly_counts',
-                               s3_base_path=f"{base_dir}bt/processed/bid",
-                               file_prefix='bid_3hourly_counts',
-                               apostrophe_columns=['hours'])
-data_writer.export_table_to_s3(table_name='econ_busyness_bt_highstreets_3hourly_counts',
-                               s3_base_path=f"{base_dir}bt/processed/highstreet",
-                               file_prefix='highstreet_3hourly_counts',
-                               apostrophe_columns=['hours'])
-data_writer.export_table_to_s3(table_name='econ_busyness_bt_towncentres_3hourly_counts',
-                               s3_base_path=f"{base_dir}bt/processed/towncentre",
-                               file_prefix='towncentre_3hourly_counts',
-                               apostrophe_columns=['hours'])
-data_writer.export_table_to_s3(table_name='econ_busyness_bt_bespokes_3hourly_counts',
-                               s3_base_path=f"{base_dir}bt/processed/bespoke",
-                               file_prefix='bespoke_3hourly_counts',
-                               apostrophe_columns=['hours'])
+poi_layers = [
+    {
+        'table': 'econ_busyness_bt_bids_3hourly_counts',
+        's3_path': f"{base_dir}bt/processed/bid",
+        'prefix': 'bids_3hourly_counts',
+    },
+    {
+        'table': 'econ_busyness_bt_highstreets_3hourly_counts',
+        's3_path': f"{base_dir}bt/processed/highstreet",
+        'prefix': 'highstreets_3hourly_counts',
+    },
+    {
+        'table': 'econ_busyness_bt_towncentres_3hourly_counts',
+        's3_path': f"{base_dir}bt/processed/towncentre",
+        'prefix': 'towncentres_3hourly_counts',
+    },
+    {
+        'table': 'econ_busyness_bt_bespokes_3hourly_counts',
+        's3_path': f"{base_dir}bt/processed/bespoke",
+        'prefix': 'bespokes_3hourly_counts',
+    },
+]
 
-# update data in London Datastore along with start and end dates
-data_writer.upload_data_to_lds(
-    slug="footfall-bt-people-counts-hsds",
-    resource_title="highstreets_3hourly_counts.csv",
-    file_path=(
-        f"{base_dir}bt/processed/highstreet/highstreet_3hourly_counts.csv"
-    ),
-)
-data_writer.upload_data_to_lds(
-    slug="footfall-bt-people-counts-hsds",
-    resource_title="towncentres_3hourly_counts.csv",
-    file_path=(
-        f"{base_dir}bt/processed/towncentre/towncentre_3hourly_counts.csv"
-    ),
-)
-data_writer.upload_data_to_lds(
-    slug="footfall-bt-people-counts-hsds",
-    resource_title="bids_3hourly_counts.csv",
-    file_path=(
-        f"{base_dir}bt/processed/bid/bid_3hourly_counts.csv"
-    ),
-)
-data_writer.upload_data_to_lds(
-    slug="footfall-bt-people-counts-hsds",
-    resource_title="bespokes_3hourly_counts.csv",
-    file_path=(
-        f"{base_dir}bt/processed/bespoke/bespoke_3hourly_counts.csv"
-    ),
-)
+for layer in poi_layers:
+    data_writer.export_table_by_year_to_s3(
+        table_name=layer['table'],
+        date_column='count_date',
+        s3_base_path=layer['s3_path'],
+        file_prefix=layer['prefix'],
+        apostrophe_columns=['hours']
+    )
+
+for layer in poi_layers:
+    years = data_writer.get_year_range(layer['table'], 'count_date')
+    for year in years:
+        data_writer.upload_data_to_lds(
+            slug="footfall-bt-people-counts-hsds",
+            resource_title=f"{layer['prefix']}_{year}.csv",
+            file_path=f"{layer['s3_path']}/{layer['prefix']}_{year}.csv",
+        )
