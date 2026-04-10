@@ -78,6 +78,23 @@ CPI_CATEGORIES = [
     "12 Miscellaneous goods and services",
 ]
 
+# mm23 time series IDs for each CPIH category (fallback when cpih01 lags)
+CPI_MM23_SERIES = {
+    "Overall Index": "L522",
+    "01 Food and non-alcoholic beverages": "L523",
+    "02 Alcoholic beverages and tobacco": "L524",
+    "03 Clothing and footwear": "L525",
+    "04 Housing, water, electricity, gas and other fuels": "L5PG",
+    "05 Furniture, household equipment and maintenance": "L527",
+    "06 Health": "L528",
+    "07 Transport": "L529",
+    "08 Communication": "L52A",
+    "09 Recreation and culture": "L52B",
+    "10 Education": "L52C",
+    "11 Restaurants and hotels": "L52D",
+    "12 Miscellaneous goods and services": "L52E",
+}
+
 # ================ BT CONFIG ==================================================
 BT_DIR = os.getenv("BT_DIR")
 CONSUMER_KEY = os.getenv("CONSUMER_KEY")
@@ -122,3 +139,30 @@ BT_CATCHMENT_WORKER_API_ENDPOINT = (
 # ================ LDC CONFIG ==================================================
 LDC_OUTPUT_DIR = f"{BASE_DIR}ldc/"
 LDC_BACKUP_DIR = f"{BASE_DIR}ldc/ldc_backups/"
+
+# LDC Snowflake connection config (credentials from env vars)
+LDC_SNOWFLAKE_SCHEMA = "SCH_GREEN_STREET"
+LDC_SNOWFLAKE_TABLE = "VW_GS_RETAIL_UK_TENANT_V2"
+
+# LDC S3 archive paths
+LDC_S3_BASE = f"{BASE_DIR}ldc/"
+LDC_S3_INITIAL_LOAD = f"{LDC_S3_BASE}initial_load/"
+LDC_S3_SNOWFLAKE_SNAPSHOTS = f"{LDC_S3_BASE}snowflake_snapshots/"
+LDC_S3_CLEAN_ARCHIVES = f"{LDC_S3_BASE}clean_archives/"
+
+# LDC PostgreSQL table names
+LDC_RAW_TABLE = "ldc_premises_raw"
+LDC_CLEAN_TABLE = "ldc_premises_clean"
+LDC_STAGING_TABLE = "ldc_premises_staging"
+
+# LDC Z: drive paths (transition period only)
+LDC_Z_DRIVE_RAW = "Z:/HSDS/data/ldc/all_biz_raw.csv"
+LDC_Z_DRIVE_CLEAN = "Z:/HSDS/data/ldc/all_biz_clean.csv"
+LDC_Z_DRIVE_HISTORIC = ("Z:/HSDS/data/ldc/"
+                        "Greater London Authority 10-Year Time Series Nov24.xlsx")
+
+# Great Expectations suite names for LDC
+LDC_GE_SUITE_SOURCE_SCHEMA = "ldc_source_schema"
+LDC_GE_SUITE_RAW_QUALITY = "ldc_raw_quality"
+LDC_GE_SUITE_BUSINESS_LOGIC = "ldc_business_logic"
+LDC_GE_SUITE_CLEAN_OUTPUT = "ldc_clean_output"

@@ -61,7 +61,8 @@ class APIClient:
 
     def fetch_cpi(self):
         """
-        Fetch CPI data using ONS API v4.
+        Fetch CPI data using ONS API v4 (cpih01), with mm23 fallback for
+        months that cpih01 hasn't published yet.
 
         Returns:
             pd.DataFrame: CPI data with columns ['yr', 'month', 'Aggregate', 'cpi_index']
@@ -75,7 +76,7 @@ class APIClient:
         latest_version = requests.get(latest_version_url)
         version = latest_version.json()['version']
 
-        logger.info(f"Fetching CPI data from ONS API v4, version: {version}")
+        logger.info(f"Fetching CPI data from ONS cpih01 API, version: {version}")
 
         # Step 1: Get all aggregate options to map labels to IDs
         aggregate_options_url = (
@@ -156,9 +157,121 @@ class APIClient:
             .reset_index(drop=True)
         )
 
-        logger.info(f"Successfully fetched {len(cpi_table)} CPI observations")
+        latest_yr = cpi_table['yr'].max()
+        latest_mo = cpi_table.loc[
+            cpi_table['yr'] == latest_yr, 'month'
+        ].max()
+        logger.info(
+            f"cpih01: fetched {len(cpi_table)} observations, "
+            f"latest: {latest_yr}-{latest_mo:02d}"
+        )
+
+        # Step 4: mm23 fallback for months beyond cpih01's latest release
+        supplement = self._fetch_cpi_mm23_supplement(cpi_table)
+        if supplement is not None and len(supplement) > 0:
+            cpi_table = pd.concat([cpi_table, supplement], ignore_index=True)
 
         return cpi_table
+
+    def _fetch_cpi_mm23_supplement(self, cpih01_data):
+        """
+        Check the ONS mm23 time series for months newer than what cpih01 has.
+        Returns rows only for complete months (all 13 categories present)
+        that don't already exist in cpih01_data.
+
+        Args:
+            cpih01_data: DataFrame from cpih01 with columns
+                [yr, month, Aggregate, cpi_index]
+
+        Returns:
+            pd.DataFrame | None: Supplementary rows, or None if nothing to add.
+        """
+        mm23_series = config.CPI_MM23_SERIES
+        if not mm23_series:
+            return None
+
+        global_latest_yr = cpih01_data['yr'].max()
+        global_latest_month = cpih01_data.loc[
+            cpih01_data['yr'] == global_latest_yr, 'month'
+        ].max()
+
+        logger.info(
+            f"mm23 fallback: cpih01 latest is "
+            f"{global_latest_yr}-{global_latest_month:02d}, "
+            f"checking mm23 for newer months..."
+        )
+
+        mm23_base_url = ("https://api.beta.ons.gov.uk/v1/data?uri="
+                         "/economy/inflationandpriceindices/timeseries/{series_id}/mm23")
+
+        all_mm23_rows = []
+        failed_categories = []
+
+        for category_label, series_id in mm23_series.items():
+            url = mm23_base_url.format(series_id=series_id.lower())
+            try:
+                resp = requests.get(url, timeout=30)
+                resp.raise_for_status()
+                months = resp.json().get('months', [])
+
+                for m in months:
+                    date_str = m.get('date', '')  # e.g. "2026 FEB"
+                    value_str = m.get('value', '')
+                    try:
+                        dt = pd.to_datetime(date_str, format="%Y %b")
+                        val = float(value_str)
+                    except (ValueError, TypeError):
+                        continue
+
+                    yr, month = dt.year, dt.month
+                    # Only keep months beyond cpih01's latest
+                    is_newer = (
+                        yr > global_latest_yr
+                        or (yr == global_latest_yr
+                            and month > global_latest_month)
+                    )
+                    if is_newer:
+                        all_mm23_rows.append({
+                            'yr': yr,
+                            'month': month,
+                            'Aggregate': category_label,
+                            'cpi_index': val,
+                        })
+
+            except Exception as e:
+                logger.warning(f"mm23 fallback: failed for {category_label} "
+                               f"({series_id}): {e}")
+                failed_categories.append(category_label)
+
+        if not all_mm23_rows:
+            logger.info("mm23 fallback: no newer months found beyond cpih01")
+            return None
+
+        supplement = pd.DataFrame(all_mm23_rows)
+
+        # Only keep months where all 13 categories are present
+        month_counts = supplement.groupby(['yr', 'month'])['Aggregate'].nunique()
+        expected = len(mm23_series)
+        complete_months = month_counts[month_counts == expected].index.tolist()
+
+        if not complete_months:
+            partial = month_counts[month_counts < expected]
+            for (yr, mo), count in partial.items():
+                logger.warning(f"mm23 fallback: {yr}-{mo:02d} only has "
+                               f"{count}/{expected} categories -- skipped")
+            return None
+
+        supplement = supplement[
+            supplement.set_index(['yr', 'month']).index.isin(complete_months)
+        ].reset_index(drop=True)
+
+        for yr, mo in complete_months:
+            logger.info(
+                f"mm23 fallback: supplementing {yr}-{mo:02d} "
+                f"({expected} categories)"
+            )
+
+        return supplement
 
     def get_data_request(self, endpoint, headers=None, params=None):
         headers = headers or {}

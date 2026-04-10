@@ -296,6 +296,73 @@ class DataLoader:
             self.logger.error(f"An unexpected error occurred: {str(e)}")
             raise DataLoaderException("An unexpected error occurred.") from None
 
+    def get_catchment_visitor_data_by_poi(
+        self,
+        poi_id: str,
+        poi_type: str,
+        date_from: str,
+        date_to: str,
+        month_by_month: bool = True,
+    ) -> pd.DataFrame:
+        """Fetch catchment visitor data filtered by poi_id and poi_type.
+
+        Calls the same endpoint as get_catchment_visitor_data but includes
+        poi_id and poi_type in the request so the API filters server-side.
+
+        Args:
+            poi_id: e.g. "TOWN00138", "64"
+            poi_type: e.g. "towncentres", "bids", "highstreets"
+            date_from: start date (first-of-month, YYYY-MM-DD)
+            date_to: end date (first-of-month, YYYY-MM-DD)
+            month_by_month: iterate one month at a time to keep responses
+                            manageable. Set False for a single request.
+        """
+        endpoint = self.bt_catchment_visitor_api
+
+        if not month_by_month:
+            params = {
+                "poi_id": poi_id,
+                "poi_type": poi_type,
+                "date_from": date_from,
+                "date_to": date_to,
+            }
+            self.logger.info(
+                f"Fetching {date_from} -> {date_to} for {poi_type}/{poi_id}"
+            )
+            data = self.api_client.get_data_request(endpoint, params=params)
+            return pd.DataFrame(data)
+
+        all_frames = []
+        current = pd.Timestamp(date_from)
+        end = pd.Timestamp(date_to)
+
+        while current <= end:
+            month_str = current.strftime("%Y-%m-%d")
+            params = {
+                "poi_id": poi_id,
+                "poi_type": poi_type,
+                "date_from": month_str,
+                "date_to": month_str,
+            }
+            self.logger.info(f"Fetching {month_str} for {poi_type}/{poi_id} ...")
+            try:
+                data = self.api_client.get_data_request(endpoint, params=params)
+                if data:
+                    all_frames.append(pd.DataFrame(data))
+                    self.logger.info(f"  -> {len(data)} rows")
+                else:
+                    self.logger.warning(f"  -> no data for {month_str}")
+            except Exception as e:
+                self.logger.error(f"  -> failed for {month_str}: {e}")
+
+            current += pd.DateOffset(months=1)
+
+        if not all_frames:
+            self.logger.warning("No data returned for any month.")
+            return pd.DataFrame()
+
+        return pd.concat(all_frames, ignore_index=True)
+
     def get_catchment_worker_data(self, date_from, date_to):
         params = {"date_from": date_from, "date_to": date_to}
 
@@ -309,6 +376,59 @@ class DataLoader:
         except Exception as e:
             self.logger.error(f"An unexpected error occurred: {str(e)}")
             raise DataLoaderException("An unexpected error occurred.") from None
+
+    def get_catchment_worker_data_by_poi(
+        self,
+        poi_id: str,
+        poi_type: str,
+        date_from: str,
+        date_to: str,
+        month_by_month: bool = True,
+    ) -> pd.DataFrame:
+        """Fetch catchment worker data filtered by poi_id and poi_type.
+
+        Same as get_catchment_worker_data but with server-side POI filtering.
+        """
+        endpoint = self.bt_catchment_worker_api
+
+        if not month_by_month:
+            params = {
+                "poi_id": poi_id,
+                "poi_type": poi_type,
+                "date_from": date_from,
+                "date_to": date_to,
+            }
+            data = self.api_client.get_data_request(endpoint, params=params)
+            return pd.DataFrame(data)
+
+        all_frames = []
+        current = pd.Timestamp(date_from)
+        end = pd.Timestamp(date_to)
+
+        while current <= end:
+            month_str = current.strftime("%Y-%m-%d")
+            params = {
+                "poi_id": poi_id,
+                "poi_type": poi_type,
+                "date_from": month_str,
+                "date_to": month_str,
+            }
+            self.logger.info(
+                f"Fetching worker {month_str} for {poi_type}/{poi_id} ..."
+            )
+            try:
+                data = self.api_client.get_data_request(endpoint, params=params)
+                if data:
+                    all_frames.append(pd.DataFrame(data))
+            except Exception as e:
+                self.logger.error(f"  -> failed for {month_str}: {e}")
+
+            current += pd.DateOffset(months=1)
+
+        if not all_frames:
+            return pd.DataFrame()
+
+        return pd.concat(all_frames, ignore_index=True)
 
     def get_msoa_data(self, date_from, date_to):
         params = {"date_from": date_from, "date_to": date_to}
