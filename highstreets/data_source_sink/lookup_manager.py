@@ -541,7 +541,11 @@ class LookupManager:
 
     def generate_bespoke_lookup(self):
         """
-        Generate bespoke areas lookup with special handling for Camden areas.
+        Generate bespoke areas quad lookup.
+
+        Uses sjoin (intersects) for all bespoke areas uniformly,
+        allowing quads to map to multiple overlapping bespoke areas.
+        This is consistent with how all other layer types are handled.
 
         Returns:
             pd.DataFrame: Bespoke areas quad lookup
@@ -573,48 +577,27 @@ class LookupManager:
             bespoke_areas_with_borough = bespoke_areas_with_borough.merge(
                 bespoke_areas[['bespoke_area_id', 'geometry']], on='bespoke_area_id'
             )
+            bespoke_areas_with_borough = gpd.GeoDataFrame(
+                bespoke_areas_with_borough, geometry='geometry')
 
-            # Camden areas (handling separately due to complexity)
-            camden_areas = bespoke_areas_with_borough[
-                bespoke_areas_with_borough['borough'] == "Camden"].reset_index(drop=True)
-
-            # For Camden, use overlay to get actual intersection geometries and areas
-            # Make sure CRS matches
-            self.quads = self.quads.to_crs(camden_areas.crs)
-
-            # Remove problematic index columns if they exist
-            for df in [self.quads, camden_areas]:
-                for col in ['index_left', 'index_right']:
-                    if col in df.columns:
-                        df = df.drop(columns=[col])
-
-            # Get intersections between quads and Camden areas
-            camden_intersections = gpd.overlay(
-                self.quads, camden_areas, how='intersection')
-            # Calculate the area of each intersection
-            camden_intersections['area'] = camden_intersections.geometry.area
-            # Sort by quad_id and area to find largest intersection
-            camden_intersections = camden_intersections.sort_values(
-                ['quad_id', 'area'], ascending=[True, False])
-            # Keep only the largest intersection for each quad
-            camden_join = camden_intersections.drop_duplicates('quad_id', keep='first')
-            camden_join = camden_join.drop(columns=['area'])
-
-            # Non-Camden areas - regular spatial join
-            non_camden_areas = bespoke_areas_with_borough[
-                bespoke_areas_with_borough['borough'] != "Camden"]
+            # Ensure CRS matches between quads and bespoke areas
+            self.quads = self.quads.to_crs(bespoke_areas_with_borough.crs)
 
             # Remove problematic index columns if they exist
             for col in ['index_left', 'index_right']:
-                if col in non_camden_areas.columns:
-                    non_camden_areas = non_camden_areas.drop(columns=[col])
+                if col in bespoke_areas_with_borough.columns:
+                    bespoke_areas_with_borough = bespoke_areas_with_borough.drop(
+                        columns=[col])
+                if col in self.quads.columns:
+                    self.quads = self.quads.drop(columns=[col])
 
-            non_camden_join = gpd.sjoin(
-                self.quads, non_camden_areas, how="inner", op='intersects')
+            # Spatial join — all bespoke areas uniformly
+            bespoke_join = gpd.sjoin(
+                self.quads, bespoke_areas_with_borough,
+                how="inner", op='intersects')
 
-            # Combine results and drop geometry
-            bespoke_lookup = pd.concat([camden_join, non_camden_join]).drop(
-                columns=['geometry'])
+            # Drop geometry and clean up
+            bespoke_lookup = bespoke_join.drop(columns=['geometry'])
             if 'index_right' in bespoke_lookup.columns:
                 bespoke_lookup = bespoke_lookup.drop(columns=['index_right'])
 
