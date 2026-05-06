@@ -174,7 +174,7 @@ class LookupManager:
             layer_id = layer_ids[layer]
 
             service_query = (
-                f"https://gis2.london.gov.uk/server/rest/services/apps"
+                f"https://gis.london.gov.uk/arcgis/rest/services/apps"
                 f"/Busyness_context/MapServer/"
                 f"{layer_num}/query?where=1%3D1&outFields=*&f=geojson"
             )
