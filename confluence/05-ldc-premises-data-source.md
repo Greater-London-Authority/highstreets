@@ -1,7 +1,7 @@
 ---
 title: "LDC Premises Data Source"
 space: "CDU"
-parent: "Highstreets Data Platform - Overview"
+parent: "LDC"
 type: "page"
 labels: ["ldc", "premises", "data-source", "snowflake", "etl"]
 ---
