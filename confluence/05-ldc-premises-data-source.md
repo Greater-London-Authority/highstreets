@@ -10,7 +10,7 @@ labels: ["ldc", "premises", "data-source", "snowflake", "etl"]
 
 ## Overview
 
-The LDC (Local Data Company) premises dataset provides a complete record of commercial business occupancy across the UK from 2014 to present. It tracks every retail, leisure, and service premises -- when businesses open, close, change name, or relocate -- creating a longitudinal history of the commercial landscape.
+The LDC (Local Data Company) premises dataset provides a complete record of commercial business occupancy across the UK from 2014 to present. It tracks every retail, leisure, and service premises - when businesses open, close, change name, or relocate -- creating a longitudinal history of the commercial landscape.
 
 ## Data Provider
 
