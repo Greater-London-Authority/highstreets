@@ -129,7 +129,7 @@ class LdcPremisesETL:
         Returns:
             Number of rows affected (inserted + updated)
         """
-        staging_table = f"{table_name}_staging"
+        staging_table = config.LDC_STAGING_TABLE
         qualified_table = f"{PG_SCHEMA}.{table_name}"
         qualified_staging = f"{PG_SCHEMA}.{staging_table}"
 

@@ -53,6 +53,7 @@ botocore = "*"
 datapress = "^1.1.1"
 great-expectations = {version = "^1.11.3", python = ">=3.10"}
 pyarrow = {version = ">=14.0", python = ">=3.10"}
+snowflake-sqlalchemy = "^1.9.0"
 
 [tool.poetry.dev-dependencies]
 debugpy = "^1.6.0"

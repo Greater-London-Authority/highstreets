@@ -1,5 +1,5 @@
 # Use a lightweight Python base image
-FROM python:3.9-slim
+FROM python:3.10-slim
 
 # Install necessary system dependencies, including git and PostgreSQL development libraries
 RUN apt-get update && apt-get install -y --no-install-recommends \

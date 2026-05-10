@@ -216,11 +216,60 @@ inflation_adjusted_amount = adjusted_amount * (cpi_2018 / cpi_current_period)
 - **Resource Allocation**: Optimize service delivery based on activity patterns
 - **Partnership Development**: Support BID and local authority planning
 
+## 🏪 **LDC Premises Data**
+
+### **Data Provider**
+- **Source**: Local Data Company (LDC), part of the Data Analytics Group
+- **Technology**: Field surveyor + desk research data, accessed via Snowflake database
+- **Coverage**: All UK commercial premises (London subset used by HSDS)
+
+### **Data Characteristics**
+
+#### **Spatial Coverage**
+- **Geographic Scope**: All UK commercial premises
+- **Spatial Resolution**: Individual premises-level (address, postcode, lat/lon, UPRN)
+- **Coordinate System**: WGS84 (latitude/longitude)
+
+#### **Temporal Coverage**
+- **Historical Data**: From 2014 onwards (via Excel time series and Snowflake)
+- **Update Frequency**: **Monthly** (Snowflake pull with hash-based upsert)
+- **Record Model**: Each row is a tenancy -- a business occupying a premises during a specific period
+
+#### **Key Identifiers**
+| Identifier | Scope | Description |
+|------------|-------|-------------|
+| `tenant_id` | Tenancy | Stable LDC identifier for a business instance |
+| `premises_id` | Property | Stable identifier for a physical location |
+| `date_create` | Tenancy start | When the business started at the location |
+
+### **Data Processing Steps**
+
+#### **1. Monthly Snowflake Fetch**
+- ~895K rows, 162 columns (all open businesses + ~12 months of closures)
+- Source schema validation (Great Expectations Suite 1 -- STOP gate)
+
+#### **2. Archive & Upsert**
+- Full snapshot archived to S3 Parquet (Hive-partitioned by year/month)
+- Hash-based upsert to PostgreSQL raw table (INSERT/UPDATE only changed rows)
+
+#### **3. Transform & Publish**
+- 7-step transformation pipeline producing 38 analyst-facing columns
+- Business logic + clean output validation (Great Expectations Suites 3-4)
+- Full reload of clean table + S3 clean archive
+
+### **Data Quality Measures**
+- **4 Great Expectations Suites**: Schema validation, raw quality, business logic, clean output
+- **2 STOP Gates**: Source schema and clean output (pipeline halts on failure)
+- **2 WARN Gates**: Raw quality and business logic (issues logged, data ingested)
+- **Hash-Based Change Detection**: Only materially changed records trigger writes
+
+**Full Documentation**: [LDC Premises Data Source](05-ldc-premises-data-source.md)
+
 ## 🔗 **Related Information**
 
 - **[Data Processing Workflows](03-data-workflows.md)**: How raw data becomes insights
 - **[Database Schema](04-database-schema.md)**: Technical details of data storage
-- **[Geographic Boundaries](05-geographic-boundaries.md)**: Spatial framework details
+- **[LDC Premises Data Source](05-ldc-premises-data-source.md)**: Full LDC architecture and pipeline
 - **[Data Governance](08-data-governance.md)**: Quality standards and compliance
 
 ---
@@ -228,7 +277,8 @@ inflation_adjusted_amount = adjusted_amount * (cpi_2018 / cpi_current_period)
 **Data Coverage Summary**:
 - **BT Coverage**: 100% of London via multi-resolution framework (hex/MSOA/LSOA), 3-hourly/hourly/daily resolution, weekly updates
 - **Mastercard Coverage**: London-wide via merchant locations, monthly updates, inflation-adjusted
-- **Combined Coverage**: Comprehensive view of both footfall and economic activity across multiple spatial and temporal scales
+- **LDC Coverage**: All UK commercial premises (2014-present), monthly updates, hash-based change detection
+- **Combined Coverage**: Comprehensive view of footfall, economic activity, and commercial occupancy across multiple spatial and temporal scales
 - **Quality Assurance**: Automated monitoring and validation processes with cross-resolution consistency checks
 
 **Next Steps**: Learn about [Data Processing Workflows](03-data-workflows.md) 

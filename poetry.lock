@@ -4526,6 +4526,25 @@ pandas = ["pandas (>=1.0.0,<3.0.0)", "pyarrow (<19.0.0)"]
 secure-local-storage = ["keyring (>=23.1.0,<26.0.0)"]
 
 [[package]]
+name = "snowflake-sqlalchemy"
+version = "1.9.0"
+description = "Snowflake SQLAlchemy Dialect"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "snowflake_sqlalchemy-1.9.0-py3-none-any.whl", hash = "sha256:f0b1528173e93c8c80bd9ca510985054667e0e514dd90b890271ac1cfae261c1"},
+    {file = "snowflake_sqlalchemy-1.9.0.tar.gz", hash = "sha256:fb32baf559f7f933ae8fde2ec535bcea5381bb15188777cd8c006b3226efa3b1"},
+]
+
+[package.dependencies]
+snowflake-connector-python = "<5.0.0"
+sqlalchemy = ">=1.4.19"
+
+[package.extras]
+development = ["numpy", "pre-commit", "pytest", "pytest-cov", "pytest-rerunfailures", "pytest-timeout", "pytest-xdist", "pytz", "setuptools", "syrupy"]
+pandas = ["snowflake-connector-python[pandas]"]
+
+[[package]]
 name = "sortedcontainers"
 version = "2.4.0"
 description = "Sorted Containers -- Sorted List, Sorted Dict, Sorted Set"
@@ -5261,4 +5280,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8,<3.11"
-content-hash = "6be8c60ebbf4acd1b7bf69e5ef36f877162cd6ed2f484c5ce4096ba479007ba6"
+content-hash = "94806db0496abc101f7215af936a456e54dd48c2c079cf64212cddd44efcdda2"

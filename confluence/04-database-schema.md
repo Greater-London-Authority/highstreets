@@ -91,6 +91,11 @@ The Highstreets Data Platform uses PostgreSQL with monthly partitioning on large
 - [`econ_busyness_mcard_london_yoy`](#econ_busyness_mcard_yoy) – Mastercard London-wide YoY growth
 - Consolidated: [`econ_busyness_mcard_yoy`](#econ_busyness_mcard_yoy) – All Mastercard weekly YoY layers combined
 
+#### LDC Premises Tables
+- [`ldc_premises_raw`](#ldc_premises_raw) – Accumulated LDC premises data (60 columns, all sources)
+- [`ldc_premises_clean`](#ldc_premises_clean) – Transformed analyst-facing output (38 columns)
+- [`ldc_premises_staging`](#ldc_premises_staging) – Temporary UNLOGGED table for upsert operations
+
 #### Reference & Context Tables
 - [`econ_busyness_mcard_adjustment_factors`](#econ_busyness_mcard_adjustment_factors) – Monthly cash-to-card and market share adjustment factors
 - [`econ_busyness_mcard_cpi_data`](#econ_busyness_mcard_cpi_data) – CPIH inflation data from ONS API
@@ -515,10 +520,59 @@ Raw Weekly Files (*.csv) → econ_busyness_mcard_raw_18_zoom
 
 ---
 
+---
+
+## 🏪 LDC Premises Tables
+
+### ldc_premises_raw
+Accumulated LDC premises business history (all sources: live, historic, archived)
+
+| Column Group | Key Columns | Description |
+|-------------|-------------|-------------|
+| **Primary Key** | `tenant_id`, `premises_id`, `date_create` | Composite PK for upsert |
+| **Core Business** | `tenant`, `tenant_status`, `category`, `classification`, `subcategory` | Business identity and classification |
+| **Location** | `address`, `street`, `city`, `zip`, `geography`, `latitude`, `longitude`, `uprn_id` | Physical location |
+| **Company** | `company`, `company_id`, `company_holding`, `tenant_care_of`, `flag_independent` | Operator and ownership |
+| **Dates** | `date_close`, `date_premises_create`, `timestamp_update` | Lifecycle dates |
+| **Metadata** | `source`, `row_hash`, `ingested_at` | Pipeline tracking |
+
+PK: (tenant_id, premises_id, date_create)
+Full column reference: [LDC Data Dictionary](05.3-ldc-data-dictionary.md)
+
+### ldc_premises_clean
+Transformed 38-column analyst-facing output
+
+| Column Group | Key Columns | Description |
+|-------------|-------------|-------------|
+| **Surrogate PK** | `id` (BIGSERIAL) | Auto-increment; accommodates rare SWS duplicates |
+| **Identity** | `tenant_id`, `tenant`, `premises_id` | Business and location |
+| **Location** | `address`, `geography`, `geography_large`, `latitude`, `longitude` | Spatial fields |
+| **Classification** | `category`, `classification`, `subcategory` | Business type hierarchy |
+| **Computed** | `latest_record_check`, `latest_premises_check` | Survey recency (computed during transform) |
+
+PK: id (BIGSERIAL)
+Full column reference: [LDC Data Dictionary](05.3-ldc-data-dictionary.md)
+
+### ldc_premises_staging
+Temporary UNLOGGED table for upsert operations. Schema mirrors `ldc_premises_raw`. Truncated before each use.
+
+### LDC Data Flow
+```
+Snowflake → ldc_premises_staging (TRUNCATE + append)
+         → ldc_premises_raw (INSERT ON CONFLICT with hash check)
+         → Transform (7-step pipeline)
+         → ldc_premises_clean (TRUNCATE + full reload)
+         → S3 Parquet archives
+```
+
+---
+
 ## 🔗 Related Information
 
 - [BT Footfall Data Flow](03.1-bt-data-flow.md)
 - [Mastercard Transaction Data Flow](03.2-mastercard-data-flow.md)
+- [LDC Premises Data Source](05-ldc-premises-data-source.md)
+- [LDC Data Dictionary](05.3-ldc-data-dictionary.md)
 - [Sublicensing & Data Distribution](07-sublicensing.md)
 
 ---
