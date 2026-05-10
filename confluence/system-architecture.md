@@ -66,6 +66,7 @@ The Highstreets Data Platform operates on a modern, cloud-native architecture de
 - **[Platform Overview](01-platform-overview.md)**: Business context and objectives
 - **[BT Data Source](bt-data-source.md)**: BT-specific architecture details
 - **[Mastercard Data Source](mastercard-data-source.md)**: Mastercard-specific architecture
+- **[LDC Premises Data Source](05-ldc-premises-data-source.md)**: LDC premises architecture (Snowflake → PostgreSQL + S3)
 - **[Database Schema](04-database-schema.md)**: Data storage architecture
 - **[Data Governance](08-data-governance.md)**: Security and compliance architecture
 
@@ -78,4 +79,4 @@ The Highstreets Data Platform operates on a modern, cloud-native architecture de
 - **Secure by Design**: Multiple security layers with comprehensive monitoring
 - **Future-Proof**: Scalable architecture ready for additional data sources
 
-**Next Steps**: Review source-specific architecture details in [BT Data Source](bt-data-source.md) and [Mastercard Data Source](mastercard-data-source.md) 
+**Next Steps**: Review source-specific architecture details in [BT Data Source](bt-data-source.md), [Mastercard Data Source](mastercard-data-source.md), and [LDC Premises Data Source](05-ldc-premises-data-source.md) 

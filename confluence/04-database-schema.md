@@ -92,7 +92,7 @@ The Highstreets Data Platform uses PostgreSQL with monthly partitioning on large
 - Consolidated: [`econ_busyness_mcard_yoy`](#econ_busyness_mcard_yoy) – All Mastercard weekly YoY layers combined
 
 #### LDC Premises Tables
-- [`ldc_premises_raw`](#ldc_premises_raw) – Accumulated LDC premises data (60 columns, all sources)
+- [`ldc_premises_raw`](#ldc_premises_raw) – Accumulated LDC premises data (57 columns, all sources)
 - [`ldc_premises_clean`](#ldc_premises_clean) – Transformed analyst-facing output (38 columns)
 - [`ldc_premises_staging`](#ldc_premises_staging) – Temporary UNLOGGED table for upsert operations
 
