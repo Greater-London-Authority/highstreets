@@ -61,8 +61,8 @@ LDC's Snowflake database is a **rolling window** -- businesses that closed more 
 
 | Tier | Storage | Columns | Purpose | Query Method |
 |------|---------|---------|---------|-------------|
-| **Hot** | PostgreSQL `ldc_premises_raw` | 60 | Working dataset for transformations | SQL via application |
-| **Hot** | PostgreSQL `ldc_premises_clean` | 38 | Analyst-facing output | SQL via application |
+| **Hot** | PostgreSQL `ldc_premises_raw` | 57 | Working dataset for transformations | SQL via application |
+| **Hot** | PostgreSQL `ldc_premises_clean` | 39 | Analyst-facing output | SQL via application |
 | **Cold** | S3 Parquet (snapshots) | 162 | Monthly Snowflake archives, exactly as received | Athena via Glue |
 | **Cold** | S3 Parquet (baseline) | 195 | One-time initial load archive | Athena via Glue |
 | **Cold** | S3 Parquet (clean) | 38 | Monthly clean output archives | Athena via Glue |
@@ -73,7 +73,7 @@ LDC's Snowflake database is a **rolling window** -- businesses that closed more 
 Step 1:  Snowflake Fetch ─────────────────── ~895K rows, 162 columns
 Step 2:  Schema Validation (Suite 1: STOP) ─ Critical columns, PK integrity
 Step 3:  S3 Archive (raw snapshot) ───────── s3://hsds-data/ldc/snowflake_snapshots/year=YYYY/month=MM/
-Step 4:  Select 60 working columns + hash ── Row-level hash for change detection
+Step 4:  Select 56 working columns + hash ── Row-level hash for change detection
 Step 5:  Upsert to PostgreSQL raw ────────── INSERT ON CONFLICT with hash comparison
 Step 6:  Raw Quality Validation (Suite 2: WARN)
 Step 7:  Read full accumulated raw from PG ── All historical data (~1.68M+ rows)
@@ -99,7 +99,7 @@ This ensures:
 
 ### Transformation Pipeline
 
-The transformation logic is preserved from the original DS team's `hsds_datahub/src/etl/premises.py`. It produces 38 analyst-facing columns from the 57-column raw data:
+The transformation logic is preserved from the original DS team's `hsds_datahub/src/etl/premises.py`. It produces columns from the 57-column raw data:
 
 | Step | Function | Effect |
 |------|----------|--------|
