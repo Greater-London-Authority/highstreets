@@ -199,15 +199,20 @@ class LdcPremisesETL:
 
         logger.info(f"Archiving {len(df):,} rows to {full_path}")
 
+        import datetime as dt
+
         df_out = df.copy()
+
         for col in df_out.columns:
-            if hasattr(df_out[col], 'dt') and df_out[col].dtype.kind == 'O':
-                try:
-                    sample = df_out[col].dropna().iloc[0] if len(df_out[col].dropna()) > 0 else None
-                    if sample is not None and hasattr(sample, 'hour') and not hasattr(sample, 'year'):
-                        df_out[col] = df_out[col].astype(str).replace('NaT', None)
-                except (IndexError, AttributeError):
-                    pass
+            if df_out[col].dtype == 'object':
+                non_null = df_out[col].dropna()
+                if len(non_null) > 0 and isinstance(non_null.iloc[0], dt.time):
+                    df_out[col] = df_out[col].apply(
+                        lambda x: str(x) if x is not None and x is not pd.NaT else None
+                    )
+
+        for col in df_out.select_dtypes(include=['datetime64']).columns:
+            df_out[col] = df_out[col].dt.floor('us')
 
         table = pa.Table.from_pandas(df_out)
         fs = fsspec.filesystem('s3')
