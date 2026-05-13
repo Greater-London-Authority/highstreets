@@ -199,10 +199,24 @@ class LdcPremisesETL:
 
         logger.info(f"Archiving {len(df):,} rows to {full_path}")
 
-        table = pa.Table.from_pandas(df)
+        df_out = df.copy()
+        for col in df_out.columns:
+            if hasattr(df_out[col], 'dt') and df_out[col].dtype.kind == 'O':
+                try:
+                    sample = df_out[col].dropna().iloc[0] if len(df_out[col].dropna()) > 0 else None
+                    if sample is not None and hasattr(sample, 'hour') and not hasattr(sample, 'year'):
+                        df_out[col] = df_out[col].astype(str).replace('NaT', None)
+                except (IndexError, AttributeError):
+                    pass
+
+        table = pa.Table.from_pandas(df_out)
         fs = fsspec.filesystem('s3')
         with fs.open(full_path, 'wb') as f:
-            pq.write_table(table, f)
+            pq.write_table(
+                table, f,
+                coerce_timestamps='us',
+                allow_truncated_timestamps=True
+            )
 
         logger.info(f"Archive complete: {full_path}")
 

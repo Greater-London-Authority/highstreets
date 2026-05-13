@@ -2,12 +2,12 @@
 -- Created as part of HSDS pipeline integration
 -- 
 -- Tables:
---   1. ldc_premises_raw (~60 columns) - Accumulated, deduplicated working data
+--   1. ldc_premises_raw (57 columns) - Accumulated, deduplicated working data
 --   2. ldc_premises_clean (38 columns) - Transformed output for analyst consumption
 --   3. ldc_premises_staging (temporary) - Used for upsert operations
 
 -- ============================================================================
--- TABLE 1: ldc_premises_raw (~60 columns - working set only)
+-- TABLE 1: ldc_premises_raw (57 columns - working set only)
 -- ============================================================================
 -- Design Decision: Store only columns needed for transformations + clean output.
 -- Full 195-column snapshots archived to S3 Parquet.
@@ -106,7 +106,7 @@ CREATE INDEX idx_ldc_raw_date_close ON ldc_premises_raw(date_close);
 CREATE INDEX idx_ldc_raw_tenant_status ON ldc_premises_raw(tenant_status);
 
 -- Add comments for documentation
-COMMENT ON TABLE ldc_premises_raw IS 'LDC premises raw data - accumulated history with monthly Snowflake upserts (~60 working columns)';
+COMMENT ON TABLE ldc_premises_raw IS 'LDC premises raw data - accumulated history with monthly Snowflake upserts (57 working columns)';
 COMMENT ON COLUMN ldc_premises_raw.tenant_id IS 'LDC unique identifier for each tenancy/business instance';
 COMMENT ON COLUMN ldc_premises_raw.premises_id IS 'LDC unique identifier for physical property location';
 COMMENT ON COLUMN ldc_premises_raw.date_create IS 'Date when tenancy/business started at this location';

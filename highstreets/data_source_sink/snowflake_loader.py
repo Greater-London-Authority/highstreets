@@ -40,7 +40,7 @@ class SnowflakeLoader:
     DEFAULT_SCHEMA = "SCH_GREEN_STREET"
     DEFAULT_TABLE = "VW_GS_RETAIL_UK_TENANT_V2"
 
-    # Columns to select for PostgreSQL raw table (~60 columns)
+    # Columns to select for PostgreSQL raw table (57 columns)
     WORKING_COLUMNS = [
         # Primary key columns
         'tenant_id', 'premises_id', 'date_create',
