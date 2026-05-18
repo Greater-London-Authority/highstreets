@@ -96,20 +96,36 @@ class LdcPremisesETL:
             f"{host}:{port}/{database}"
         )
 
+    HASH_EXCLUDE_COLS = [
+        'row_hash', 'ingested_at',
+        'timestamp_create', 'timestamp_update',
+    ]
+
     def compute_row_hash(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Compute row hash for ALL columns (excluding metadata).
+        Compute row hash over business-relevant columns only.
 
-        Uses pandas hash for efficiency, converts to hex string for storage.
-        This ensures ANY change in ANY column is detected during upsert.
+        Excludes pipeline metadata (row_hash, ingested_at) and LDC batch
+        timestamps (timestamp_create, timestamp_update) which change on
+        every Snowflake refresh without reflecting actual data changes.
+
+        Normalizes dtypes before hashing so that int64 vs float64
+        representations of the same value (caused by nullable columns)
+        produce identical hashes across runs.
         """
-        exclude_cols = ['row_hash', 'ingested_at']
-        hash_cols = [c for c in df.columns if c not in exclude_cols]
+        hash_cols = [c for c in df.columns if c not in self.HASH_EXCLUDE_COLS]
 
         logger.info(f"Computing row hash over {len(hash_cols)} columns")
 
+        hash_input = df[hash_cols].copy()
+        for col in hash_input.columns:
+            if hash_input[col].dtype in ['int64', 'Int64']:
+                hash_input[col] = hash_input[col].astype('float64')
+            elif hash_input[col].dtype == 'object':
+                hash_input[col] = hash_input[col].fillna('__NULL__')
+
         df['row_hash'] = pd.util.hash_pandas_object(
-            df[hash_cols],
+            hash_input,
             index=False
         ).apply(lambda x: format(x & 0xFFFFFFFF, '08x'))
 

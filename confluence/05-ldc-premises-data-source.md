@@ -88,7 +88,7 @@ Step 12: S3 Archive (clean) ──────────────── s3:
 
 The pipeline uses **hash-based change detection** to efficiently handle ~895K incoming rows against ~1.68M+ accumulated rows:
 
-1. Compute `row_hash` via `pd.util.hash_pandas_object` (truncated to 32-bit hex) over all working columns (excluding metadata)
+1. Compute `row_hash` via `pd.util.hash_pandas_object` (truncated to 32-bit hex) over business-relevant columns (excludes `timestamp_create`, `timestamp_update`, `row_hash`, `ingested_at`; dtypes normalised for stability)
 2. Load to UNLOGGED staging table (TRUNCATE + append)
 3. `INSERT INTO raw SELECT FROM staging ON CONFLICT (tenant_id, premises_id, date_create) DO UPDATE SET ... WHERE raw.row_hash IS DISTINCT FROM EXCLUDED.row_hash`
 

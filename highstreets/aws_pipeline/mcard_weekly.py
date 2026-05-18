@@ -45,6 +45,10 @@ data_writer = DataWriter()
 mcard_transform = McardTransform()
 sql_manager = SQLManager(engine=engine)
 
+cpi_success = mcard_transform.load_cpi_data_to_postgres(truncate=True)
+if not cpi_success:
+    raise Exception("Failed to load CPI data")
+
 # Define table names
 table_name_map = {
     # "15": "test_econ_busyness_mcard_raw_15_zoom",
