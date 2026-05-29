@@ -584,20 +584,33 @@ class LdcPremisesValidator:
             }
 
         # Custom business logic checks (not easily expressed as GX expectations)
-        custom_warnings = self._check_business_logic_custom(df)
-        if custom_warnings:
-            details.setdefault('warnings', []).extend(custom_warnings)
-        details['custom_checks'] = custom_warnings
+        custom_checks = self._check_business_logic_custom(df)
+        if custom_checks:
+            for check in custom_checks:
+                details.setdefault('warnings', []).append(check['message'])
+        details['custom_checks'] = custom_checks
 
         return passed, details
 
-    def _check_business_logic_custom(self, df: pd.DataFrame) -> List[str]:
+    def _check_business_logic_custom(
+        self, df: pd.DataFrame
+    ) -> List[Dict[str, Any]]:
         """
         Custom business logic checks beyond GX expectations.
 
-        Returns list of warning messages.
+        Returns list of warning dicts with keys: check, count, pct,
+        message, sample_rows.
         """
         warnings = []
+        sample_cols = [
+            'tenant_id', 'premises_id', 'tenant', 'tenant_status',
+            'date_create', 'date_close'
+        ]
+
+        def _sample_rows(mask, n=5):
+            """Return a list of dicts for up to n rows matching the mask."""
+            cols = [c for c in sample_cols if c in df.columns]
+            return df.loc[mask, cols].head(n).to_dict('records')
 
         # Check: date_close >= date_create (or null)
         if 'date_close' in df.columns and 'date_create' in df.columns:
@@ -614,12 +627,23 @@ class LdcPremisesValidator:
 
                 if invalid_count > 0:
                     pct = (invalid_count / len(df)) * 100
-                    warnings.append(
-                        f"date_close < date_create: "
-                        f"{invalid_count} rows ({pct:.2f}%)"
-                    )
+                    warnings.append({
+                        'check': 'date_close < date_create',
+                        'count': int(invalid_count),
+                        'pct': pct,
+                        'message': (
+                            f"date_close < date_create: "
+                            f"{invalid_count} rows ({pct:.2f}%)"
+                        ),
+                        'sample_rows': _sample_rows(invalid_dates),
+                    })
             except Exception as e:
-                warnings.append(f"Date comparison error: {str(e)}")
+                warnings.append({
+                    'check': 'date_close < date_create',
+                    'count': 0,
+                    'message': f"Date comparison error: {str(e)}",
+                    'sample_rows': [],
+                })
 
         # Check: Active tenants should not have date_close
         if 'tenant_status' in df.columns and 'date_close' in df.columns:
@@ -631,10 +655,16 @@ class LdcPremisesValidator:
                 count = active_with_close.sum()
                 if count > 0:
                     pct = (count / len(df)) * 100
-                    warnings.append(
-                        f"Active tenants with date_close: "
-                        f"{count} rows ({pct:.2f}%)"
-                    )
+                    warnings.append({
+                        'check': 'Active tenants with date_close',
+                        'count': int(count),
+                        'pct': pct,
+                        'message': (
+                            f"Active tenants with date_close: "
+                            f"{count} rows ({pct:.2f}%)"
+                        ),
+                        'sample_rows': _sample_rows(active_with_close),
+                    })
             except Exception:
                 pass
 
@@ -648,10 +678,16 @@ class LdcPremisesValidator:
                 count = closed_no_close.sum()
                 if count > 0:
                     pct = (count / len(df)) * 100
-                    warnings.append(
-                        f"Closed tenants without date_close: "
-                        f"{count} rows ({pct:.2f}%)"
-                    )
+                    warnings.append({
+                        'check': 'Closed tenants without date_close',
+                        'count': int(count),
+                        'pct': pct,
+                        'message': (
+                            f"Closed tenants without date_close: "
+                            f"{count} rows ({pct:.2f}%)"
+                        ),
+                        'sample_rows': _sample_rows(closed_no_close),
+                    })
             except Exception:
                 pass
 
@@ -813,7 +849,7 @@ class LdcPremisesValidator:
     # HTML REPORT GENERATION
     # =========================================================================
 
-    def generate_html_report(
+    def generate_html_report(  # noqa: C901
         self,
         all_results: Dict[str, Dict[str, Any]],
         run_timestamp: str,
@@ -870,21 +906,101 @@ class LdcPremisesValidator:
                     detail_parts.append(f"Error: {error}")
                 detail_str = ' | '.join(detail_parts) if detail_parts else ''
 
+                sample_html = ''
+                if not exp_success:
+                    samples = result_data.get('partial_unexpected_list', [])
+                    counts = result_data.get('partial_unexpected_counts', [])
+                    observed = result_data.get('observed_value', '')
+
+                    if counts:
+                        items = ''.join(
+                            f'<li><code>{c.get("value", "N/A")}</code>'
+                            f' &times; {c.get("count", "")}</li>'
+                            for c in counts[:15]
+                        )
+                        remaining = len(counts) - 15
+                        if remaining > 0:
+                            items += f'<li>... and {remaining} more</li>'
+                        sample_html = (
+                            f'<div class="sample-values">'
+                            f'<strong>Sample values (value &times; count):</strong>'
+                            f'<ul>{items}</ul></div>'
+                        )
+                    elif samples:
+                        unique = list(dict.fromkeys(
+                            str(v) for v in samples[:20]
+                        ))
+                        items = ''.join(
+                            f'<li><code>{v}</code></li>' for v in unique
+                        )
+                        sample_html = (
+                            f'<div class="sample-values">'
+                            f'<strong>Sample unexpected values:</strong>'
+                            f'<ul>{items}</ul></div>'
+                        )
+                    elif observed:
+                        sample_html = (
+                            f'<div class="sample-values">'
+                            f'<strong>Observed:</strong> '
+                            f'<code>{observed}</code></div>'
+                        )
+
                 expectations_html.append(f"""
                 <tr class="{exp_class}">
                     <td>{'&#10004;' if exp_success else '&#10008;'}</td>
                     <td>{exp_type}</td>
-                    <td>{detail_str}</td>
+                    <td>{detail_str}{sample_html}</td>
                 </tr>""")
 
             failures_html = ''
             warnings_html = ''
             if details.get('failures'):
                 items = ''.join(f'<li>{f}</li>' for f in details['failures'])
-                failures_html = f'<div class="failures"><strong>Failures:</strong><ul>{items}</ul></div>'  # noqa: E501
+                failures_html = (
+                    f'<div class="failures">'
+                    f'<strong>Failures:</strong><ul>{items}</ul></div>'
+                )
             if details.get('warnings'):
                 items = ''.join(f'<li>{w}</li>' for w in details['warnings'])
-                warnings_html = f'<div class="warnings"><strong>Warnings:</strong><ul>{items}</ul></div>'  # noqa: E501
+                warnings_html = (
+                    f'<div class="warnings">'
+                    f'<strong>Warnings:</strong><ul>{items}</ul></div>'
+                )
+
+            custom_checks = details.get('custom_checks', [])
+            custom_html = ''
+            if custom_checks:
+                check_items = []
+                for chk in custom_checks:
+                    rows = chk.get('sample_rows', [])
+                    if rows:
+                        headers = list(rows[0].keys())
+                        hdr = ''.join(f'<th>{h}</th>' for h in headers)
+                        body = ''
+                        for row in rows:
+                            cells = ''.join(
+                                f'<td>{row.get(h, "")}</td>'
+                                for h in headers
+                            )
+                            body += f'<tr>{cells}</tr>'
+                        table = (
+                            f'<table class="sample-table">'
+                            f'<thead><tr>{hdr}</tr></thead>'
+                            f'<tbody>{body}</tbody></table>'
+                        )
+                        check_items.append(
+                            f'<li>{chk["message"]}'
+                            f'<div class="sample-values">'
+                            f'<strong>Sample rows:</strong>{table}'
+                            f'</div></li>'
+                        )
+                    else:
+                        check_items.append(f'<li>{chk["message"]}</li>')
+                custom_html = (
+                    f'<div class="warnings">'
+                    f'<strong>Custom Checks (with samples):</strong>'
+                    f'<ul>{"".join(check_items)}</ul></div>'
+                )
 
             suites_html.append(f"""
             <div class="suite">
@@ -893,6 +1009,7 @@ class LdcPremisesValidator:
                     row_count:,}</p>
                 {failures_html}
                 {warnings_html}
+                {custom_html}
                 <table>
                     <thead><tr><th></th><th>Expectation</th><th>Details</th></tr></thead>
                     <tbody>{''.join(expectations_html)}</tbody>
@@ -928,6 +1045,16 @@ class LdcPremisesValidator:
          background: #f8d7da; padding: 10px 15px; border-radius: 4px; margin: 10px 0; }}
     .warnings {{
          background: #fff3cd; padding: 10px 15px; border-radius: 4px; margin: 10px 0; }}
+    .sample-values {{
+         background: #f0f0f0; padding: 8px 12px; border-radius: 4px;
+         margin-top: 6px; font-size: 0.9em; }}
+    .sample-values ul {{ margin: 4px 0 0 0; padding-left: 18px; }}
+    .sample-values li {{ margin: 2px 0; }}
+    .sample-table {{ font-size: 0.85em; margin-top: 6px; }}
+    .sample-table th {{ background: #dee2e6; padding: 4px 8px; }}
+    .sample-table td {{ padding: 4px 8px; }}
+    code {{
+         background: #e8e8e8; padding: 1px 5px; border-radius: 3px; font-size: 0.9em; }}
     .footer {{
          margin-top: 40px; color: #6c757d; font-size: 0.85em;
          border-top: 1px solid #dee2e6; padding-top: 10px; }}
