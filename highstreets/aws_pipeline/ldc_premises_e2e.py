@@ -121,6 +121,10 @@ class LdcPremisesETL:
         for col in hash_input.columns:
             if hash_input[col].dtype in ['int64', 'Int64']:
                 hash_input[col] = hash_input[col].astype('float64')
+            elif pd.api.types.is_datetime64_any_dtype(hash_input[col]):
+                hash_input[col] = hash_input[col].astype(str)
+            elif hash_input[col].dtype == 'bool':
+                hash_input[col] = hash_input[col].astype('float64')
             elif hash_input[col].dtype == 'object':
                 hash_input[col] = hash_input[col].fillna('__NULL__')
 
