@@ -810,6 +810,157 @@ class LdcPremisesValidator:
         return passed, details
 
     # =========================================================================
+    # HTML REPORT GENERATION
+    # =========================================================================
+
+    def generate_html_report(
+        self,
+        all_results: Dict[str, Dict[str, Any]],
+        run_timestamp: str,
+        s3_path: Optional[str] = None
+    ) -> str:
+        """
+        Generate an HTML validation report and optionally upload to S3.
+
+        Produces a self-contained HTML file summarising all suite results,
+        individual expectation outcomes, and failure/warning details.
+
+        Args:
+            all_results: Dictionary from run() stats['validations']
+            run_timestamp: ISO format timestamp of the pipeline run
+            s3_path: S3 path to upload the report (e.g. s3://bucket/path/).
+                     If None, returns HTML string without uploading.
+
+        Returns:
+            The S3 path of the uploaded report, or the local path if no S3.
+        """
+        run_date = run_timestamp[:10] if run_timestamp else 'unknown'
+        run_time = run_timestamp[11:19] if run_timestamp and len(run_timestamp) > 19 else ''  # noqa: E501
+
+        suites_html = []
+        for suite_name, details in all_results.items():
+            passed = details.get('passed', False)
+            failure_mode = details.get('failure_mode', 'UNKNOWN')
+            status_class = 'pass' if passed else 'fail'
+            status_text = 'PASSED' if passed else f'FAILED ({failure_mode})'
+            passed_n = details.get('expectations_passed', 0)
+            total_n = details.get('expectations_total', 0)
+            row_count = details.get('row_count', 'N/A')
+
+            expectations_html = []
+            for res in details.get('expectation_results', []):
+                exp_type = res.get('expectation_type', 'Unknown')
+                exp_success = res.get('success', False)
+                exp_class = 'pass' if exp_success else 'fail'
+                exp_kwargs = res.get('kwargs', {})
+                column = exp_kwargs.get('column', exp_kwargs.get('column_list', ''))
+                result_data = res.get('result', {})
+                unexpected = result_data.get('unexpected_count', '')
+                unexpected_pct = result_data.get('unexpected_percent', '')
+                error = res.get('error', '')
+
+                detail_parts = []
+                if column:
+                    detail_parts.append(f"Column: {column}")
+                if unexpected != '':
+                    detail_parts.append(f"Unexpected: {unexpected}")
+                if unexpected_pct != '' and unexpected_pct != 0:
+                    detail_parts.append(f"({unexpected_pct:.4f}%)")
+                if error:
+                    detail_parts.append(f"Error: {error}")
+                detail_str = ' | '.join(detail_parts) if detail_parts else ''
+
+                expectations_html.append(f"""
+                <tr class="{exp_class}">
+                    <td>{'&#10004;' if exp_success else '&#10008;'}</td>
+                    <td>{exp_type}</td>
+                    <td>{detail_str}</td>
+                </tr>""")
+
+            failures_html = ''
+            warnings_html = ''
+            if details.get('failures'):
+                items = ''.join(f'<li>{f}</li>' for f in details['failures'])
+                failures_html = f'<div class="failures"><strong>Failures:</strong><ul>{items}</ul></div>'  # noqa: E501
+            if details.get('warnings'):
+                items = ''.join(f'<li>{w}</li>' for w in details['warnings'])
+                warnings_html = f'<div class="warnings"><strong>Warnings:</strong><ul>{items}</ul></div>'  # noqa: E501
+
+            suites_html.append(f"""
+            <div class="suite">
+                <h2 class="{status_class}">{suite_name} &mdash; {status_text}</h2>
+                <p>Expectations: {passed_n}/{total_n} passed | Rows validated: {
+                    row_count:,}</p>
+                {failures_html}
+                {warnings_html}
+                <table>
+                    <thead><tr><th></th><th>Expectation</th><th>Details</th></tr></thead>
+                    <tbody>{''.join(expectations_html)}</tbody>
+                </table>
+            </div>""")
+
+        overall_passed = all(
+            d.get('passed', False) for d in all_results.values()
+        )
+        overall_class = 'pass' if overall_passed else 'fail'
+        overall_text = 'ALL SUITES PASSED' if overall_passed else 'SOME SUITES FAILED'
+
+        html = f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<title>LDC Validation Report - {run_date}</title>
+<style>
+    body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+           max-width: 960px; margin: 40px auto; padding: 0 20px; color: #333; }}
+    h1 {{ border-bottom: 3px solid #333; padding-bottom: 10px; }}
+    .summary {{ font-size: 1.2em; padding: 15px; border-radius: 6px; margin: 20px 0; }}
+    .summary.pass {{ background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }}
+    .summary.fail {{ background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }}
+    .suite {{ margin: 30px 0; padding: 20px; background: #f8f9fa; border-radius: 6px; }}
+    h2.pass {{ color: #28a745; }}
+    h2.fail {{ color: #dc3545; }}
+    table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
+    th, td {{ text-align: left; padding: 8px 12px; border-bottom: 1px solid #dee2e6; }}
+    th {{ background: #e9ecef; }}
+    tr.pass td:first-child {{ color: #28a745; }}
+    tr.fail td:first-child {{ color: #dc3545; font-weight: bold; }}
+    tr.fail {{ background: #fff3f3; }}
+    .failures {{
+         background: #f8d7da; padding: 10px 15px; border-radius: 4px; margin: 10px 0; }}
+    .warnings {{
+         background: #fff3cd; padding: 10px 15px; border-radius: 4px; margin: 10px 0; }}
+    .footer {{
+         margin-top: 40px; color: #6c757d; font-size: 0.85em;
+         border-top: 1px solid #dee2e6; padding-top: 10px; }}
+</style></head><body>
+<h1>LDC Premises Validation Report</h1>
+<p>Pipeline run: {run_date} {run_time}</p>
+<div class="summary {overall_class}">{overall_text}</div>
+{''.join(suites_html)}
+<div class="footer">
+    Generated by LdcPremisesValidator | Great Expectations v{gx.__version__}
+</div>
+</body></html>"""
+
+        if s3_path:
+            try:
+                import fsspec
+                report_filename = f"validation_report_{run_date.replace('-', '')}.html"
+                full_s3_path = f"{s3_path.rstrip('/')}/{report_filename}"
+
+                fs = fsspec.filesystem('s3')
+                with fs.open(full_s3_path, 'w') as f:
+                    f.write(html)
+
+                self.logger.info(f"Validation report uploaded to {full_s3_path}")
+                return full_s3_path
+
+            except Exception as e:
+                self.logger.error(f"Failed to upload report to S3: {e}")
+                return html
+        else:
+            return html
+
+    # =========================================================================
     # UTILITY METHODS
     # =========================================================================
 

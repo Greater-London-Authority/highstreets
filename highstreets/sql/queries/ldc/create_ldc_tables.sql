@@ -127,7 +127,7 @@ COMMENT ON COLUMN ldc_premises_raw.row_hash IS 'Hash of all columns for change d
 DROP TABLE IF EXISTS ldc_premises_clean CASCADE;
 
 CREATE TABLE ldc_premises_clean (
-    id BIGSERIAL PRIMARY KEY,
+    row_id BIGSERIAL PRIMARY KEY,
     tenant_id BIGINT NOT NULL,
     tenant VARCHAR(500),
     address TEXT,

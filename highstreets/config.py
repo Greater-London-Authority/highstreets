@@ -149,6 +149,7 @@ LDC_S3_BASE = f"{BASE_DIR}ldc/"
 LDC_S3_INITIAL_LOAD = f"{LDC_S3_BASE}initial_load/"
 LDC_S3_SNOWFLAKE_SNAPSHOTS = f"{LDC_S3_BASE}snowflake_snapshots/"
 LDC_S3_CLEAN_ARCHIVES = f"{LDC_S3_BASE}clean_archives/"
+LDC_S3_VALIDATION_REPORTS = f"{LDC_S3_BASE}validation_reports/"
 
 # LDC PostgreSQL table names
 LDC_RAW_TABLE = "ldc_premises_raw"

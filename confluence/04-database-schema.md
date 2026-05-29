@@ -544,13 +544,13 @@ Transformed 38-column analyst-facing output
 
 | Column Group | Key Columns | Description |
 |-------------|-------------|-------------|
-| **Surrogate PK** | `id` (BIGSERIAL) | Auto-increment; accommodates rare SWS duplicates |
+| **Surrogate PK** | `row_id` (BIGSERIAL) | Auto-increment; accommodates rare SWS duplicates |
 | **Identity** | `tenant_id`, `tenant`, `premises_id` | Business and location |
 | **Location** | `address`, `geography`, `geography_large`, `latitude`, `longitude` | Spatial fields |
 | **Classification** | `category`, `classification`, `subcategory` | Business type hierarchy |
 | **Computed** | `latest_record_check`, `latest_premises_check` | Survey recency (computed during transform) |
 
-PK: id (BIGSERIAL)
+PK: row_id (BIGSERIAL)
 Full column reference: [LDC Data Dictionary](05.3-ldc-data-dictionary.md)
 
 ### ldc_premises_staging

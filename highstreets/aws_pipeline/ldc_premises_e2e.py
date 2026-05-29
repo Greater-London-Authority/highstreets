@@ -464,6 +464,19 @@ class LdcPremisesETL:
             }
 
             # ==============================================================
+            # Step 8: Generate validation report to S3
+            # ==============================================================
+            if self.run_validations and stats.get('validations'):
+                logger.info("Generating HTML validation report...")
+                report_path = self.validator.generate_html_report(
+                    all_results=stats['validations'],
+                    run_timestamp=stats.get('start_time', datetime.now().isoformat()),
+                    s3_path=config.LDC_S3_VALIDATION_REPORTS
+                )
+                stats['steps']['validation_report'] = {'s3_path': report_path}
+                logger.info(f"Validation report: {report_path}")
+
+            # ==============================================================
             # Complete
             # ==============================================================
             stats['end_time'] = datetime.now().isoformat()
