@@ -25,10 +25,11 @@ jobs:
       - name: Install Poetry
         run: pip install poetry
 
+      - name: Configure git for private repos
+        run: git config --global url."https://x-access-token:${{ secrets.GLAPY_ACCESS_TOKEN }}@github.com/".insteadOf "https://github.com/"
+
       - name: Install dependencies
         run: poetry install --no-interaction
-        env:
-          GITHUB_ACCESS_TOKEN_GLAPY: ${{ secrets.GLAPY_ACCESS_TOKEN }}
 
       - name: Check formatting with black
         run: poetry run black --check highstreets/ tests/
