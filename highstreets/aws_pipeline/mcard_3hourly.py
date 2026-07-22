@@ -18,147 +18,149 @@ print("Warning filters applied for cleaner output")
 
 base_dir = config.BASE_DIR
 
-data_loader = DataLoader()
-mcard_latest_df = data_loader.mcard_3hourly_latest_data_read(
-    f"{base_dir}mastercard/mrli_3hourly/raw/"
-)
 
-mcard_transform = McardTransform()
-mcard_latest_df_transformed = mcard_transform.preprocess_mcard_data(mcard_latest_df)
+def main():
+    data_loader = DataLoader()
+    mcard_latest_df = data_loader.mcard_3hourly_latest_data_read(
+        f"{base_dir}mastercard/mrli_3hourly/raw/"
+    )
 
-data_writer = DataWriter()
-data_writer.append_data_to_postgres(
-    mcard_latest_df_transformed, "econ_busyness_mrli_3hourly"
-)
+    mcard_transform = McardTransform()
+    mcard_latest_df_transformed = mcard_transform.preprocess_mcard_data(mcard_latest_df)
 
-cpi_success = mcard_transform.load_cpi_data_to_postgres(truncate=True)
-if not cpi_success:
-    raise Exception("Failed to load CPI data")
+    data_writer = DataWriter()
+    data_writer.append_data_to_postgres(
+        mcard_latest_df_transformed, "econ_busyness_mrli_3hourly"
+    )
 
-adjustment_success = mcard_transform.adjust_mcard_data_sql()
-if not adjustment_success:
-    raise Exception("Failed to adjust Mastercard data")
+    cpi_success = mcard_transform.load_cpi_data_to_postgres(truncate=True)
+    if not cpi_success:
+        raise Exception("Failed to load CPI data")
 
+    adjustment_success = mcard_transform.adjust_mcard_data_sql()
+    if not adjustment_success:
+        raise Exception("Failed to adjust Mastercard data")
 
-data_writer.export_table_by_year_to_s3(
-    table_name='econ_busyness_mrli_3hourly_adj',
-    date_column='count_date',
-    s3_base_path=f"{base_dir}mastercard/mrli_3hourly/processed/MRLI_3yr_compressed",
-    file_prefix='MRLI_3yr_compressed_adj',
-    latest=True,
-    apostrophe_columns=['hours']
-)
-
-# add here to offload hex data to s3
-data_writer.export_table_by_year_to_s3(
-    table_name='econ_busyness_mrli_3hourly',
-    date_column='count_date',
-    s3_base_path=f"{base_dir}mastercard/mrli_3hourly/processed/MRLI_3yr_compressed",
-    file_prefix='MRLI_3yr_compressed',
-    latest=True,
-    apostrophe_columns=['hours']
-)
-
-# automatic upload for Mastercard 3-hourly data to London Datastore
-
-# Base paths for regular and adjusted files
-base_path = f"{base_dir}mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/"
-
-# Pattern for file types to upload
-file_patterns = [
-    "MRLI_3yr_compressed_\\d{4}\\.csv",
-    "MRLI_3yr_compressed_adj_\\d{4}\\.csv"
-]
-
-for pattern in file_patterns:
-    # Get files matching the current pattern
-    matching_files = list_files(base_path, pattern)
-
-    for file_path in matching_files:
-        # Extract filename from full path
-        file_name = os.path.basename(file_path)
-
-        # Extract year from filename using regex
-        year_match = re.search(r'(\d{4})\.csv$', file_name)
-        if year_match:
-            year = year_match.group(1)
-
-            data_writer.upload_data_to_lds(
-                slug="spend-mastercard-retail-index-3-hourly",
-                resource_title=file_name,
-                file_path=f"s3://{file_path}"
-            )
-            print(f"Uploaded {file_name} for year {year}")
-
-
-mcard_transform.fetch_and_transform_mcard_data(
-    transform_layer='quad_hs_transform_query.sql',
-    table_name='econ_busyness_mcard_highstreets_3hourly_txn',
-    truncate=True
-)
-mcard_transform.fetch_and_transform_mcard_data(
-    transform_layer='quad_tc_transform_query.sql',
-    table_name='econ_busyness_mcard_towncentres_3hourly_txn',
-    truncate=True
-)
-mcard_transform.fetch_and_transform_mcard_data(
-    transform_layer='quad_bid_transform_query.sql',
-    table_name='econ_busyness_mcard_bids_3hourly_txn',
-    truncate=True
-)
-mcard_transform.fetch_and_transform_mcard_data(
-    transform_layer='quad_bespoke_transform_query.sql',
-    table_name='econ_busyness_mcard_bespokes_3hourly_txn',
-    truncate=True
-)
-
-
-mcard_poi_layers = [
-    {
-        'table': 'econ_busyness_mcard_bids_3hourly_txn',
-        's3_path': f"{base_dir}mastercard/mrli_3hourly/processed/bid",
-        'prefix': 'bids_3hourly_txn',
-    },
-    {
-        'table': 'econ_busyness_mcard_highstreets_3hourly_txn',
-        's3_path': f"{base_dir}mastercard/mrli_3hourly/processed/highstreet",
-        'prefix': 'highstreets_3hourly_txn',
-    },
-    {
-        'table': 'econ_busyness_mcard_towncentres_3hourly_txn',
-        's3_path': f"{base_dir}mastercard/mrli_3hourly/processed/towncentre",
-        'prefix': 'towncentres_3hourly_txn',
-    },
-    {
-        'table': 'econ_busyness_mcard_bespokes_3hourly_txn',
-        's3_path': f"{base_dir}mastercard/mrli_3hourly/processed/bespoke",
-        'prefix': 'bespokes_3hourly_txn',
-    },
-]
-
-for layer in mcard_poi_layers:
     data_writer.export_table_by_year_to_s3(
-        table_name=layer['table'],
+        table_name='econ_busyness_mrli_3hourly_adj',
         date_column='count_date',
-        s3_base_path=layer['s3_path'],
-        file_prefix=layer['prefix'],
+        s3_base_path=f"{base_dir}mastercard/mrli_3hourly/processed/MRLI_3yr_compressed",
+        file_prefix='MRLI_3yr_compressed_adj',
+        latest=True,
         apostrophe_columns=['hours']
     )
 
-for layer in mcard_poi_layers:
-    years = data_writer.get_year_range(layer['table'], 'count_date')
-    for year in years:
-        data_writer.upload_data_to_lds(
-            slug="spend-mastercard-retail-index-3-hourly",
-            resource_title=f"{layer['prefix']}_{year}.csv",
-            file_path=f"{layer['s3_path']}/{layer['prefix']}_{year}.csv",
+    # add here to offload hex data to s3
+    data_writer.export_table_by_year_to_s3(
+        table_name='econ_busyness_mrli_3hourly',
+        date_column='count_date',
+        s3_base_path=f"{base_dir}mastercard/mrli_3hourly/processed/MRLI_3yr_compressed",
+        file_prefix='MRLI_3yr_compressed',
+        latest=True,
+        apostrophe_columns=['hours']
+    )
+
+    # automatic upload for Mastercard 3-hourly data to London Datastore
+
+    # Base paths for regular and adjusted files
+    base_path = f"{base_dir}mastercard/mrli_3hourly/processed/MRLI_3yr_compressed/"
+
+    # Pattern for file types to upload
+    file_patterns = [
+        "MRLI_3yr_compressed_\\d{4}\\.csv",
+        "MRLI_3yr_compressed_adj_\\d{4}\\.csv"
+    ]
+
+    for pattern in file_patterns:
+        # Get files matching the current pattern
+        matching_files = list_files(base_path, pattern)
+
+        for file_path in matching_files:
+            # Extract filename from full path
+            file_name = os.path.basename(file_path)
+
+            # Extract year from filename using regex
+            year_match = re.search(r'(\d{4})\.csv$', file_name)
+            if year_match:
+                year = year_match.group(1)
+
+                data_writer.upload_data_to_lds(
+                    slug="spend-mastercard-retail-index-3-hourly",
+                    resource_title=file_name,
+                    file_path=f"s3://{file_path}"
+                )
+                print(f"Uploaded {file_name} for year {year}")
+
+    mcard_transform.fetch_and_transform_mcard_data(
+        transform_layer='quad_hs_transform_query.sql',
+        table_name='econ_busyness_mcard_highstreets_3hourly_txn',
+        truncate=True
+    )
+    mcard_transform.fetch_and_transform_mcard_data(
+        transform_layer='quad_tc_transform_query.sql',
+        table_name='econ_busyness_mcard_towncentres_3hourly_txn',
+        truncate=True
+    )
+    mcard_transform.fetch_and_transform_mcard_data(
+        transform_layer='quad_bid_transform_query.sql',
+        table_name='econ_busyness_mcard_bids_3hourly_txn',
+        truncate=True
+    )
+    mcard_transform.fetch_and_transform_mcard_data(
+        transform_layer='quad_bespoke_transform_query.sql',
+        table_name='econ_busyness_mcard_bespokes_3hourly_txn',
+        truncate=True
+    )
+
+    mcard_poi_layers = [
+        {
+            'table': 'econ_busyness_mcard_bids_3hourly_txn',
+            's3_path': f"{base_dir}mastercard/mrli_3hourly/processed/bid",
+            'prefix': 'bids_3hourly_txn',
+        },
+        {
+            'table': 'econ_busyness_mcard_highstreets_3hourly_txn',
+            's3_path': f"{base_dir}mastercard/mrli_3hourly/processed/highstreet",
+            'prefix': 'highstreets_3hourly_txn',
+        },
+        {
+            'table': 'econ_busyness_mcard_towncentres_3hourly_txn',
+            's3_path': f"{base_dir}mastercard/mrli_3hourly/processed/towncentre",
+            'prefix': 'towncentres_3hourly_txn',
+        },
+        {
+            'table': 'econ_busyness_mcard_bespokes_3hourly_txn',
+            's3_path': f"{base_dir}mastercard/mrli_3hourly/processed/bespoke",
+            'prefix': 'bespokes_3hourly_txn',
+        },
+    ]
+
+    for layer in mcard_poi_layers:
+        data_writer.export_table_by_year_to_s3(
+            table_name=layer['table'],
+            date_column='count_date',
+            s3_base_path=layer['s3_path'],
+            file_prefix=layer['prefix'],
+            apostrophe_columns=['hours']
         )
 
+    for layer in mcard_poi_layers:
+        years = data_writer.get_year_range(layer['table'], 'count_date')
+        for year in years:
+            data_writer.upload_data_to_lds(
+                slug="spend-mastercard-retail-index-3-hourly",
+                resource_title=f"{layer['prefix']}_{year}.csv",
+                file_path=f"{layer['s3_path']}/{layer['prefix']}_{year}.csv",
+            )
 
-# Concatenate latest data from different layers
-mcard_transform.concat_and_load_all_mcard_quad_layers(
-    query_file='quad_all_layer_concat_query.sql',
-    target_table='econ_busyness_mcard_3hourly_txn',
-    truncate=True,
-    load_to_db=True
-)
+    # Concatenate latest data from different layers
+    mcard_transform.concat_and_load_all_mcard_quad_layers(
+        query_file='quad_all_layer_concat_query.sql',
+        target_table='econ_busyness_mcard_3hourly_txn',
+        truncate=True,
+        load_to_db=True
+    )
+
+
+if __name__ == "__main__":
+    main()

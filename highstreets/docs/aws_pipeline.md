@@ -83,6 +83,7 @@ The following pipeline modules are containerized in ECR:
 - **hsds-mcard-weekly**: Mastercard weekly processing (`mcard_weekly.py`)
 - **hsds-mcard-intl**: Mastercard international processing (`mcard_weekly_intl.py`)
 - **hsds-mcard-3hourly**: Mastercard 3-hourly processing (`mcard_3hourly.py`)
+- **hsds-catchment**: BT catchment visitor/worker processing (`catchment_e2e.py`)
 
 ## AWS Batch Configuration
 
@@ -100,6 +101,8 @@ The system uses multiple Batch job definitions for different processing tasks:
 - `hsds-mcard-weekly:1` - Mastercard weekly processing
 - `hsds-mcard-intl:1` - Mastercard international processing
 - `hsds-mcard-3hourly:2` - Mastercard 3-hourly processing
+
+- `hsds-catchment-job:1` - BT catchment visitor/worker monthly processing
 
 #### Job Definition Structure
 ```json
@@ -311,7 +314,33 @@ The Mastercard pipeline uses sequential execution for data dependencies:
 - **Parallel Execution**: Multiple Batch jobs run simultaneously for efficiency
 - **Lambda Integration**: `HSDSProcessDateParameters` function processes date parameters
 - **Date Adjustment**: Daily totals job uses adjusted dates (previous day)
+- **Month Derivation**: Catchment job derives previous month's 1st from weekly startDate
 - **JSONata Query Language**: Advanced JSON processing and transformation
+
+#### Catchment Branch (Branch 4) - Monthly Data
+The catchment branch runs in parallel with existing BT jobs. It uses a Pass state
+to derive the previous month's first day from the weekly `startDate` input:
+
+```
+JSONata: $substring($fromMillis($toMillis($substring($states.input.startDate, 0, 7) & '-01') - 86400000), 0, 7) & '-01'
+
+Example: startDate = "2026-06-15" → catchmentMonth = "2026-05-01"
+
+Steps:
+  1. $substring("2026-06-15", 0, 7)         → "2026-06"
+  2. & '-01'                                 → "2026-06-01"
+  3. $toMillis(...)                           → epoch ms for June 1st
+  4. - 86400000                              → May 31st epoch ms
+  5. $fromMillis(...)                         → "2026-05-31T..."
+  6. $substring(..., 0, 7) & '-01'           → "2026-05-01"
+```
+
+The batch job receives `START_DATE=END_DATE=2026-05-01` and performs a pre-flight
+S3 existence check. If all Parquet partitions already exist for that month, it exits
+immediately (no API call). This makes weekly re-runs cost-free after the first
+successful extraction.
+
+Full Step Function JSON with the catchment branch: `docs/step_function_catchment_branch.json`
 
 #### Mastercard Pipeline Features
 - **Sequential Processing**: Jobs run in dependency order
@@ -333,7 +362,8 @@ The Mastercard pipeline uses sequential execution for data dependencies:
 ├── hsds-lookup:latest
 ├── hsds-mcard-weekly:latest
 ├── hsds-mcard-intl:latest
-└── hsds-mcard-3hourly:latest
+├── hsds-mcard-3hourly:latest
+└── hsds-catchment:latest
 ```
 
 ### Image Building and Deployment
@@ -359,6 +389,33 @@ aws ecr get-login-password --region eu-west-2 | docker login --username AWS --pa
 docker build -t msoa-e2e-pipeline .
 docker tag msoa-e2e-pipeline:latest 590183914513.dkr.ecr.eu-west-2.amazonaws.com/hsds-msoa:latest
 docker push 590183914513.dkr.ecr.eu-west-2.amazonaws.com/hsds-msoa:latest
+```
+
+#### Example: Catchment Pipeline Deployment
+```bash
+# 1. Create ECR repository (one-time)
+aws ecr create-repository --repository-name hsds-catchment --region eu-west-2
+
+# 2. ECR Authentication
+aws ecr get-login-password --region eu-west-2 | docker login --username AWS --password-stdin 590183914513.dkr.ecr.eu-west-2.amazonaws.com/hsds-catchment
+
+# 3. Build, tag, push
+docker build -t catchment-e2e-pipeline .
+docker tag catchment-e2e-pipeline:latest 590183914513.dkr.ecr.eu-west-2.amazonaws.com/hsds-catchment:latest
+docker push 590183914513.dkr.ecr.eu-west-2.amazonaws.com/hsds-catchment:latest
+
+# 4. Register job definition (one-time)
+aws batch register-job-definition \
+  --job-definition-name hsds-catchment-job \
+  --type container \
+  --container-properties '{
+    "image": "590183914513.dkr.ecr.eu-west-2.amazonaws.com/hsds-catchment:latest",
+    "vcpus": 4,
+    "memory": 16384,
+    "jobRoleArn": "arn:aws:iam::590183914513:role/HSDSBatchJobRole",
+    "command": ["poetry", "run", "python", "highstreets/aws_pipeline/catchment_e2e.py"]
+  }' \
+  --region eu-west-2
 ```
 
 ## Pipeline Modules
@@ -401,6 +458,39 @@ docker push 590183914513.dkr.ecr.eu-west-2.amazonaws.com/hsds-msoa:latest
 # Job Definition: hsds-daily-totals-job:2
 # Aggregates 3-hourly data into daily summaries
 # Uses adjusted dates (previous day) via Lambda function
+```
+
+#### catchment_e2e.py - Catchment Visitor/Worker Processing
+```python
+# Job Definition: hsds-catchment-job:1
+# Memory: 16384 MB (16GB) - handles ~10M rows per API call
+# vCPUs: 4
+# Environment Variables:
+# - START_DATE: Target month (YYYY-MM-DD, always 1st of month)
+# - END_DATE: Same as START_DATE (single month extraction)
+# - CONSUMER_KEY, CONSUMER_SECRET: BT API credentials
+#
+# Process:
+# 1. Pre-flight check: verifies S3 partitions exist (skips if all present)
+# 2. Single API call per dataset fetches ~10M rows (all poi_types)
+# 3. GroupBy poi_type, writes Hive-partitioned Parquet to S3
+#
+# Output: s3://hsds-data/bt/catchment/{visitor,worker}/poi_type=X/year=Y/month=Z/data.snappy.parquet
+# Date handling: Step Function derives previous month's 1st from weekly startDate via JSONata
+#
+# Container command:
+# ["poetry", "run", "python", "highstreets/aws_pipeline/catchment_e2e.py"]
+```
+
+#### catchment_initial_load.py - Catchment Historical Backfill
+```python
+# One-time script to backfill historical catchment data
+# Uses same logic as catchment_e2e.py but iterates over a range of months
+# Safe to interrupt and re-run (existence check picks up where it left off)
+#
+# Usage:
+#   python highstreets/aws_pipeline/catchment_initial_load.py --start 2022-05-01 --end 2026-05-01
+#   python highstreets/aws_pipeline/catchment_initial_load.py --start 2022-05-01 --end 2026-05-01 --dry-run
 ```
 
 #### bt_lookups.py - Lookup Processing

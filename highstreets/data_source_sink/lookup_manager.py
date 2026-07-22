@@ -713,3 +713,133 @@ class LookupManager:
         except Exception as e:
             self.logger.error(f"Error generating quad lookups: {str(e)}")
             raise
+
+    def generate_quad_to_all_lookup(self):
+        """Generate a unified quad-to-all lookup joining all quad lookup tables.
+
+        Performs LEFT JOINs on quad_id across all 8 area lookup tables so every
+        quad appears even if it only belongs to one layer. Writes result to PG,
+        S3, and returns the DataFrame.
+        """
+        self.logger.info("Generating quad-to-all master lookup...")
+        quad_tables = {
+            "highstreets": ("econ_busyness_mcard_highstreets_quad_lookup",
+                            ["highstreet_id", "highstreet_name"]),
+            "bids": ("econ_busyness_mcard_bids_quad_lookup",
+                     ["bid_id", "bid_name"]),
+            "towncentres": ("econ_busyness_mcard_towncentres_quad_lookup",
+                            ["tc_id", "tc_name"]),
+            "boroughs": ("econ_busyness_mcard_boroughs_quad_lookup",
+                         ["gss_code"]),
+            "caz": ("econ_busyness_mcard_caz_quad_lookup",
+                    ["objectid"]),
+            "msoas": ("econ_busyness_mcard_msoas_quad_lookup",
+                      ["msoa11cd", "msoa11nm"]),
+            "bespoke": ("econ_busyness_mcard_bespoke_quad_lookup",
+                        ["bespoke_area_id"]),
+            "inner_outer": ("econ_busyness_mcard_inner_outer_quad_lookup",
+                            ["inner_outer"]),
+        }
+
+        base_df = None
+        for layer_name, (table_name, id_cols) in quad_tables.items():
+            try:
+                df = self.data_loader.get_full_data(table_name)
+                keep_cols = ["quad_id"] + [
+                    c for c in id_cols if c in df.columns
+                ]
+                extra_geo = [c for c in ["x", "y", "borough", "name"]
+                             if c in df.columns and c not in keep_cols]
+                keep_cols += extra_geo
+                df = df[keep_cols].drop_duplicates(subset=["quad_id"] + id_cols[:1])
+
+                suffix = f"_{layer_name}"
+                rename_map = {}
+                for c in extra_geo:
+                    rename_map[c] = f"{c}{suffix}"
+                df = df.rename(columns=rename_map)
+
+                if base_df is None:
+                    base_df = df
+                else:
+                    base_df = base_df.merge(df, on="quad_id", how="outer")
+            except Exception as e:
+                self.logger.warning(
+                    f"Could not load {table_name} for quad-to-all: {e}"
+                )
+
+        if base_df is not None:
+            base_df = base_df.sort_values("quad_id").reset_index(drop=True)
+            table_name = "econ_busyness_mcard_quad_to_all_lookup"
+            self.data_writer.truncate_and_load_to_postgres(
+                base_df, table_name, schema="gisapdata"
+            )
+            s3_path = (
+                f"{config.BASE_DIR}reference_data/quad_to_all_lookup.csv"
+            )
+            base_df.to_csv(s3_path, index=False)
+            self.logger.info(
+                f"quad-to-all lookup: {len(base_df)} rows -> PG + S3"
+            )
+        return base_df
+
+    def generate_hex_to_all_lookup(self):
+        """Generate a unified hex-to-all lookup joining all hex lookup tables.
+
+        Performs LEFT JOINs on hex_id across all 4 hex lookup tables.
+        Writes result to PG, S3, and returns the DataFrame.
+        """
+        self.logger.info("Generating hex-to-all master lookup...")
+        hex_tables = {
+            "highstreet": ("econ_busyness_hex_highstreet_lookup",
+                           ["highstreet_id", "highstreet_name"]),
+            "towncentre": ("econ_busyness_hex_towncentre_lookup",
+                           ["tc_id", "tc_name"]),
+            "bid": ("econ_busyness_hex_bid_lookup",
+                    ["bid_id", "bid_name"]),
+            "bespoke": ("econ_busyness_hex_bespoke_lookup",
+                        ["bespoke_area_id", "name"]),
+        }
+
+        base_df = None
+        for layer_name, (table_name, id_cols) in hex_tables.items():
+            try:
+                df = self.data_loader.get_full_data(table_name)
+                keep_cols = ["hex_id"] + [
+                    c for c in id_cols if c in df.columns
+                ]
+                extra = [c for c in ["borough", "x", "y"]
+                         if c in df.columns and c not in keep_cols]
+                keep_cols += extra
+                df = df[keep_cols].drop_duplicates(subset=["hex_id"] + id_cols[:1])
+
+                suffix = f"_{layer_name}"
+                rename_map = {}
+                for c in id_cols + extra:
+                    if c in df.columns:
+                        rename_map[c] = f"{c}{suffix}"
+                df = df.rename(columns=rename_map)
+
+                if base_df is None:
+                    base_df = df
+                else:
+                    base_df = base_df.merge(df, on="hex_id", how="outer")
+            except Exception as e:
+                self.logger.warning(
+                    f"Could not load {table_name} for hex-to-all: {e}"
+                )
+
+        if base_df is not None:
+            base_df = base_df.sort_values("hex_id").reset_index(drop=True)
+            table_name = "econ_busyness_hex_to_all_lookup"
+            self.data_writer.truncate_and_load_to_postgres(
+                base_df, table_name, schema="gisapdata"
+            )
+            s3_path = (
+                f"{config.BASE_DIR}reference_data/hex_to_all_lookup.csv"
+            )
+            base_df.to_csv(s3_path, index=False)
+            self.logger.info(
+                f"hex-to-all lookup: {len(base_df)} rows -> PG + S3"
+            )
+        return base_df

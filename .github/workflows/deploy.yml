@@ -1,0 +1,134 @@
+name: Build and Deploy to ECR
+
+on:
+  push:
+    branches:
+      - aws-hsds
+  workflow_dispatch:
+
+env:
+  AWS_REGION: eu-west-2
+  ECR_REGISTRY: 590183914513.dkr.ecr.eu-west-2.amazonaws.com
+
+# ---------------------------------------------------------------
+# AUTH OPTIONS (choose one):
+#
+# Option A — OIDC (recommended, no long-lived credentials):
+#   Requires AWS admin to create an OIDC identity provider + IAM role.
+#   Set secret: AWS_ROLE_ARN
+#   Uncomment the 'permissions' block and the OIDC step below.
+#
+# Option B — Access keys (simpler, works with PowerUser):
+#   Ask AWS admin for a service IAM user with ECR push permissions.
+#   Set secrets: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+#   Uncomment the access key step below.
+#
+# Option C — Manual deploy (no AWS creds needed in GitHub):
+#   Only use test.yml for CI. Build & push Docker manually.
+#   Comment out the entire build-and-push job.
+# ---------------------------------------------------------------
+
+# Uncomment for Option A (OIDC):
+# permissions:
+#   id-token: write
+#   contents: read
+
+jobs:
+  # ============================================================
+  # GATE: Run tests first — deploy only proceeds if tests pass
+  # ============================================================
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install Poetry
+        run: pip install poetry
+
+      - name: Install dependencies
+        run: poetry install --no-interaction
+        env:
+          GITHUB_ACCESS_TOKEN_GLAPY: ${{ secrets.GITHUB_ACCESS_TOKEN_GLAPY }}
+
+      - name: Check formatting with black
+        run: poetry run black --check highstreets/ tests/
+
+      - name: Lint with flake8
+        run: poetry run flake8 highstreets/ --count --statistics
+
+      - name: Run tests
+        run: poetry run pytest tests/ -v --tb=short
+
+  # ============================================================
+  # BUILD: Only runs if test job passes
+  # ============================================================
+  build-and-push:
+    needs: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # --- Option A: OIDC (uncomment this, comment out Option B) ---
+      # - name: Configure AWS credentials (OIDC)
+      #   uses: aws-actions/configure-aws-credentials@v4
+      #   with:
+      #     role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+      #     aws-region: ${{ env.AWS_REGION }}
+
+      # --- Option B: Access keys (uncomment this, comment out Option A) ---
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            --build-arg GITHUB_TOKEN=${{ secrets.GITHUB_ACCESS_TOKEN_GLAPY }} \
+            -t hsds-pipeline:${{ github.sha }} \
+            -t hsds-pipeline:latest \
+            -f dockerfile .
+
+      - name: Push to ECR repositories
+        run: |
+          REPOS=(
+            hsds-msoa
+            hsds-lsoa
+            hsds-bt-hex
+            hsds-bt-outage
+            hsds-daily-totals
+            hsds-lookup
+            hsds-mcard-weekly
+            hsds-mcard-intl
+            hsds-mcard-3hourly
+            hsds-catchment
+            hsds-sublicense
+          )
+
+          for repo in "${REPOS[@]}"; do
+            echo "Pushing to $repo..."
+            docker tag hsds-pipeline:latest ${{ env.ECR_REGISTRY }}/$repo:latest
+            docker tag hsds-pipeline:${{ github.sha }} ${{ env.ECR_REGISTRY }}/$repo:${{ github.sha }}
+            docker push ${{ env.ECR_REGISTRY }}/$repo:latest
+            docker push ${{ env.ECR_REGISTRY }}/$repo:${{ github.sha }}
+          done
+
+      - name: Summary
+        run: |
+          echo "### Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image tag:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Registry:** \`${{ env.ECR_REGISTRY }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Pushed to:** 11 ECR repositories" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tests:** Passed ✓" >> $GITHUB_STEP_SUMMARY

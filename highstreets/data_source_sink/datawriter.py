@@ -240,24 +240,68 @@ class DataWriter:
             print("Error occurred while disconnecting from the database:", str(e))
 
     def append_chunk(self, chunk, table_name: str):
-        chunk.to_sql(table_name, self.engine, if_exists='append', index=False)
+        chunk.to_sql(
+            table_name, self.engine, if_exists='append', index=False,
+            method='multi', chunksize=5000
+        )
         logging.info(f"Appended chunk to table {table_name}.")
 
     def append_data_without_check(self, data, table_name):
-        # Check if there are rows to append
         if len(data) > 0:
-            # Write the filtered data to the existing table
             data.to_sql(
                 name=table_name,
                 con=self.engine,
                 if_exists="append",
                 index=False,
                 schema="gisapdata",
+                method='multi',
+                chunksize=5000,
             )
-            print("New Data appended successfully.")
             logging.info("Data successfully loaded to PostgreSQL")
         else:
             logging.info("No new data to append")
+
+    def safe_append_data(
+        self, data, table_name, start_date, end_date,
+        date_column="count_date", schema="gisapdata"
+    ):
+        """Delete existing rows in the date range, then append new data.
+
+        This makes re-runs idempotent: if the same date range is processed
+        again (e.g. after a partial failure), old partial data is removed
+        before the fresh data is inserted.
+        """
+        if len(data) == 0:
+            logging.info("No data to append")
+            return
+
+        with self.engine.connect() as connection:
+            delete_query = text(
+                f"DELETE FROM {schema}.{table_name} "  # noqa: S608
+                f"WHERE {date_column} BETWEEN :start AND :end"
+            )
+            result = connection.execute(
+                delete_query, {"start": start_date, "end": end_date}
+            )
+            connection.commit()
+            logging.info(
+                f"Deleted {result.rowcount} existing rows from {table_name} "
+                f"for {start_date} to {end_date}"
+            )
+
+        data.to_sql(
+            name=table_name,
+            con=self.engine,
+            if_exists="append",
+            index=False,
+            schema=schema,
+            method='multi',
+            chunksize=5000,
+        )
+        logging.info(
+            f"Appended {len(data)} rows to {table_name} "
+            f"for {start_date} to {end_date}"
+        )
 
     def append_data_with_id_check(self, data, ids, id_col, table_name):
         if self.table_exists(table_name):

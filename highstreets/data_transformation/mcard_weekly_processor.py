@@ -1112,6 +1112,9 @@ class FileProcessor:
         date_col="count_date",
         poi_id=["quad_id"],
         filename="txn",
+        cached_inner_outer_quad=None,
+        cached_adjustment_factors=None,
+        cached_cpi_data=None,
     ):
         """
         Adjusts spend column by monthly correction factor generated from
@@ -1147,8 +1150,11 @@ class FileProcessor:
             quad_lookup["quad_id"] = quad_lookup["quad_id"].astype("Int64")
             quad_lookup = quad_lookup[["quad_id"] + poi_id]
 
-            # Load quad inner_outer lookup
-            inner_outer_quad = self.data_loader.get_full_data(lookup_file)
+            # Load quad inner_outer lookup (use cache if available)
+            if cached_inner_outer_quad is not None:
+                inner_outer_quad = cached_inner_outer_quad.copy()
+            else:
+                inner_outer_quad = self.data_loader.get_full_data(lookup_file)
             inner_outer_quad["quad_id"] = inner_outer_quad["quad_id"].astype("Int64")
 
             # where a quad is assigned both Inner and Outer - keep Outer
@@ -1175,10 +1181,13 @@ class FileProcessor:
             spend[poi_id] = spend[poi_id].astype(str)
             spend = pd.merge(spend, poi_io_lookup, how="left", on=poi_id)
 
-        # Join spend data with mcard adjustment data
-        adjustment_factor = self.data_loader.get_full_data(
-            "econ_busyness_mcard_adjustment_factors"
-        )
+        # Join spend data with mcard adjustment data (use cache if available)
+        if cached_adjustment_factors is not None:
+            adjustment_factor = cached_adjustment_factors.copy()
+        else:
+            adjustment_factor = self.data_loader.get_full_data(
+                "econ_busyness_mcard_adjustment_factors"
+            )
 
         # need to merge on inner vs outer too
         spend = pd.merge(
@@ -1235,7 +1244,10 @@ class FileProcessor:
         # import ONS's CPIH table via API
         # api_client = APIClient()
         # cpi_table = api_client.fetch_cpi()
-        cpi_table = self.data_loader.get_full_data("econ_busyness_mcard_cpi_data")
+        if cached_cpi_data is not None:
+            cpi_table = cached_cpi_data.copy()
+        else:
+            cpi_table = self.data_loader.get_full_data("econ_busyness_mcard_cpi_data")
         txn_cat_cpi_dict = (
             self.sectors_df[["geo_insights", "cpi"]]
             .set_index("geo_insights")

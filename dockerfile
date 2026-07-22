@@ -1,44 +1,49 @@
-# Use a lightweight Python base image
-FROM python:3.10-slim
+# ---------- Builder stage ----------
+FROM python:3.10-slim AS builder
 
-# Install necessary system dependencies, including git and PostgreSQL development libraries
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# Set the working directory in the container
 WORKDIR /app
 
-# Copy README.md and install Poetry with retry logic
 COPY README.md /app/README.md
 RUN pip install --no-cache-dir --retries 3 --timeout 60 poetry python-dotenv
 
-# Copy only necessary files for Poetry installation first (for better caching)
 COPY pyproject.toml poetry.lock ./
 
-# Install project dependencies with retry logic and reduced parallelism
+# Accept GitHub token for glapy private repo (passed via --build-arg in CI/CD)
+ARG GITHUB_TOKEN=""
+ENV GITHUB_ACCESS_TOKEN_GLAPY=${GITHUB_TOKEN}
+
 RUN poetry config installer.max-workers 1 && \
     poetry config installer.parallel false && \
+    poetry config virtualenvs.in-project true && \
     for i in 1 2 3; do \
-        poetry install --no-root && break || \
+        poetry install --no-root --only main && break || \
         (echo "Poetry install attempt $i failed, retrying in 15 seconds..." && sleep 15); \
     done
 
-# Copy the entire project into the container at /app
 COPY . .
+RUN poetry install --only main
 
-# Install the project in editable mode after copying all files
-RUN poetry run pip install -e .
+# ---------- Runtime stage ----------
+FROM python:3.10-slim
 
-# Install additional libraries and dependencies needed for AWS
-RUN pip install --retries 3 --timeout 60 psycopg2
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install --no-cache-dir poetry
 
-# Set the PYTHONPATH environment variable to ensure /app is included
-ENV PYTHONPATH /app
+WORKDIR /app
 
-# glapy will auto-install when highstreets is imported (if GITHUB_TOKEN is available)
+COPY --from=builder /app /app
 
-# Set environment variables for AWS Batch and specify the default command
+ARG GITHUB_TOKEN=""
+ENV GITHUB_ACCESS_TOKEN_GLAPY=${GITHUB_TOKEN}
+ENV PYTHONPATH=/app
+ENV PATH="/app/.venv/bin:$PATH"
+
 CMD ["poetry", "run", "python"]

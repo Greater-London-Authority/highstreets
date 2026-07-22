@@ -19,11 +19,17 @@ load_dotenv()
 warnings.filterwarnings('ignore')
 base_dir = config.BASE_DIR
 
-data_writer = DataWriter()
-lookup_manager = LookupManager()
-df = lookup_manager.process_borough_hs_lookup()
-data_writer.truncate_and_load_to_postgres(
-    df,
-    table_name='econ_busyness_borough_hs_lookup_3',
-    schema='gisapdata')
-lookup_manager.generate_all_quad_lookups()
+
+def main():
+    data_writer = DataWriter()
+    lookup_manager = LookupManager()
+    df = lookup_manager.process_borough_hs_lookup()
+    data_writer.truncate_and_load_to_postgres(
+        df,
+        table_name='econ_busyness_borough_hs_lookup_3',
+        schema='gisapdata')
+    lookup_manager.generate_all_quad_lookups()
+
+
+if __name__ == "__main__":
+    main()
