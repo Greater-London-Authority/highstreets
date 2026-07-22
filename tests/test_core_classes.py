@@ -41,9 +41,9 @@ def test_sublicense_manager_not_processor():
     assert hasattr(SublicenseManager, "process_sublicense_complete")
 
     # SublicenseProcessor should no longer be importable
-    from highstreets.core.processors import __all__ as exported
+    import highstreets.core.processors as processors
 
-    assert "SublicenseProcessor" not in exported
+    assert not hasattr(processors, "SublicenseProcessor")
 
 
 def test_sql_manager_has_query_methods():
