@@ -53,7 +53,7 @@ jobs:
       - name: Install dependencies
         run: poetry install --no-interaction
         env:
-          GITHUB_ACCESS_TOKEN_GLAPY: ${{ secrets.GITHUB_ACCESS_TOKEN_GLAPY }}
+          GITHUB_ACCESS_TOKEN_GLAPY: ${{ secrets.GLAPY_ACCESS_TOKEN }}
 
       - name: Check formatting with black
         run: poetry run black --check highstreets/ tests/
@@ -98,7 +98,7 @@ jobs:
       - name: Build Docker image
         run: |
           docker build \
-            --build-arg GITHUB_TOKEN=${{ secrets.GITHUB_ACCESS_TOKEN_GLAPY }} \
+            --build-arg GITHUB_TOKEN=${{ secrets.GLAPY_ACCESS_TOKEN }} \
             -t hsds-pipeline:${{ github.sha }} \
             -t hsds-pipeline:latest \
             -f dockerfile .

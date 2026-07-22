@@ -28,7 +28,7 @@ jobs:
       - name: Install dependencies
         run: poetry install --no-interaction
         env:
-          GITHUB_ACCESS_TOKEN_GLAPY: ${{ secrets.GITHUB_ACCESS_TOKEN_GLAPY }}
+          GITHUB_ACCESS_TOKEN_GLAPY: ${{ secrets.GLAPY_ACCESS_TOKEN }}
 
       - name: Check formatting with black
         run: poetry run black --check highstreets/ tests/
