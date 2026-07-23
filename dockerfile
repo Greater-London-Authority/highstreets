@@ -18,6 +18,11 @@ COPY pyproject.toml poetry.lock ./
 ARG GITHUB_TOKEN=""
 ENV GITHUB_ACCESS_TOKEN_GLAPY=${GITHUB_TOKEN}
 
+# Configure git to use the token for private repo access
+RUN if [ -n "$GITHUB_TOKEN" ]; then \
+        git config --global url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"; \
+    fi
+
 RUN poetry config installer.max-workers 1 && \
     poetry config installer.parallel false && \
     poetry config virtualenvs.in-project true && \
