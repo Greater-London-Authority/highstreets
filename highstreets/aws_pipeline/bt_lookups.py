@@ -176,10 +176,16 @@ def main():
     hex_to_all = lookup_manager.generate_hex_to_all_lookup()
 
     if quad_to_all is not None:
+        quad_csv = f"{base_dir}reference_data/quad_to_all_lookup.csv"
         data_writer.upload_data_to_lds(
-            slug="footfall-bt-people-counts-hsds",
+            slug="spend-mastercard-retail-index-3-hourly",
             resource_title="quad_to_all_lookup.csv",
-            file_path=f"{base_dir}reference_data/quad_to_all_lookup.csv",
+            file_path=quad_csv,
+        )
+        data_writer.upload_data_to_lds(
+            slug="mastercard-retail-location-insights",
+            resource_title="quad_to_all_lookup.csv",
+            file_path=quad_csv,
         )
     if hex_to_all is not None:
         data_writer.upload_data_to_lds(

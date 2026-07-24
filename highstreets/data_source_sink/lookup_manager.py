@@ -741,6 +741,8 @@ class LookupManager:
                             ["inner_outer"]),
         }
 
+        ambiguous_cols = {"name", "borough", "x", "y"}
+
         base_df = None
         for layer_name, (table_name, id_cols) in quad_tables.items():
             try:
@@ -753,10 +755,10 @@ class LookupManager:
                 keep_cols += extra_geo
                 df = df[keep_cols].drop_duplicates(subset=["quad_id"] + id_cols[:1])
 
-                suffix = f"_{layer_name}"
                 rename_map = {}
                 for c in extra_geo:
-                    rename_map[c] = f"{c}{suffix}"
+                    if c in ambiguous_cols:
+                        rename_map[c] = f"{layer_name}_{c}"
                 df = df.rename(columns=rename_map)
 
                 if base_df is None:
@@ -801,6 +803,8 @@ class LookupManager:
                         ["bespoke_area_id", "name"]),
         }
 
+        ambiguous_cols = {"name", "borough", "x", "y"}
+
         base_df = None
         for layer_name, (table_name, id_cols) in hex_tables.items():
             try:
@@ -813,11 +817,10 @@ class LookupManager:
                 keep_cols += extra
                 df = df[keep_cols].drop_duplicates(subset=["hex_id"] + id_cols[:1])
 
-                suffix = f"_{layer_name}"
                 rename_map = {}
                 for c in id_cols + extra:
-                    if c in df.columns:
-                        rename_map[c] = f"{c}{suffix}"
+                    if c in df.columns and c in ambiguous_cols:
+                        rename_map[c] = f"{layer_name}_{c}"
                 df = df.rename(columns=rename_map)
 
                 if base_df is None:
