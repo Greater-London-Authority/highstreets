@@ -1,0 +1,267 @@
+{
+  "QueryLanguage": "JSONata",
+  "Comment": "HSDS BT E2E Data Pipeline v2",
+  "StartAt": "Process Dates",
+  "States": {
+    "Process Dates": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Output": "{% $states.result.Payload %}",
+      "Arguments": {
+        "FunctionName": "arn:aws:lambda:eu-west-2:590183914513:function:HSDSProcessDateParameters:$LATEST",
+        "Payload": {
+          "startDate": "{% $states.input.startDate %}",
+          "endDate": "{% $states.input.endDate %}"
+        }
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2,
+          "JitterStrategy": "FULL"
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "Pipeline Failed"
+        }
+      ],
+      "Next": "Run All Jobs"
+    },
+    "Run All Jobs": {
+      "Type": "Parallel",
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "Pipeline Failed"
+        }
+      ],
+      "Branches": [
+        {
+          "StartAt": "HEX Batch Job",
+          "States": {
+            "HEX Batch Job": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::batch:submitJob.sync",
+              "Arguments": {
+                "JobName": "bt-hex-job",
+                "JobDefinition": "arn:aws:batch:eu-west-2:590183914513:job-definition/hsds-bt-hex-job:3",
+                "JobQueue": "arn:aws:batch:eu-west-2:590183914513:job-queue/hsds-e2e",
+                "ContainerOverrides": {
+                  "Environment": [
+                    { "Name": "START_DATE", "Value": "{% $states.input.startDate %}" },
+                    { "Name": "END_DATE", "Value": "{% $states.input.endDate %}" }
+                  ]
+                }
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": ["States.TaskFailed", "Batch.ServerException", "States.Timeout"],
+                  "IntervalSeconds": 60,
+                  "MaxAttempts": 2,
+                  "BackoffRate": 2
+                }
+              ],
+              "TimeoutSeconds": 3600,
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "Outage Batch Job",
+          "States": {
+            "Outage Batch Job": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::batch:submitJob.sync",
+              "Arguments": {
+                "JobName": "bt-outage-job",
+                "JobDefinition": "arn:aws:batch:eu-west-2:590183914513:job-definition/hsds-bt-outage-job:3",
+                "JobQueue": "arn:aws:batch:eu-west-2:590183914513:job-queue/hsds-e2e",
+                "ContainerOverrides": {
+                  "Environment": [
+                    { "Name": "START_DATE", "Value": "{% $states.input.startDate %}" },
+                    { "Name": "END_DATE", "Value": "{% $states.input.endDate %}" }
+                  ]
+                }
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": ["States.TaskFailed", "Batch.ServerException", "States.Timeout"],
+                  "IntervalSeconds": 60,
+                  "MaxAttempts": 2,
+                  "BackoffRate": 2
+                }
+              ],
+              "TimeoutSeconds": 3600,
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "MSOA Batch Job",
+          "States": {
+            "MSOA Batch Job": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::batch:submitJob.sync",
+              "Arguments": {
+                "JobName": "bt-msoa-job",
+                "JobDefinition": "arn:aws:batch:eu-west-2:590183914513:job-definition/hsds-msoa-job-definition:7",
+                "JobQueue": "arn:aws:batch:eu-west-2:590183914513:job-queue/hsds-e2e",
+                "ContainerOverrides": {
+                  "Environment": [
+                    { "Name": "START_DATE", "Value": "{% $states.input.startDate %}" },
+                    { "Name": "END_DATE", "Value": "{% $states.input.endDate %}" }
+                  ]
+                }
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": ["States.TaskFailed", "Batch.ServerException", "States.Timeout"],
+                  "IntervalSeconds": 60,
+                  "MaxAttempts": 2,
+                  "BackoffRate": 2
+                }
+              ],
+              "TimeoutSeconds": 3600,
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "LSOA Batch Job",
+          "States": {
+            "LSOA Batch Job": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::batch:submitJob.sync",
+              "Arguments": {
+                "JobName": "bt-lsoa-job",
+                "JobDefinition": "arn:aws:batch:eu-west-2:590183914513:job-definition/hsds-lsoa-job:5",
+                "JobQueue": "arn:aws:batch:eu-west-2:590183914513:job-queue/hsds-e2e",
+                "ContainerOverrides": {
+                  "Environment": [
+                    { "Name": "START_DATE", "Value": "{% $states.input.startDate %}" },
+                    { "Name": "END_DATE", "Value": "{% $states.input.endDate %}" }
+                  ]
+                }
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": ["States.TaskFailed", "Batch.ServerException", "States.Timeout"],
+                  "IntervalSeconds": 60,
+                  "MaxAttempts": 2,
+                  "BackoffRate": 2
+                }
+              ],
+              "TimeoutSeconds": 3600,
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "Adjust Date for Daily Totals",
+          "States": {
+            "Adjust Date for Daily Totals": {
+              "Type": "Pass",
+              "Output": {
+                "adjustedStartDate": "{% $substring($fromMillis($toMillis($states.input.startDate) - 86400000), 0, 10) %}",
+                "adjustedEndDate": "{% $substring($fromMillis($toMillis($states.input.endDate) - 86400000), 0, 10) %}"
+              },
+              "Next": "Daily Totals Batch Job"
+            },
+            "Daily Totals Batch Job": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::batch:submitJob.sync",
+              "Arguments": {
+                "JobName": "bt-daily-totals-job",
+                "JobDefinition": "arn:aws:batch:eu-west-2:590183914513:job-definition/hsds-daily-totals-job:4",
+                "JobQueue": "arn:aws:batch:eu-west-2:590183914513:job-queue/hsds-e2e",
+                "ContainerOverrides": {
+                  "Environment": [
+                    { "Name": "START_DATE", "Value": "{% $states.input.adjustedStartDate %}" },
+                    { "Name": "END_DATE", "Value": "{% $states.input.adjustedEndDate %}" }
+                  ]
+                }
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": ["States.TaskFailed", "Batch.ServerException", "States.Timeout"],
+                  "IntervalSeconds": 60,
+                  "MaxAttempts": 2,
+                  "BackoffRate": 2
+                }
+              ],
+              "TimeoutSeconds": 3600,
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "Lookup Job",
+          "States": {
+            "Lookup Job": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::batch:submitJob.sync",
+              "Arguments": {
+                "JobName": "bt-lookup-job",
+                "JobDefinition": "arn:aws:batch:eu-west-2:590183914513:job-definition/hsds-lookup-job:3",
+                "JobQueue": "arn:aws:batch:eu-west-2:590183914513:job-queue/hsds-e2e"
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": ["States.TaskFailed", "Batch.ServerException", "States.Timeout"],
+                  "IntervalSeconds": 60,
+                  "MaxAttempts": 2,
+                  "BackoffRate": 2
+                }
+              ],
+              "TimeoutSeconds": 3600,
+              "End": true
+            }
+          }
+        }
+      ],
+      "Next": "Sublicense Job"
+    },
+    "Sublicense Job": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::batch:submitJob.sync",
+      "Arguments": {
+        "JobName": "bt-sublicense-job",
+        "JobDefinition": "arn:aws:batch:eu-west-2:590183914513:job-definition/hsds-sublicense:3",
+        "JobQueue": "arn:aws:batch:eu-west-2:590183914513:job-queue/hsds-e2e"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed", "Batch.ServerException", "States.Timeout"],
+          "IntervalSeconds": 60,
+          "MaxAttempts": 2,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "Pipeline Failed"
+        }
+      ],
+      "TimeoutSeconds": 3600,
+      "Next": "Pipeline Succeeded"
+    },
+    "Pipeline Succeeded": {
+      "Type": "Succeed"
+    },
+    "Pipeline Failed": {
+      "Type": "Fail",
+      "Error": "PipelineFailed",
+      "Cause": "BT pipeline failed. Check CloudWatch logs for details."
+    }
+  }
+}
