@@ -1,7 +1,4 @@
 -- BT table safety constraints
--- Run once against the production database. Safe to re-run (IF NOT EXISTS equivalent via DO block).
-
--- Daily aggregate: prevent duplicate (poi_id, poi_type, count_date, time_indicator) rows
 DO $$
 BEGIN
     IF NOT EXISTS (

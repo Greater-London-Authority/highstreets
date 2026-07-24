@@ -1,5 +1,4 @@
 -- BT performance indexes
--- Run once against the production database. Safe to re-run (IF NOT EXISTS).
 
 -- ============================================================================
 -- HEX RAW: bt_footfall_tfl_hex_3hourly
@@ -45,22 +44,9 @@ CREATE INDEX IF NOT EXISTS idx_bt_lsoa_hourly_date
 
 -- ============================================================================
 -- DAILY AGGREGATE: econ_busyness_bt_daily_agg_cust_raw
--- MAX(count_date) watermark on append
--- daily_agg_borough_enriched.sql: JOIN d.poi_id = bl.poi_id AND d.poi_type = bl.poi_type
--- Export: WHERE poi_type = :val ORDER BY count_date
--- Note: UNIQUE constraint uq_daily_agg_cust_raw on (poi_id, poi_type, count_date, time_indicator)
---   already provides an implicit index but leading with poi_id — not optimal for
---   MAX(count_date) alone or poi_type-first partition queries.
 -- ============================================================================
 CREATE INDEX IF NOT EXISTS idx_bt_daily_agg_date
     ON gisapdata.econ_busyness_bt_daily_agg_cust_raw (count_date);
 CREATE INDEX IF NOT EXISTS idx_bt_daily_agg_poi_type_date
     ON gisapdata.econ_busyness_bt_daily_agg_cust_raw (poi_type, count_date);
 
--- ============================================================================
--- OUTAGE: econ_busyness_bt_outage_data
--- MAX(count_date) watermark on append
--- Note: UNIQUE constraint uq_outage_data on (count_date, lad_name) already provides
---   an implicit index starting with count_date — sufficient for MAX(count_date).
---   No additional index needed.
--- ============================================================================

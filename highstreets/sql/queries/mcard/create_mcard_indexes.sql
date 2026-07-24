@@ -1,9 +1,8 @@
 -- Mastercard performance indexes
--- Run once against the production database. Safe to re-run (IF NOT EXISTS).
 
 -- ============================================================================
 -- STAGING TABLE: econ_busyness_mcard_stg_18_zoom
--- Scanned by all 9 weekly aggregation queries + inner_outer_weekly_summary
+-- Covers all 9 weekly aggregation queries + inner_outer_weekly_summary
 -- Pattern: JOIN main.quad_id::BIGINT = lookup.quad_id::BIGINT
 --          WHERE industry IN (...) AND segment = 'Overall' AND geo_name = 'London'
 --          GROUP BY yr, wk, ...
