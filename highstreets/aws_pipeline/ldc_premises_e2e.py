@@ -99,15 +99,17 @@ class LdcPremisesETL:
     HASH_EXCLUDE_COLS = [
         'row_hash', 'ingested_at',
         'timestamp_create', 'timestamp_update',
+        'latitude', 'longitude', 'uprn_id',
     ]
 
     def compute_row_hash(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Compute row hash over business-relevant columns only.
 
-        Excludes pipeline metadata (row_hash, ingested_at) and LDC batch
-        timestamps (timestamp_create, timestamp_update) which change on
-        every Snowflake refresh without reflecting actual data changes.
+        Excludes pipeline metadata (row_hash, ingested_at), LDC batch
+        timestamps (timestamp_create, timestamp_update), and spatial
+        columns (latitude, longitude, uprn_id) which will be overwritten
+        by validated address data from a separate lookup table.
 
         Normalizes dtypes before hashing so that int64 vs float64
         representations of the same value (caused by nullable columns)

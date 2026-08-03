@@ -34,6 +34,32 @@
           "Next": "Pipeline Failed"
         }
       ],
+      "Next": "Lookup Job"
+    },
+    "Lookup Job": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::batch:submitJob.sync",
+      "Output": "{% $states.input %}",
+      "Arguments": {
+        "JobName": "bt-lookup-job",
+        "JobDefinition": "arn:aws:batch:eu-west-2:590183914513:job-definition/hsds-lookup-job:3",
+        "JobQueue": "arn:aws:batch:eu-west-2:590183914513:job-queue/hsds-e2e"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed", "Batch.ServerException", "States.Timeout"],
+          "IntervalSeconds": 60,
+          "MaxAttempts": 2,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "Pipeline Failed"
+        }
+      ],
+      "TimeoutSeconds": 3600,
       "Next": "Run All Jobs"
     },
     "Run All Jobs": {
@@ -202,30 +228,6 @@
               "End": true
             }
           }
-        },
-        {
-          "StartAt": "Lookup Job",
-          "States": {
-            "Lookup Job": {
-              "Type": "Task",
-              "Resource": "arn:aws:states:::batch:submitJob.sync",
-              "Arguments": {
-                "JobName": "bt-lookup-job",
-                "JobDefinition": "arn:aws:batch:eu-west-2:590183914513:job-definition/hsds-lookup-job:3",
-                "JobQueue": "arn:aws:batch:eu-west-2:590183914513:job-queue/hsds-e2e"
-              },
-              "Retry": [
-                {
-                  "ErrorEquals": ["States.TaskFailed", "Batch.ServerException", "States.Timeout"],
-                  "IntervalSeconds": 60,
-                  "MaxAttempts": 2,
-                  "BackoffRate": 2
-                }
-              ],
-              "TimeoutSeconds": 3600,
-              "End": true
-            }
-          }
         }
       ],
       "Next": "Sublicense Job"
@@ -233,6 +235,7 @@
     "Sublicense Job": {
       "Type": "Task",
       "Resource": "arn:aws:states:::batch:submitJob.sync",
+      "Output": "{% $states.input %}",
       "Arguments": {
         "JobName": "bt-sublicense-job",
         "JobDefinition": "arn:aws:batch:eu-west-2:590183914513:job-definition/hsds-sublicense:3",

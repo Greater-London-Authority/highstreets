@@ -99,14 +99,19 @@ class LdcPremisesTransform:
         """
         Execute the full transformation pipeline.
 
-        This replicates the exact flow from clean_premises_data.py:
-        1. basic_formatting (datetime + dedup)
-        2. fix_premises_dates (date corrections, gap filling)
-        3. forward-fill uprn_id
-        4. fetch_latest_checks
-        5. fill_vacant_use
-        6. amend_floorspace
-        7. choose_columns
+        Steps:
+        1.  basic_formatting (datetime + dedup)
+        2.  fix_premises_dates (date corrections, gap filling)
+        3.  forward-fill uprn_id
+        4.  fetch_latest_checks
+        5.  fill_vacant_use
+        6.  amend_floorspace (replace 0 with NA)
+        7.  backfill_latest_floorspace (propagate to vacancies)
+        8.  amend_idle_categorisation (recategorise office/residential)
+        9.  remove_idle_trading_info (clear company info from idle)
+        10. drop_tenant_address_dupes (same tenant at multiple premises_ids)
+        11. choose_columns (select 38 clean columns)
+        12. final sort (timestamp_update descending)
 
         Args:
             df: Raw premises DataFrame
@@ -140,8 +145,35 @@ class LdcPremisesTransform:
         df = self.amend_floorspace(df)
         self.logger.info("Amended floorspace (replaced 0 with NA)")
 
-        # Step 7: Choose columns
+        # Step 7: Backfill floorspace to vacancies
+        df = self.backfill_latest_floorspace(df)
+        self.logger.info("Backfilled floorspace from occupied to vacant records")
+
+        # Step 8: Amend idle categorisation
+        df = self.amend_idle_categorisation(df)
+        self.logger.info("Recategorised idle office/residential premises")
+
+        # Step 9: Remove idle trading info
+        df = self.remove_idle_trading_info(df)
+        self.logger.info("Cleared trading info from idle premises")
+
+        # Step 10: Drop tenant address dupes
+        before = len(df)
+        df = self.drop_tenant_address_dupes(df)
+        self.logger.info(
+            f"Dropped {before - len(df)} tenant address dupes, "
+            f"{len(df)} rows remain"
+        )
+
+        # Step 11: Choose columns
         df = self.choose_columns(df)
+
+        # Step 12: Final sort by timestamp_update
+        if 'timestamp_update' in df.columns:
+            df = df.sort_values(
+                'timestamp_update', ascending=False
+            ).reset_index(drop=True)
+
         self.logger.info(f"Final output: {len(df)} rows, {len(df.columns)} columns")
 
         return df
@@ -169,46 +201,27 @@ class LdcPremisesTransform:
         """
         Deduplicate on the natural key (tenant_id, premises_id, date_create).
 
-        Keeps one row per key, preferring live > historic > archived,
-        then latest timestamp_update.
-
-        Updated from original premises.py (which used tenant name, category,
-        and tenant_care_of as dedup keys). The new key uses tenant_id which
-        is LDC's stable identifier, resolving name-change and SWS-parent-
-        change duplicates that accumulated across sources.
-
-        See: ldc_dedup_analysis.md for full validation of this change.
+        Keeps one row per key based on most recently updated record
+        (timestamp_update descending). Source priority is not used --
+        the most recently updated version of any record wins regardless
+        of whether it came from live, historic, or archived.
         """
         if 'source' in all_biz.columns:
             all_biz['source'] = all_biz['source'].fillna('historic')
-            source_priority = {'live': 0, 'historic': 1, 'archived': 2}
-            all_biz['_src_pri'] = (
-                all_biz['source'].map(source_priority).fillna(3)
-            )
-            sort_cols = [
-                '_src_pri', 'timestamp_update',
-                'date_create', 'date_close', 'tenant_id'
-            ]
-            ascending = [True, False, False, False, False]
-        else:
-            all_biz['_src_pri'] = 0
-            sort_cols = [
-                'timestamp_update', 'date_create',
-                'date_close', 'tenant_id'
-            ]
-            ascending = [False, False, False, False]
 
         all_biz = (
             all_biz.sort_values(
-                by=sort_cols,
-                ascending=ascending,
+                by=[
+                    'timestamp_update', 'date_create',
+                    'date_close', 'tenant_id'
+                ],
+                ascending=[False, False, False, False],
                 na_position='first'
             ).drop_duplicates(
                 subset=['tenant_id', 'premises_id', 'date_create'],
                 keep='first'
             )
         )
-        all_biz = all_biz.drop(columns=['_src_pri'], errors='ignore')
         return all_biz
 
     def basic_formatting(self, all_biz: pd.DataFrame) -> pd.DataFrame:
@@ -270,36 +283,36 @@ class LdcPremisesTransform:
         self, biz_main: pd.DataFrame
     ) -> pd.DataFrame:
         """
-        Merges neighbouring duplicate tenants.
-        - The same tenants need to be next to each other in time
-        - Then this will take the earliest date_create and
-          latest date_close (including NaT)
+        Merges neighbouring duplicate tenants by tenant_id.
 
-        Source: premises.py lines 162-217
+        If the same tenant_id appears in consecutive time slots at a
+        premises (e.g., contract renewals), merge into one record with
+        earliest date_create and latest date_close (including NaT).
+
+        Uses tenant_id rather than tenant name to avoid merging
+        genuinely different businesses that happen to share a name
+        (e.g., a pub and hotel both called "The Whitmore Tap").
         """
         biz_main = biz_main.sort_values(
             by=[
                 'premises_id',
                 'date_create',
-                'date_close'  # remove source sort, added close sort
+                'date_close'
             ],
             ascending=False,
             na_position='first'
         ).reset_index(drop=True)
 
-        biz_main['prev_tenant'] = biz_main.groupby(
+        biz_main['prev_tid'] = biz_main.groupby(
             ['premises_id']
-        )['tenant'].shift(-1)
+        )['tenant_id'].shift(-1)
 
-        biz_main['next_tenant'] = biz_main.groupby(
+        biz_main['next_tid'] = biz_main.groupby(
             ['premises_id']
-        )['tenant'].shift(1)
+        )['tenant_id'].shift(1)
 
-        # Where the previous tenant is the same as the current tenant,
-        # take the earliest date_create and the
-        # latest date_close (including NaT) of both rows
         biz_main['date_create'] = np.where(
-            biz_main['tenant'] == biz_main['prev_tenant'],
+            biz_main['tenant_id'] == biz_main['prev_tid'],
             biz_main[
                 ['prev_date_create', 'date_create']
             ].min(axis=1),
@@ -307,19 +320,15 @@ class LdcPremisesTransform:
         )
 
         biz_main['date_close'] = np.where(
-            biz_main['tenant'] == biz_main['prev_tenant'],
-            # skipna=False will take NaT if it's there, rather than the max
-            # date_close (i.e. because it hasn't closed)
+            biz_main['tenant_id'] == biz_main['prev_tid'],
             biz_main[
                 ['prev_date_close', 'date_close']
             ].max(axis=1, skipna=False),
             biz_main['date_close']
         )
 
-        # and then drop the second row i.e., where
-        # next tenant is the same as first tenant
         biz_main = biz_main[
-            biz_main['next_tenant'] != biz_main['tenant']
+            biz_main['next_tid'] != biz_main['tenant_id']
         ]
 
         return biz_main
@@ -540,6 +549,130 @@ class LdcPremisesTransform:
             pd.NA,
             all_biz['area_sm']
         )
+        return all_biz
+
+    def backfill_latest_floorspace(
+        self, all_biz: pd.DataFrame
+    ) -> pd.DataFrame:
+        """
+        Backfill floorspace from occupied records onto vacant records.
+
+        Main premises only; SWS always get area_sm = NaN.
+        For each premises_id, takes the first non-null area_sm from
+        an occupied tenant and applies it to all rows at that premises.
+        """
+        biz_sws = all_biz[
+            all_biz['tenant_care_of'].notna()
+        ].copy()
+        biz_main = all_biz[
+            all_biz['tenant_care_of'].isna()
+        ].copy()
+
+        biz_sws['area_sm'] = np.nan
+
+        biz_main['area_sm'] = np.where(
+            biz_main['tenant'] != 'Vacant Property',
+            biz_main['area_sm'],
+            np.nan
+        )
+        premises_floorspace = (
+            biz_main.groupby('premises_id')
+            .first()
+            .reset_index()[['premises_id', 'area_sm']]
+            .rename(columns={'area_sm': 'floorspace'})
+        )
+        biz_main = pd.merge(
+            biz_main, premises_floorspace,
+            on='premises_id', how='left'
+        )
+        biz_main = biz_main.drop(columns=['area_sm'])
+        biz_main = biz_main.rename(columns={'floorspace': 'area_sm'})
+
+        all_biz = pd.concat([biz_main, biz_sws])
+        return all_biz
+
+    def drop_tenant_address_dupes(
+        self, all_biz: pd.DataFrame
+    ) -> pd.DataFrame:
+        """
+        Drop occasional tenant dupes with same tenant_id, tenancy dates
+        and address but different premises_id. Keeps the row with the
+        freshest survey/check data.
+        """
+        sort_cols = [
+            'date_create', 'date_close',
+            'latest_premises_check', 'latest_record_check'
+        ]
+        sort_cols = [c for c in sort_cols if c in all_biz.columns]
+        if sort_cols:
+            all_biz = all_biz.sort_values(
+                sort_cols, ascending=False, na_position='first'
+            )
+
+        dedup_cols = ['tenant_id', 'address', 'date_create', 'date_close']
+        dedup_cols = [c for c in dedup_cols if c in all_biz.columns]
+        if len(dedup_cols) == 4:
+            all_biz = all_biz.drop_duplicates(
+                subset=dedup_cols, keep='first'
+            )
+
+        return all_biz
+
+    def amend_idle_categorisation(
+        self, all_biz: pd.DataFrame
+    ) -> pd.DataFrame:
+        """
+        Recategorise misclassified office and residential premises.
+
+        Undefined office space tagged as 'Knitwear & Textiles' is
+        recategorised to 'Idle'. Residential Property/Land retain
+        their tenant name but get category/classification/subcategory
+        set to match.
+        """
+        cols_to_update = ['category', 'classification', 'subcategory']
+
+        for col in ['tenant'] + cols_to_update:
+            all_biz[col] = np.where(
+                (all_biz['tenant'] == 'Office')
+                & (all_biz['subcategory'] == 'Knitwear & Textiles'),
+                'Idle',
+                all_biz[col],
+            )
+
+        for col in cols_to_update:
+            all_biz[col] = np.where(
+                (all_biz['tenant'] == 'Residential Property')
+                & (all_biz['subcategory'] == 'Knitwear & Textiles'),
+                all_biz['tenant'],
+                all_biz[col],
+            )
+
+        for col in cols_to_update:
+            all_biz[col] = np.where(
+                (all_biz['tenant'] == 'Residential Land')
+                & (all_biz['subcategory'] == 'Letting Agents'),
+                all_biz['tenant'],
+                all_biz[col],
+            )
+
+        return all_biz
+
+    def remove_idle_trading_info(
+        self, all_biz: pd.DataFrame
+    ) -> pd.DataFrame:
+        """
+        Clear company/trading info from vacant, residential, and idle
+        premises that should not have trading data.
+        """
+        idle_tenants = [
+            'Vacant Property', 'Residential Property', 'Residential Land'
+        ]
+        mask = all_biz['tenant'].isin(idle_tenants)
+
+        all_biz.loc[mask, 'company'] = np.nan
+        all_biz.loc[mask, 'company_id'] = np.nan
+        all_biz.loc[mask, 'flag_independent'] = np.nan
+
         return all_biz
 
     def choose_columns(
