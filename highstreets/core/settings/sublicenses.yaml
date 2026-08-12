@@ -193,7 +193,12 @@ sublicenses:
       
       bt_daily: |
         SELECT * FROM {schema}.econ_busyness_bt_daily_agg_cust_raw
-        WHERE poi_type = 'bids' AND poi_name = 'Heart of London'
+        WHERE poi_type = 'bids' AND poi_name IN (
+        'Heart of London',
+        'HOLBA - Leicester Square and Piccadilly',
+        'HOLBA - Piccadilly and St James',
+        'HOLBA - St Martin''s'
+        )
       
       mastercard_weekly_bespoke_intl: |
         SELECT * FROM {schema}.econ_busyness_mcard_bespoke_intl_txn 

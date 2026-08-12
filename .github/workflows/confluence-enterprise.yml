@@ -86,10 +86,10 @@ jobs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 commit_sha: context.sha,
-                body: `## 📊 Confluence Sync Summary\n\n` +
-                      `✅ **${summary.success_count}** pages updated\n` +
-                      `❌ **${summary.error_count}** errors\n` +
-                      `🔄 **${summary.total_pages}** pages processed\n\n` +
+                body: `## Confluence Sync Summary\n\n` +
+                      `**${summary.success_count}** pages updated\n` +
+                      `**${summary.error_count}** errors\n` +
+                      `**${summary.total_pages}** pages processed\n\n` +
                       `View in Confluence: [${summary.space_name}](${summary.space_url})`
               });
             }
