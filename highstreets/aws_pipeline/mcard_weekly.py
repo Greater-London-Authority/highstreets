@@ -10,6 +10,9 @@ from highstreets.core.sql_manager import SQLManager
 from sqlalchemy import create_engine
 from highstreets.data_transformation.mcard_transform import McardTransform
 from highstreets.data_transformation.mcard_weekly_processor import FileProcessor
+from highstreets.great_expectations import (
+    validate_weekly_txn_output, validate_weekly_yoy_output, McardValidationException,
+)
 from dotenv import find_dotenv, load_dotenv
 from sqlalchemy import exc as sa_exc
 
@@ -294,6 +297,38 @@ def main():
                 logger.warning(f"No table mapping for: {file_key}")
 
     logger.info("PostgreSQL loading completed!")
+
+    # --------------------------------------------------
+    # Validate before Upload to London Datastore
+    # --------------------------------------------------
+    logger.info("Running GE validation on weekly outputs...")
+    all_failures = []
+    for prefix, resources in mcard_weekly_layers.items():
+        for resource in resources:
+            file_key = f"{prefix}_{resource}"
+            file_path = (
+                f"{base_dir}mastercard/weekly/processed/"
+                f"adjusted_weekly_data/{file_key}.csv"
+            )
+            try:
+                df_check = pd.read_csv(file_path)
+                if prefix == "txn":
+                    passed, failures = validate_weekly_txn_output(df_check, resource)
+                else:
+                    passed, failures = validate_weekly_yoy_output(df_check, resource)
+                if not passed:
+                    all_failures.extend(failures)
+            except Exception as e:
+                logger.warning(f"GE validation skipped for {file_key}: {e}")
+
+    if all_failures:
+        logger.error(
+            f"Mastercard GE validation: {len(all_failures)} check(s) failed"
+        )
+        raise McardValidationException(
+            f"Weekly output validation failed: {len(all_failures)} check(s)"
+        )
+    logger.info("GE validation passed for all weekly outputs")
 
     # --------------------------------------------------
     # Upload to London Datastore

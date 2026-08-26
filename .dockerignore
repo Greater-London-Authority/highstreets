@@ -1,0 +1,60 @@
+# Version control
+.git
+.gitignore
+
+# IDE and editor files
+.cursor/
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Documentation
+*.md
+!README.md
+
+# Tests
+tests/
+.pytest_cache/
+.pytest.ini
+
+# Notebooks
+highstreets/notebooks/
+*.ipynb
+.ipynb_checkpoints/
+
+# CI/CD
+.github/
+.flake8
+
+# Environment files
+.env
+.env.example
+
+# Build artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+*.whl
+
+# OS files
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Logs
+*.log
+
+# Step Function JSON docs (not needed in container)
+highstreets/docs/*.json
+
+# Lambda files (deployed separately)
+highstreets/aws_pipeline/lambda/
+
+# Local data files
+*.csv
+*.parquet
+*.xlsx

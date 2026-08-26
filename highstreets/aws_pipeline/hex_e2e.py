@@ -1,4 +1,5 @@
 import os
+import logging
 import warnings
 from datetime import datetime
 from highstreets import config
@@ -6,7 +7,10 @@ from highstreets.data_source_sink.dataloader import DataLoader
 from highstreets.data_source_sink.datawriter import DataWriter
 from highstreets.data_source_sink.gischangetracking import DataProcessor
 from highstreets.data_transformation.hextransform import HexTransform
+from highstreets.great_expectations import validate_bt_output, BtValidationException
 from sqlalchemy import exc as sa_exc
+
+logger = logging.getLogger(__name__)
 # Suppress GeoPandas GEOS version warnings
 warnings.filterwarnings('ignore', message='.*Shapely GEOS version.*incompatible.*')
 # Suppress SQLAlchemy XML column warnings
@@ -46,6 +50,17 @@ def main():
 
     # Initialize DataWriter for data storage
     data_writer = DataWriter()
+
+    # Validate transformed data before DB load and LDS upload
+    passed, failures = validate_bt_output(
+        transformed_data, dataset_name="hex_3hourly",
+        id_column="hex_id", date_column="count_date",
+    )
+    if not passed:
+        logger.error(f"BT hex validation failures: {failures}")
+        raise BtValidationException(
+            f"hex_3hourly validation failed: {len(failures)} check(s)"
+        )
 
     # Append transformed data to PostgreSQL table
     data_writer.append_data_to_postgres(transformed_data, "bt_footfall_tfl_hex_3hourly")

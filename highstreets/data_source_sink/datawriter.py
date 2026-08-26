@@ -214,13 +214,14 @@ class DataWriter:
 
                 # Check if there are rows to append
                 if len(df_to_append) > 0:
-                    # Write the filtered data to the existing table
                     df_to_append.to_sql(
                         name=table_name,
                         con=self.engine,
                         if_exists="append",
                         index=False,
                         schema="gisapdata",
+                        method='multi',
+                        chunksize=5000,
                     )
                     print("Data appended successfully.")
                     logging.info("Data successfully loaded to PostgreSQL")

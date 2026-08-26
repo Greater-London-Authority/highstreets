@@ -1,0 +1,57 @@
+{
+  "QueryLanguage": "JSONata",
+  "Comment": "HSDS Mastercard E2E Data Pipeline",
+  "StartAt": "Lookup job",
+  "States": {
+    "Lookup job": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::batch:submitJob.sync",
+      "Arguments": {
+        "JobDefinition": "arn:aws:batch:eu-west-2:590183914513:job-definition/hsds-lookup-job:3",
+        "JobQueue": "arn:aws:batch:eu-west-2:590183914513:job-queue/hsds-e2e",
+        "JobName": "mcard_bt_lookup_job"
+      },
+      "Next": "Weekly Batch Job"
+    },
+    "Weekly Batch Job": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::batch:submitJob.sync",
+      "Arguments": {
+        "JobDefinition": "arn:aws:batch:eu-west-2:590183914513:job-definition/hsds-mcard-weekly:3",
+        "JobQueue": "arn:aws:batch:eu-west-2:590183914513:job-queue/hsds-e2e",
+        "JobName": "mcard_weekly_job"
+      },
+      "Next": "Weekly Intl Batch Job"
+    },
+    "Weekly Intl Batch Job": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::batch:submitJob.sync",
+      "Arguments": {
+        "JobDefinition": "arn:aws:batch:eu-west-2:590183914513:job-definition/hsds-mcard-intl:3",
+        "JobQueue": "arn:aws:batch:eu-west-2:590183914513:job-queue/hsds-e2e",
+        "JobName": "mcard_weekly_intl_job"
+      },
+      "Next": "Threehourly Batch Job"
+    },
+    "Threehourly Batch Job": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::batch:submitJob.sync",
+      "Arguments": {
+        "JobDefinition": "arn:aws:batch:eu-west-2:590183914513:job-definition/hsds-mcard-3hourly:4",
+        "JobQueue": "arn:aws:batch:eu-west-2:590183914513:job-queue/hsds-e2e",
+        "JobName": "mcard_3hourly_job"
+      },
+      "Next": "Sublicense Batch Job"
+    },
+    "Sublicense Batch Job": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::batch:submitJob.sync",
+      "Arguments": {
+        "JobDefinition": "arn:aws:batch:eu-west-2:590183914513:job-definition/hsds-sublicense:3",
+        "JobQueue": "arn:aws:batch:eu-west-2:590183914513:job-queue/hsds-e2e",
+        "JobName": "sublicenseBatchJob"
+      },
+      "End": true
+    }
+  }
+}

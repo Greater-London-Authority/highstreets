@@ -228,6 +228,43 @@
               "End": true
             }
           }
+        },
+        {
+          "StartAt": "Compute Catchment Month",
+          "States": {
+            "Compute Catchment Month": {
+              "Type": "Pass",
+              "Output": {
+                "catchmentMonth": "{% $substring($fromMillis($toMillis($substring($states.input.startDate, 0, 7) & '-01') - 86400000), 0, 7) & '-01' %}"
+              },
+              "Next": "Catchment Batch Job"
+            },
+            "Catchment Batch Job": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::batch:submitJob.sync",
+              "Arguments": {
+                "JobName": "bt-catchment-job",
+                "JobDefinition": "arn:aws:batch:eu-west-2:590183914513:job-definition/hsds-catchment-job:1",
+                "JobQueue": "arn:aws:batch:eu-west-2:590183914513:job-queue/hsds-e2e",
+                "ContainerOverrides": {
+                  "Environment": [
+                    { "Name": "START_DATE", "Value": "{% $states.input.catchmentMonth %}" },
+                    { "Name": "END_DATE", "Value": "{% $states.input.catchmentMonth %}" }
+                  ]
+                }
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": ["States.TaskFailed", "Batch.ServerException", "States.Timeout"],
+                  "IntervalSeconds": 60,
+                  "MaxAttempts": 2,
+                  "BackoffRate": 2
+                }
+              ],
+              "TimeoutSeconds": 7200,
+              "End": true
+            }
+          }
         }
       ],
       "Next": "Sublicense Job"

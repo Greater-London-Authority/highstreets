@@ -30,8 +30,6 @@ def main():
     data = data_loader.get_bt_outage_history_data(str(start_date), str(end_date))
 
     data = pd.DataFrame(data)
-
-    data = pd.DataFrame(data)
     data = data.rename(columns={"date": "count_date"})
     data = data[data['region'] == 'London'].reset_index(drop=True)
 
