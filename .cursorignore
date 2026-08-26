@@ -1,0 +1,32 @@
+# Environment / secrets
+.env
+*.pem
+*.key
+credentials*.json
+
+# Notebook outputs (may contain data extracts / screenshots)
+highstreets/notebooks/*.png
+highstreets/notebooks/*.csv
+highstreets/notebooks/*.xlsx
+
+# Test baseline data (contains production data samples)
+tests/production_baseline/
+
+# Agent transcripts (conversation history)
+agent-transcripts/
+
+# S3 / data caches
+*.parquet
+*.feather
+
+# IDE internals
+.cursor/
+.vscode/
+.idea/
+.codegpt/
+
+# Build / cache
+__pycache__/
+*.pyc
+.pytest_cache/
+.ipynb_checkpoints/
