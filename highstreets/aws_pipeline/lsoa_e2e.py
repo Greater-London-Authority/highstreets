@@ -33,10 +33,10 @@ def main():
 
     print(f"Making API request with start_date: {start_date}, end_date: {end_date}")
 
-    # Retrieve BT MSOA footfall data using API within the specified date range
+    # Retrieve BT LSOA footfall data using API within the specified date range
     data = data_loader.get_lsoa_data(str(start_date), str(end_date))
 
-    # Instantiate MSOATransform class for data transformation
+    # Instantiate LsoaTransform class for data transformation
     lsoa_transform = LsoaTransform()
 
     # Transform the received data

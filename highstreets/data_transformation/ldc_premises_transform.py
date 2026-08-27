@@ -391,6 +391,20 @@ class LdcPremisesTransform:
         )
         biz_main = self.reset_next_and_previous_dates(biz_main)
 
+        # Correct overlapping date_close values BEFORE vacancy fix.
+        # Without this, a tenant with an overly broad date_close
+        # (e.g., Demolished closing at 2026-05-14 when the next tenant
+        # starts at 2025-10-14) causes the vacancy overlap fix below
+        # to push the Vacant row into a zero-width interval and kill it.
+        biz_main['date_close'] = np.where(
+            (biz_main['date_close'] != biz_main['next_date_create'])
+            & (biz_main['next_date_create'].notnull())
+            & (biz_main['date_close'] > biz_main['next_date_create']),
+            biz_main['next_date_create'],
+            biz_main['date_close']
+        )
+        biz_main = self.reset_next_and_previous_dates(biz_main)
+
         # Fixing the vacancy overlaps
         # (If a property is vacant but the vacancy started BEFORE
         # the previous tenant left, set the vacancy date_create
@@ -465,6 +479,13 @@ class LdcPremisesTransform:
             biz_main['next_date_create'],
             biz_main['date_close']
         )
+
+        # Normalise Vacant Property tenant_ids so that real LDC Vacant
+        # records (with proper tenant_ids) and gap-fill Vacant records
+        # (tenant_id=0) consolidate during the merge below.
+        biz_main.loc[
+            biz_main['tenant'] == 'Vacant Property', 'tenant_id'
+        ] = 0
 
         # Merge duplicates again to catch duplicates after new gaps are added
         biz_main = self.merge_neighbouring_duplicate_tenants(biz_main)
