@@ -57,10 +57,25 @@ def get_max_count_date():
         conn.close()
 
 
-def compute_week_boundaries(today=None):
-    """Compute previous week's Monday and Sunday from today."""
-    if today is None:
-        today = datetime.utcnow().date()
+def compute_week_boundaries(max_date=None):
+    """Compute the next unprocessed week's Monday and Sunday.
+
+    If max_date is provided, the next week starts the day after max_date's
+    Monday. This prevents skipping weeks when the scheduler runs late.
+    If max_date is None (empty table), falls back to previous week from today.
+    """
+    today = datetime.utcnow().date()
+
+    if max_date:
+        next_start = max_date + timedelta(days=1)
+        days_since_monday = next_start.weekday()
+        start_monday = next_start - timedelta(days=days_since_monday)
+        end_sunday = start_monday + timedelta(days=6)
+
+        if end_sunday >= today:
+            return None, None
+
+        return start_monday, end_sunday
 
     days_since_monday = today.weekday()
     this_monday = today - timedelta(days=days_since_monday)
@@ -84,22 +99,23 @@ def send_notification(subject, message):
 
 def handler(event, context):
     """Lambda entry point."""
-    start_date, end_date = compute_week_boundaries()
-    logger.info(
-        f"Target week: {start_date.isoformat()} to {end_date.isoformat()}"
-    )
-
     max_date = get_max_count_date()
     logger.info(f"Latest processed date in PG: {max_date}")
 
-    if max_date and max_date >= end_date:
+    start_date, end_date = compute_week_boundaries(max_date)
+
+    if start_date is None:
         msg = (
-            f"BT data already processed up to {max_date}. "
-            f"Target end_date {end_date} is not newer. Skipping."
+            f"BT data processed up to {max_date}. "
+            f"Next week ({max_date + timedelta(days=1)}+) has not ended yet. Skipping."
         )
         logger.info(msg)
-        send_notification("HSDS BT Scheduler: Skipped (already processed)", msg)
+        send_notification("HSDS BT Scheduler: Skipped (week not complete)", msg)
         return {"statusCode": 200, "action": "skipped", "max_date": str(max_date)}
+
+    logger.info(
+        f"Target week: {start_date.isoformat()} to {end_date.isoformat()}"
+    )
 
     step_function_arn = os.environ["BT_STEP_FUNCTION_ARN"]
     sf_input = {
