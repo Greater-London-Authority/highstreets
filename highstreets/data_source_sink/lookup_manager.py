@@ -204,7 +204,13 @@ class LookupManager:
             # Add layer information
             df['layer'] = layer
             df['id'] = df['id'].astype(str)
-            df['name'] = df['name'].str.replace("â€™", "'")
+            df['name'] = (df['name']
+                         .str.replace("\u2019", "'")
+                         .str.replace("\u2018", "'")
+                         .str.replace("\u201C", '"')
+                         .str.replace("\u201D", '"')
+                         .str.replace("â€™", "'")
+                         .str.replace("â€˜", "'"))
             layer_df.append(df)
 
         # Combine all layers into a single DataFrame
@@ -223,7 +229,11 @@ class LookupManager:
             "BIDs", "Highstreets", "TownCentres", "Bespoke"])
         boroughs = self.get_query_context(layers=["Boroughs"])
         # Process context areas
-        context_areas['name'] = context_areas['name'].str.replace("â", "'")
+        context_areas['name'] = (context_areas['name']
+                                 .str.replace("\u2019", "'")
+                                 .str.replace("\u2018", "'")
+                                 .str.replace("\u00e2\u0080\u0099", "'")
+                                 .str.replace("\u00e2\u0080\u0098", "'"))
 
         # Conditional assignment of names and IDs
         context_areas = context_areas.assign(

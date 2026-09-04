@@ -77,7 +77,7 @@ def main():
         if csv_file.startswith("s3://"):
             # Use fsspec to open the S3 file path
             fs = fsspec.filesystem("s3")
-            with fs.open(csv_file, 'rb') as f:
+            with fs.open(csv_file, 'rb') as f:  # noqa: F841
                 # Extract the file name from the S3 path
                 file_name = os.path.basename(csv_file)
 

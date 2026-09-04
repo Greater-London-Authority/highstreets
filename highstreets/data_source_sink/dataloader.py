@@ -129,7 +129,7 @@ class DataLoader:
             layer_id = layer_ids[layer]
 
             service_query = (
-                f"https://gis2.london.gov.uk/server/rest/services/apps"
+                f"https://gis.london.gov.uk/arcgis/rest/services/apps"
                 f"/Busyness_context/MapServer/"
                 f"{layer_num}/query?where=1%3D1&outFields=*&f=geojson"
             )
@@ -159,7 +159,9 @@ class DataLoader:
             # Add layer information
             df['layer'] = layer
             df['id'] = df['id'].astype(str)
-            df['name'] = df['name'].str.replace("â€™", "'")
+            df['name'] = (df['name']
+                         .str.replace("\u2019", "'")
+                         .str.replace("\u2018", "'"))
             layer_df.append(df)
 
         # Combine all layers into a single DataFrame
