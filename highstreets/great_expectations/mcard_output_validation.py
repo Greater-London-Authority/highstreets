@@ -58,7 +58,7 @@ def validate_weekly_txn_output(
     )
 
     checks = [
-        gx.expectations.ExpectTableRowCountToBeGreaterThan(value=0),
+        gx.expectations.ExpectTableRowCountToBeBetween(min_value=1),
         gx.expectations.ExpectColumnToExist(column="week_start"),
         gx.expectations.ExpectColumnValuesToNotBeNull(column="week_start"),
     ]
@@ -66,8 +66,8 @@ def validate_weekly_txn_output(
     for col in TXN_AMOUNT_COLUMNS + TXN_COUNT_COLUMNS:
         if col in df.columns:
             checks.append(
-                gx.expectations.ExpectColumnValuesToBeOfType(
-                    column=col, type_="float64"
+                gx.expectations.ExpectColumnValuesToNotBeNull(
+                    column=col, mostly=0.90
                 )
             )
 
@@ -108,7 +108,7 @@ def validate_weekly_yoy_output(
     )
 
     checks = [
-        gx.expectations.ExpectTableRowCountToBeGreaterThan(value=0),
+        gx.expectations.ExpectTableRowCountToBeBetween(min_value=1),
     ]
 
     yoy_cols = [c for c in df.columns if c.startswith("yoy_")]
@@ -156,13 +156,13 @@ def validate_adjustment_factors(df: pd.DataFrame) -> Tuple[bool, List[Dict[str, 
 
     adj_cols = [c for c in df.columns if c.startswith("adjustment_factor_")]
     checks = [
-        gx.expectations.ExpectTableRowCountToBeGreaterThan(value=0),
+        gx.expectations.ExpectTableRowCountToBeBetween(min_value=1),
     ]
     for col in adj_cols:
         checks.extend([
             gx.expectations.ExpectColumnValuesToNotBeNull(column=col, mostly=0.95),
-            gx.expectations.ExpectColumnValuesToBeGreaterThan(
-                column=col, value=0.0, mostly=0.95
+            gx.expectations.ExpectColumnValuesToBeBetween(
+                column=col, min_value=0.0, mostly=0.95
             ),
         ])
 

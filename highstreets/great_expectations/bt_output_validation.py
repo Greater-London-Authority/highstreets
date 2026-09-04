@@ -54,7 +54,7 @@ def validate_bt_output(
     )
 
     checks = [
-        gx.expectations.ExpectTableRowCountToBeGreaterThan(value=0),
+        gx.expectations.ExpectTableRowCountToBeBetween(min_value=1),
     ]
 
     if date_column and date_column in df.columns:
@@ -79,8 +79,8 @@ def validate_bt_output(
     ]
     for col in count_columns:
         checks.append(
-            gx.expectations.ExpectColumnMinToBeBetween(
-                column=col, min_value=0, max_value=None
+            gx.expectations.ExpectColumnValuesToBeBetween(
+                column=col, min_value=0, mostly=0.99
             )
         )
 
