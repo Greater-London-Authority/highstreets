@@ -84,7 +84,7 @@ def main():
     hex_400m_buffer1 = hex_400m_buffer1.rename(columns={"Hex_ID": "hex_id"})
 
     # Spatially join the two GeoDataFrames based on the geometry intersection
-    join_result = gpd.sjoin(hex_400m_buffer1, highstreet, how="left", predicate="intersects")
+    join_result = gpd.sjoin(hex_400m_buffer1, highstreet, how="left", op="intersects")
 
     # Select the 'Hex_ID', 'bespoke_ar_id', and 'geometry' columns from the join result
     lookup_table = join_result[["hex_id", "highstreet_id", "highstreet_name"]]
@@ -105,7 +105,7 @@ def main():
     )
 
     # Spatially join the two GeoDataFrames based on the geometry intersection
-    join_result = gpd.sjoin(hex_400m_buffer1, tc, how="left", predicate="intersects")
+    join_result = gpd.sjoin(hex_400m_buffer1, tc, how="left", op="intersects")
 
     # Select the 'Hex_ID', 'bespoke_ar_id', and 'geometry' columns from the join result
     lookup_table = join_result[["hex_id", "tc_id", "tc_name"]]
@@ -126,7 +126,7 @@ def main():
     )
 
     # Spatially join the two GeoDataFrames based on the geometry intersection
-    join_result = gpd.sjoin(hex_400m_buffer1, bid, how="left", predicate="intersects")
+    join_result = gpd.sjoin(hex_400m_buffer1, bid, how="left", op="intersects")
 
     # Select the 'Hex_ID', 'bespoke_ar_id', and 'geometry' columns from the join result
     lookup_table = join_result[["hex_id", "bid_id", "bid_name"]]
@@ -147,7 +147,7 @@ def main():
     )
 
     # Spatially join the two GeoDataFrames based on the geometry intersection
-    join_result = gpd.sjoin(hex350_grid_GLA, bespoke, how="left", predicate="intersects")
+    join_result = gpd.sjoin(hex350_grid_GLA, bespoke, how="left", op="intersects")
 
     # Select the 'Hex_ID', 'bespoke_ar_id', and 'geometry' columns from the join result
     lookup_table = join_result[["hex_id", "bespoke_area_id", "name"]]
