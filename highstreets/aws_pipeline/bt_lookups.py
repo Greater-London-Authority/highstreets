@@ -62,7 +62,7 @@ def main():
     )
 
     # towncentre
-    query = "select tc_id, tc_name, geom from planning_town_centre_all_2020"
+    query = "select tc_id, tc_name, geom from planning_town_centre_all_2026"
     tc = gpd.GeoDataFrame.from_postgis(text(query), engine.connect(), geom_col="geom")
 
     # bespoke
@@ -164,6 +164,34 @@ def main():
     lookup_table.to_csv(
         f"{base_dir}"
         f"reference_data/hex_bespoke_lookup.csv",
+        index=False,
+    )
+
+    # strategic
+    query = (
+        "select strategic_id, strategic_name, geom from "
+        "core_hsds_strategic_boundaries"
+    )
+    strategic = gpd.GeoDataFrame.from_postgis(
+        text(query), engine.connect(), geom_col="geom"
+    )
+
+    # Spatially join strategic areas with hex grid
+    join_result = gpd.sjoin(hex350_grid_GLA, strategic, how="left", op="intersects")
+
+    lookup_table = join_result[["hex_id", "strategic_id", "strategic_name"]]
+
+    lookup_table["strategic_id"] = lookup_table["strategic_id"].astype("Int64")
+
+    data_writer.truncate_and_load_to_postgres(
+        lookup_table,
+        table_name="econ_busyness_hex_strategic_lookup",
+        schema="gisapdata",
+    )
+
+    lookup_table.to_csv(
+        f"{base_dir}"
+        f"reference_data/hex_strategic_lookup.csv",
         index=False,
     )
 

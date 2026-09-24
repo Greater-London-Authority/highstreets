@@ -122,6 +122,13 @@ def main():
         truncate=True
     )
 
+    hex_transform.fetch_and_transform_hex_data(
+        transform_layer='hex_strategic_transform_query.sql',
+        table_name='econ_busyness_bt_strategic_3hourly_counts',
+        load_to_db=True,
+        truncate=True
+    )
+
     hex_transform.concat_and_load_all_hex_layers(
         query_file='hex_all_layer_concat_query.sql',
         target_table='econ_busyness_bt_3hourly_counts',
@@ -149,6 +156,11 @@ def main():
             'table': 'econ_busyness_bt_bespokes_3hourly_counts',
             's3_path': f"{base_dir}bt/processed/bespoke",
             'prefix': 'bespokes_3hourly_counts',
+        },
+        {
+            'table': 'econ_busyness_bt_strategic_3hourly_counts',
+            's3_path': f"{base_dir}bt/processed/strategic",
+            'prefix': 'strategic_3hourly_counts',
         },
     ]
 

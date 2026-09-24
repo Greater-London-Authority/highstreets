@@ -7,7 +7,7 @@ through the highstreets data pipeline. It includes schemas for:
 1. Raw data coming from the BT API (hex grid format)
 2. Transformed data stored in the database
 3. Aggregated data by different boundary types (highstreets, town centres, BIDs,
-   bespoke areas)
+   bespoke areas, strategic areas)
 4. Lookup mappings between hex grids and various boundary types
 
 Each schema enforces data types, nullable fields, and valid value ranges to ensure
@@ -355,14 +355,64 @@ class BTBespokeSchema(BaseSchema):
     )
 
 
+# Strategic area-specific BT data schema
+class BTStrategicSchema(BaseSchema):
+    """
+    Schema for BT data aggregated by strategic area boundaries.
+
+    Validates footfall data aggregated from hex grids to strategic area
+    boundaries. Used for the 'econ_busyness_bt_strategic_3hourly_counts'
+    table and exports. These include OSDC, LLDC, OPDC and similar
+    development corporation boundaries.
+    """
+
+    strategic_id: Series[int] = pa.Field(
+        description="Unique identifier for the strategic area boundary"
+    )
+    strategic_name: Series[str] = pa.Field(
+        description="Name of the strategic area (e.g., OSDC Phase 1, LLDC)"
+    )
+    count_date: Series[pd.Timestamp] = pa.Field(
+        description="Date when footfall was measured (YYYY-MM-DD)"
+    )
+    hours: Series[str] = pa.Field(
+        description="3-hour time period in format HH-HH (e.g., '09-12')"
+    )
+    resident: Series[int] = pa.Field(
+        description=("Aggregated count of residents within the strategic"
+                     " area boundary"),
+        nullable=True
+    )
+    visitor: Series[int] = pa.Field(
+        description=("Aggregated count of visitors within the strategic"
+                     " area boundary"),
+        nullable=True
+    )
+    worker: Series[int] = pa.Field(
+        description=("Aggregated count of workers within the strategic"
+                     " area boundary"),
+        nullable=True
+    )
+    ave_loyalty_percentage: Series[float] = pa.Field(
+        description=("Average loyalty percentage across all hex cells in the"
+                     " strategic area"),
+        nullable=True
+    )
+    ave_dwell_time: Series[float] = pa.Field(
+        description=("Average dwell time across all hex cells in the"
+                     " strategic area (minutes)"),
+        nullable=True
+    )
+
+
 # Combined BT data schema (for all layers)
 class BTCombinedSchema(BaseSchema):
     """
     Schema for combined BT data from all boundary types.
 
     Used for the unified 'econ_busyness_bt_3hourly_counts' table that combines
-    data from highstreets, town centres, BIDs, and bespoke areas into a single
-    dataset with a layer identifier.
+    data from highstreets, town centres, BIDs, bespoke areas, and strategic
+    areas into a single dataset with a layer identifier.
     """
 
     count_date: Series[pd.Timestamp] = pa.Field(
@@ -372,15 +422,16 @@ class BTCombinedSchema(BaseSchema):
         description="3-hour time period in format HH-HH (e.g., '09-12')"
     )
     id: Series[int] = pa.Field(
-        description=("ID of the boundary (highstreet_id, tc_id, bid_id, or"
-                     "bespoke_area_id)")
+        description=("ID of the boundary (highstreet_id, tc_id, bid_id,"
+                     " bespoke_area_id, or strategic_id)")
     )
     name: Series[str] = pa.Field(
-        description=("Name of the boundary (corresponds to the boundary type)")
+        description=("Name of the boundary (highstreet_name, tc_name, bid_name,"
+                     " bespoke area name, or strategic_name)")
     )
     layer: Series[str] = pa.Field(
         description="Type of boundary layer this record belongs to",
-        isin=["highstreets", "towncentres", "bids", "bespoke"]
+        isin=["highstreets", "towncentres", "bids", "bespoke", "strategic"]
     )
     resident: Series[int] = pa.Field(
         description="Aggregated count of residents within the boundary",
@@ -485,6 +536,27 @@ class HexBespokeLookupSchema(BaseSchema):
     name: Series[str] = pa.Field(
         description=("Name of the bespoke area (can be a project name or"
                      "area description)")
+    )
+
+
+class HexStrategicLookupSchema(BaseSchema):
+    """
+    Schema for hex grid to strategic area boundary lookup table.
+
+    This defines the relationship between hex grid cells and strategic area
+    boundaries, allowing aggregation of hex data to strategic area level.
+    Used for the 'econ_busyness_hex_strategic_lookup' table.
+    """
+
+    hex_id: Series[str] = pa.Field(
+        description="Unique identifier for the TfL hex grid cell"
+    )
+    strategic_id: Series[int] = pa.Field(
+        description=("Unique identifier for the strategic area that"
+                     " contains this hex")
+    )
+    strategic_name: Series[str] = pa.Field(
+        description="Name of the strategic area (e.g., OSDC Phase 1, LLDC)"
     )
 
 

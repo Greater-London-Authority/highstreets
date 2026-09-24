@@ -122,6 +122,7 @@ class DataWriter:
                     "highstreet_id",
                     "tc_id",
                     "bespoke_area_id",
+                    "strategic_id",
                     "bid_id",
                     "msoa_id",
                     "lsoa_id",
@@ -130,6 +131,7 @@ class DataWriter:
                         "highstreet_id": "highstreet",
                         "tc_id": "towncentre",
                         "bespoke_area_id": "bespoke",
+                        "strategic_id": "strategic",
                         "bid_id": "bid",
                         "msoa_id": "msoa",
                         "lsoa_id": "lsoa",
@@ -353,10 +355,10 @@ class DataWriter:
 
         # Validate layer_type
         valid_layer_types = [
-            'borough', 'bespoke', 'highstreet', 'bid',
+            'borough', 'bespoke', 'strategic', 'highstreet', 'bid',
             'msoa', 'towncentre', 'caz', 'inner_outer',
             'BIDs', 'CAZ', 'Highstreets', 'TownCentres',
-            'Boroughs', 'MSOAs', 'london', 'Inner_Outer'
+            'Boroughs', 'MSOAs', 'Strategic', 'london', 'Inner_Outer'
         ]
 
         if layer_type not in valid_layer_types:
@@ -506,7 +508,7 @@ class DataWriter:
         )
 
         # towncentre
-        query = "select tc_id, tc_name, geom from planning_town_centre_all_2020"
+        query = "select tc_id, tc_name, geom from planning_town_centre_all_2026"
         tc = gpd.GeoDataFrame.from_postgis(
             text(query), self.engine.connect(), geom_col="geom"
         )
@@ -1030,6 +1032,7 @@ class DataWriter:
                     "highstreet_id",
                     "tc_id",
                     "bespoke_area_id",
+                    "strategic_id",
                     "bid_id",
                     "msoa_id",
                     "lsoa_id",
@@ -1038,6 +1041,7 @@ class DataWriter:
                         "highstreet_id": "highstreet",
                         "tc_id": "towncentre",
                         "bespoke_area_id": "bespoke",
+                        "strategic_id": "strategic",
                         "bid_id": "bid",
                         "msoa_id": "msoa",
                         "lsoa_id": "lsoa",

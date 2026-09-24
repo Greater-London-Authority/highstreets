@@ -48,6 +48,19 @@ WITH combined_data AS (
         txn_amt as txn_amt_retail,
         txn_amt_adj as txn_amt_retail_adj
     FROM econ_busyness_mcard_bespokes_3hourly_txn
+
+    UNION ALL
+
+    -- Strategic areas data
+    SELECT
+        count_date,
+        hours,
+        strategic_id AS id,
+        strategic_name AS name,
+        'strategic' AS layer,
+        txn_amt as txn_amt_retail,
+        txn_amt_adj as txn_amt_retail_adj
+    FROM econ_busyness_mcard_strategic_3hourly_txn
 )
 SELECT 
     count_date,

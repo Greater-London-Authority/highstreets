@@ -16,12 +16,20 @@ bid_borough AS (
     FROM econ_busyness_borough_hs_lookup_3
     WHERE bid_id IS NOT NULL
 ),
+strategic_borough AS (
+    SELECT DISTINCT ON (strategic_id)
+        strategic_id::TEXT AS poi_id, borough
+    FROM econ_busyness_mcard_strategic_quad_lookup
+    WHERE strategic_id IS NOT NULL
+),
 borough_lookup AS (
     SELECT poi_id, 'highstreets' AS poi_type, borough FROM hs_borough
     UNION ALL
     SELECT poi_id, 'towncentres', borough FROM tc_borough
     UNION ALL
     SELECT poi_id, 'bids', borough FROM bid_borough
+    UNION ALL
+    SELECT poi_id, 'strategic', borough FROM strategic_borough
 )
 SELECT d.poi_id, d.poi_uid, d.poi_name, d.poi_type, d.count_date,
     d.time_indicator, d.total_unique_volume,

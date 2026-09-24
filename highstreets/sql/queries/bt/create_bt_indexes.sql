@@ -14,7 +14,7 @@ CREATE INDEX IF NOT EXISTS idx_bt_hex_3h_date
     ON gisapdata.bt_footfall_tfl_hex_3hourly (count_date);
 
 -- ============================================================================
--- HEX LOOKUP TABLES (4 tables)
+-- HEX LOOKUP TABLES (5 tables)
 -- Other side of every hex transform JOIN: h.hex_id
 -- ============================================================================
 CREATE INDEX IF NOT EXISTS idx_hex_hs_lookup
@@ -25,6 +25,8 @@ CREATE INDEX IF NOT EXISTS idx_hex_bid_lookup
     ON gisapdata.econ_busyness_hex_bid_lookup (hex_id);
 CREATE INDEX IF NOT EXISTS idx_hex_bespoke_lookup
     ON gisapdata.econ_busyness_hex_bespoke_lookup (hex_id);
+CREATE INDEX IF NOT EXISTS idx_hex_strategic_lookup
+    ON gisapdata.econ_busyness_hex_strategic_lookup (hex_id);
 
 -- ============================================================================
 -- MSOA HOURLY: bt_footfall_msoa_hourly

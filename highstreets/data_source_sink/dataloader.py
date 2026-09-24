@@ -100,7 +100,8 @@ class DataLoader:
                       "TownCentres",
                       "Boroughs",
                       "MSOAs",
-                      "Bespoke"]
+                      "Bespoke",
+                      "Strategic"]
 
         layer_nums = {
             "BIDs": 1,
@@ -109,7 +110,8 @@ class DataLoader:
             "TownCentres": 5,
             "Boroughs": 0,
             "MSOAs": 4,
-            "Bespoke": 8
+            "Bespoke": 8,
+            "Strategic": 13
         }
 
         layer_ids = {
@@ -119,7 +121,8 @@ class DataLoader:
             "TownCentres": ["tc_id", "tc_name"],
             "Boroughs": ["gss_code", "name"],
             "MSOAs": ["msoa11cd", "msoa11nm"],
-            "Bespoke": ["bespoke_area_id", "name"]
+            "Bespoke": ["bespoke_area_id", "name"],
+            "Strategic": ["strategic_id", "strategic_name"]
         }
 
         layer_df = []
@@ -160,8 +163,8 @@ class DataLoader:
             df['layer'] = layer
             df['id'] = df['id'].astype(str)
             df['name'] = (df['name']
-                         .str.replace("\u2019", "'")
-                         .str.replace("\u2018", "'"))
+                         .str.replace("\u2019", "'")  # noqa
+                         .str.replace("\u2018", "'"))  # noqa
             layer_df.append(df)
 
         # Combine all layers into a single DataFrame
@@ -590,7 +593,7 @@ class DataLoader:
             )
             return lookup_table
         elif lookup_type == "towncentre":
-            query = "select tc_id, tc_name, geom from planning_town_centre_all_2020"
+            query = "select tc_id, tc_name, geom from planning_town_centre_all_2026"
             tc = gpd.GeoDataFrame.from_postgis(
                 text(query), self.engine.connect(), geom_col="geom"
             )
@@ -613,6 +616,22 @@ class DataLoader:
             )
             lookup_table = join_result[["hex_id", "bespoke_area_id", "name"]]
             lookup_table["bespoke_area_id"] = lookup_table["bespoke_area_id"].astype(
+                "Int64"
+            )
+            return lookup_table
+        elif lookup_type == "strategic":
+            query = (
+                "select strategic_id, strategic_name, geom "
+                "from core_hsds_strategic_boundaries"
+            )
+            strategic = gpd.GeoDataFrame.from_postgis(
+                text(query), self.engine.connect(), geom_col="geom"
+            )
+            join_result = gpd.sjoin(
+                hex350_grid_GLA, strategic, how="left", op="intersects"
+            )
+            lookup_table = join_result[["hex_id", "strategic_id", "strategic_name"]]
+            lookup_table["strategic_id"] = lookup_table["strategic_id"].astype(
                 "Int64"
             )
             return lookup_table

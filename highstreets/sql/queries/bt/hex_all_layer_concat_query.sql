@@ -60,6 +60,22 @@ WITH combined_data AS (
         ave_loyalty_percentage,
         ave_dwell_time
     FROM econ_busyness_bt_bespokes_3hourly_counts
+
+    UNION ALL
+
+    -- Strategic areas data
+    SELECT
+        count_date,
+        hours,
+        strategic_id AS id,
+        strategic_name AS name,
+        'strategic' AS layer,
+        resident,
+        visitor,
+        worker,
+        ave_loyalty_percentage,
+        ave_dwell_time
+    FROM econ_busyness_bt_strategic_3hourly_counts
 )
 SELECT 
     count_date,

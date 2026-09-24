@@ -26,7 +26,7 @@ class DailyTransform(DataLoader):
         try:
             self.logger.info("Fetching POI lookup table...")
             self._lookup_cache = self.get_full_data(
-                "econ_busyness_bt_uid_jan25_lookup"
+                "econ_busyness_bt_uid_aug26_lookup"
             )
 
             if self._lookup_cache is None or self._lookup_cache.empty:
@@ -178,6 +178,19 @@ class DailyTransform(DataLoader):
         transformed_data['poi_uid'] = transformed_data['poi_uid'].astype(str)
         # poi_id from lookup might be int or string - convert to string for consistency
         transformed_data['poi_id'] = transformed_data['poi_id'].astype(str)
+
+        # # Deduplicate on unique constraint columns — API may return duplicate records
+        # pre_dedup = len(transformed_data)
+        # transformed_data = transformed_data.drop_duplicates(
+        #     subset=['poi_id', 'poi_type', 'count_date', 'time_indicator'],
+        #     keep='first'
+        # )
+        # dedup_dropped = pre_dedup - len(transformed_data)
+        # if dedup_dropped > 0:
+        #     self.logger.warning(
+        #         f"Dropped {dedup_dropped:,} duplicate rows on "
+        #         f"(poi_id, poi_type, count_date, time_indicator)"
+        #     )
 
         self.logger.info("Data pre-processing completed.")
         return transformed_data

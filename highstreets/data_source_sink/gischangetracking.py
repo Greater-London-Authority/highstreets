@@ -25,6 +25,7 @@ class DataProcessor:
         self.tc_hex_ids = []
         self.bid_hex_ids = []
         self.bespoke_hex_ids = []
+        self.strategic_hex_ids = []
 
     def process_changes(self):
         query = """
@@ -48,7 +49,7 @@ class DataProcessor:
             # Update processed records
             self.update_processed_records(df["record_id"].tolist())
         else:
-            logging.info("No new hs/bid/tc/bespoke updated or inserted")
+            logging.info("No new hs/bid/tc/bespoke/strategic updated or inserted")
 
     def process_insert(self, table_name, record_id):
         hex_ids = []
@@ -90,6 +91,16 @@ class DataProcessor:
                     (hex_id, record_id)
                     for hex_id in hex_ids.loc[
                         hex_ids["bespoke_area_id"] == record_id, "hex_id"
+                    ].values
+                ]
+            )
+        elif table_name == "strategic":
+            hex_ids = self.data_loader.get_hex_lookup("strategic")
+            self.strategic_hex_ids.extend(
+                [
+                    (hex_id, record_id)
+                    for hex_id in hex_ids.loc[
+                        hex_ids["strategic_id"] == record_id, "hex_id"
                     ].values
                 ]
             )

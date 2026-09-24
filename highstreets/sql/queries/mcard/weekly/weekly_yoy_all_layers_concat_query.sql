@@ -156,6 +156,32 @@ WITH combined_data AS (
 
     UNION ALL
 
+    -- Strategic areas data
+    SELECT
+        yr,
+        wk,
+        week_start::date,
+        strategic_id::bigint AS id,
+        strategic_name AS name,
+        'strategic' AS layer,
+        yoy_txn_amt_wd_eating,
+        yoy_txn_amt_we_eating,
+        yoy_txn_amt_wd_apparel,
+        yoy_txn_amt_we_apparel,
+        yoy_txn_amt_wd_retail,
+        yoy_txn_amt_we_retail,
+        yoy_txn_cnt_wd_eating,
+        yoy_txn_cnt_we_eating,
+        yoy_txn_cnt_wd_apparel,
+        yoy_txn_cnt_we_apparel,
+        yoy_txn_cnt_wd_retail,
+        yoy_txn_cnt_we_retail,
+        yoy_txn_amt_wd_retail_adj,
+        yoy_txn_amt_we_retail_adj
+    FROM econ_busyness_mcard_strategic_yoy
+
+    UNION ALL
+
     -- Boroughs data
     SELECT
         yr,

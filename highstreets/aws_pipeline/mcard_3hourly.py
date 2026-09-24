@@ -112,6 +112,12 @@ def main():
         truncate=True
     )
 
+    mcard_transform.fetch_and_transform_mcard_data(
+        transform_layer='quad_strategic_transform_query.sql',
+        table_name='econ_busyness_mcard_strategic_3hourly_txn',
+        truncate=True
+    )
+
     mcard_poi_layers = [
         {
             'table': 'econ_busyness_mcard_bids_3hourly_txn',
@@ -132,6 +138,11 @@ def main():
             'table': 'econ_busyness_mcard_bespokes_3hourly_txn',
             's3_path': f"{base_dir}mastercard/mrli_3hourly/processed/bespoke",
             'prefix': 'bespokes_3hourly_txn',
+        },
+        {
+            'table': 'econ_busyness_mcard_strategic_3hourly_txn',
+            's3_path': f"{base_dir}mastercard/mrli_3hourly/processed/strategic",
+            'prefix': 'strategic_3hourly_txn',
         },
     ]
 

@@ -136,6 +136,18 @@ BT_CATCHMENT_WORKER_API_ENDPOINT = (
     "home-catchment-worker/lsoa?agg=time_indicator"
 )
 
+# ================ HSDS DB CONFIG ==============================
+# Separate PostgreSQL instance holding validated premises geometry points.
+HSDS_PG_DATABASE = os.getenv("HSDS_PG_DATABASE")
+HSDS_PG_USER = os.getenv("HSDS_PG_USER")
+HSDS_PG_PASSWORD = os.getenv("HSDS_PG_PASSWORD")
+HSDS_PG_HOST = os.getenv("HSDS_PG_HOST")
+HSDS_PG_PORT = os.getenv("HSDS_PG_PORT", "5432")
+
+# Validated addresses table
+HSDS_VALIDATED_SCHEMA = "hsds_dev"
+HSDS_VALIDATED_TABLE = "core_premises_geometry_points"
+
 # ================ LDC CONFIG ==================================================
 LDC_OUTPUT_DIR = f"{BASE_DIR}ldc/"
 LDC_BACKUP_DIR = f"{BASE_DIR}ldc/ldc_backups/"

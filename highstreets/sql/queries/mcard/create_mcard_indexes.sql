@@ -23,7 +23,7 @@ CREATE INDEX IF NOT EXISTS idx_mcard_clean_18_yr_wk
 
 -- ============================================================================
 -- RAW TABLE: econ_busyness_mcard_raw_18_zoom
--- Scanned by all 6 international queries:
+-- Scanned by all 7 international queries:
 --   JOIN main.quad_id::bigint = lookup.quad_id::bigint
 --   WHERE industry = 'Total Retail' AND segment = 'International' AND geo_name = 'London'
 -- Also: incremental_refresh inserts WHERE (yr > :max_yr OR (yr = :max_yr AND wk > :max_wk))
@@ -35,9 +35,9 @@ CREATE INDEX IF NOT EXISTS idx_mcard_raw_18_yr_wk
     ON gisapdata.econ_busyness_mcard_raw_18_zoom (yr, wk);
 
 -- ============================================================================
--- QUAD LOOKUP TABLES (8 tables)
+-- QUAD LOOKUP TABLES (9 tables)
 -- Other side of every JOIN: lookup.quad_id::BIGINT
--- Used in: 9 weekly + 6 intl + 4 threehourly + adjustment script
+-- Used in: 9 weekly + 7 intl + 5 threehourly + adjustment script
 -- ============================================================================
 CREATE INDEX IF NOT EXISTS idx_hs_quad_lookup
     ON gisapdata.econ_busyness_mcard_highstreets_quad_lookup (quad_id);
@@ -47,6 +47,8 @@ CREATE INDEX IF NOT EXISTS idx_tc_quad_lookup
     ON gisapdata.econ_busyness_mcard_towncentres_quad_lookup (quad_id);
 CREATE INDEX IF NOT EXISTS idx_bespoke_quad_lookup
     ON gisapdata.econ_busyness_mcard_bespoke_quad_lookup (quad_id);
+CREATE INDEX IF NOT EXISTS idx_strategic_quad_lookup
+    ON gisapdata.econ_busyness_mcard_strategic_quad_lookup (quad_id);
 CREATE INDEX IF NOT EXISTS idx_borough_quad_lookup
     ON gisapdata.econ_busyness_mcard_boroughs_quad_lookup (quad_id);
 CREATE INDEX IF NOT EXISTS idx_caz_quad_lookup
@@ -70,7 +72,7 @@ CREATE INDEX IF NOT EXISTS idx_mrli_3hourly_quad
 
 -- ============================================================================
 -- 3-HOURLY ADJUSTED: econ_busyness_mrli_3hourly_adj
--- All 4 POI transform queries (quad_hs, quad_tc, quad_bid, quad_bespoke):
+-- All 5 POI transform queries (quad_hs, quad_tc, quad_bid, quad_bespoke, quad_strategic):
 --   JOIN d.quad_id::bigint = lookup.quad_id::bigint
 --   GROUP BY d.count_date, d.hours, ...
 -- Also merge key in adjustment script: (quad_id, count_date, hours)

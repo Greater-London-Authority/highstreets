@@ -16,6 +16,7 @@ config:
     bt_footfall:
       aggregated_tables:
         bespoke: "econ_busyness_bt_bespokes_3hourly_counts"
+        strategic: "econ_busyness_bt_strategic_3hourly_counts"
         bid: "econ_busyness_bt_bids_3hourly_counts"
         towncentre: "econ_busyness_bt_towncentres_3hourly_counts"
         highstreet: "econ_busyness_bt_highstreets_3hourly_counts"
@@ -24,11 +25,13 @@ config:
         hex_bid: "econ_busyness_hex_bid_lookup"
         hex_towncentre: "econ_busyness_hex_towncentre_lookup"
         hex_bespoke: "econ_busyness_hex_bespoke_lookup"
+        hex_strategic: "econ_busyness_hex_strategic_lookup"
         hex_highstreet: "econ_busyness_hex_highstreet_lookup"
     
     mastercard_3hourly:
       aggregated_tables:
         bespoke: "econ_busyness_mcard_bespokes_3hourly_txn"
+        strategic: "econ_busyness_mcard_strategic_3hourly_txn"
         bid: "econ_busyness_mcard_bids_3hourly_txn"
         towncentre: "econ_busyness_mcard_towncentres_3hourly_txn"
         highstreet: "econ_busyness_mcard_highstreets_3hourly_txn"
@@ -37,11 +40,13 @@ config:
         quad_bid: "econ_busyness_mcard_BIDs_quad_lookup"
         quad_towncentre: "econ_busyness_mcard_TownCentres_quad_lookup"
         quad_bespoke: "econ_busyness_mcard_bespoke_quad_lookup"
+        quad_strategic: "econ_busyness_mcard_strategic_quad_lookup"
         quad_highstreet: "econ_busyness_mcard_Highstreets_quad_lookup"
     
     mastercard_weekly:
       aggregated_tables:
         bespoke: "econ_busyness_mcard_bespoke_txn"
+        strategic: "econ_busyness_mcard_strategic_txn"
         bid: "econ_busyness_mcard_bids_txn"
         towncentre: "econ_busyness_mcard_towncentres_txn"
         highstreet: "econ_busyness_mcard_highstreets_txn"
@@ -52,6 +57,7 @@ config:
         london: "econ_busyness_mcard_london_txn"
       yoy_tables:
         bespoke: "econ_busyness_mcard_bespoke_yoy"
+        strategic: "econ_busyness_mcard_strategic_yoy"
         bid: "econ_busyness_mcard_bids_yoy"
         towncentre: "econ_busyness_mcard_towncentres_yoy"
         highstreet: "econ_busyness_mcard_highstreets_yoy"
@@ -64,6 +70,7 @@ config:
     mastercard_weekly_intl:
       aggregated_tables:
         bespoke: "econ_busyness_mcard_bespoke_intl_txn"
+        strategic: "econ_busyness_mcard_strategic_intl_txn"
         bid: "econ_busyness_mcard_bids_intl_txn"
         towncentre: "econ_busyness_mcard_towncentres_intl_txn"
         highstreet: "econ_busyness_mcard_highstreets_intl_txn"

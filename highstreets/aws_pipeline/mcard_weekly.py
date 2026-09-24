@@ -53,6 +53,10 @@ aggregation_ids_dict = {
         "poi_id": ["bespoke_area_id", "name"],
         "quad_area_lookup": "econ_busyness_mcard_bespoke_quad_lookup",
     },
+    "strategic": {
+        "poi_id": ["strategic_id", "strategic_name"],
+        "quad_area_lookup": "econ_busyness_mcard_strategic_quad_lookup",
+    },
     "borough": {
         "poi_id": ["gss_code", "name"],
         "quad_area_lookup": "econ_busyness_mcard_boroughs_quad_lookup",
@@ -65,6 +69,7 @@ aggregation_ids_dict = {
 
 table_mapping = {
     "txn_bespoke": "econ_busyness_mcard_bespoke_txn",
+    "txn_strategic": "econ_busyness_mcard_strategic_txn",
     "txn_bids": "econ_busyness_mcard_bids_txn",
     "txn_boroughs": "econ_busyness_mcard_boroughs_txn",
     "txn_caz": "econ_busyness_mcard_caz_txn",
@@ -74,6 +79,7 @@ table_mapping = {
     "txn_msoas": "econ_busyness_mcard_msoas_txn",
     "txn_towncentres": "econ_busyness_mcard_towncentres_txn",
     "yoy_bespoke": "econ_busyness_mcard_bespoke_yoy",
+    "yoy_strategic": "econ_busyness_mcard_strategic_yoy",
     "yoy_bids": "econ_busyness_mcard_bids_yoy",
     "yoy_boroughs": "econ_busyness_mcard_boroughs_yoy",
     "yoy_caz": "econ_busyness_mcard_caz_yoy",
@@ -87,11 +93,11 @@ table_mapping = {
 mcard_weekly_layers = {
     "txn": [
         "bespoke", "bids", "boroughs", "caz",
-        "highstreets", "inner_outer", "london", "msoas", "towncentres"
+        "highstreets", "inner_outer", "london", "msoas", "strategic", "towncentres"
     ],
     "yoy": [
         "bespoke", "bids", "boroughs", "caz",
-        "highstreets", "inner_outer", "london", "msoas", "towncentres"
+        "highstreets", "inner_outer", "london", "msoas", "strategic", "towncentres"
     ],
 }
 

@@ -86,7 +86,7 @@ class LookupManager:
             )
             return lookup_table
         elif lookup_type == "towncentre":
-            query = "select tc_id, tc_name, geom from planning_town_centre_all_2020"
+            query = "select tc_id, tc_name, geom from planning_town_centre_all_2026"
             tc = gpd.GeoDataFrame.from_postgis(
                 text(query), self.engine.connect(), geom_col="geom"
             )
@@ -109,6 +109,22 @@ class LookupManager:
             )
             lookup_table = join_result[["hex_id", "bespoke_area_id", "name"]]
             lookup_table["bespoke_area_id"] = lookup_table["bespoke_area_id"].astype(
+                "Int64"
+            )
+            return lookup_table
+        elif lookup_type == "strategic":
+            query = (
+                "select strategic_id, strategic_name, geom "
+                "from core_hsds_strategic_boundaries"
+            )
+            strategic = gpd.GeoDataFrame.from_postgis(
+                text(query), self.engine.connect(), geom_col="geom"
+            )
+            join_result = gpd.sjoin(
+                hex350_grid_GLA, strategic, how="left", op="intersects"
+            )
+            lookup_table = join_result[["hex_id", "strategic_id", "strategic_name"]]
+            lookup_table["strategic_id"] = lookup_table["strategic_id"].astype(
                 "Int64"
             )
             return lookup_table
@@ -145,7 +161,8 @@ class LookupManager:
                       "TownCentres",
                       "Boroughs",
                       "MSOAs",
-                      "Bespoke"]
+                      "Bespoke",
+                      "Strategic"]
 
         layer_nums = {
             "BIDs": 1,
@@ -154,7 +171,8 @@ class LookupManager:
             "TownCentres": 5,
             "Boroughs": 0,
             "MSOAs": 4,
-            "Bespoke": 8
+            "Bespoke": 8,
+            "Strategic": 13
         }
 
         layer_ids = {
@@ -164,7 +182,8 @@ class LookupManager:
             "TownCentres": ["tc_id", "tc_name"],
             "Boroughs": ["gss_code", "name"],
             "MSOAs": ["msoa11cd", "msoa11nm"],
-            "Bespoke": ["bespoke_area_id", "name"]
+            "Bespoke": ["bespoke_area_id", "name"],
+            "Strategic": ["strategic_id", "strategic_name"]
         }
 
         layer_df = []
@@ -205,12 +224,12 @@ class LookupManager:
             df['layer'] = layer
             df['id'] = df['id'].astype(str)
             df['name'] = (df['name']
-                         .str.replace("\u2019", "'")
-                         .str.replace("\u2018", "'")
-                         .str.replace("\u201C", '"')
-                         .str.replace("\u201D", '"')
-                         .str.replace("â€™", "'")
-                         .str.replace("â€˜", "'"))
+                         .str.replace("\u2019", "'")   # noqa
+                         .str.replace("\u2018", "'")   # noqa
+                         .str.replace("\u201C", '"')   # noqa
+                         .str.replace("\u201D", '"')   # noqa
+                         .str.replace("â€™", "'")      # noqa
+                         .str.replace("â€˜", "'"))     # noqa
             layer_df.append(df)
 
         # Combine all layers into a single DataFrame
@@ -631,6 +650,95 @@ class LookupManager:
             self.logger.error(f"Error generating bespoke areas lookup: {str(e)}")
             raise
 
+    def generate_strategic_lookup(self):
+        """
+        Generate strategic areas quad lookup.
+
+        Uses sjoin (intersects) for all strategic areas uniformly,
+        allowing quads to map to multiple overlapping strategic areas.
+
+        Returns:
+            pd.DataFrame: Strategic areas quad lookup
+        """
+        try:
+            strategic_areas = self.get_query_context(layers=["Strategic"])
+
+            strategic_areas = strategic_areas.rename(
+                columns={'id': 'strategic_id', 'name': 'strategic_name'})
+            strategic_areas = strategic_areas.assign(
+                x=strategic_areas.geometry.centroid.x,
+                y=strategic_areas.geometry.centroid.y
+            )
+            strategic_areas = strategic_areas.drop(columns=['layer'])
+
+            # Create a copy with centroids for borough assignment
+            strategic_centroids = strategic_areas.copy()
+            strategic_centroids.geometry = strategic_centroids.geometry.centroid
+
+            # Join with boroughs using centroids
+            boroughs = self.layer_data["Boroughs"].rename(
+                columns={'name': 'borough'})
+            strategic_with_borough = gpd.sjoin(
+                strategic_centroids, boroughs, how="inner", op='within')
+
+            # Restore original geometries
+            strategic_with_borough = strategic_with_borough.drop(
+                columns=['geometry'])
+            strategic_with_borough = strategic_with_borough.merge(
+                strategic_areas[['strategic_id', 'geometry']],
+                on='strategic_id'
+            )
+            strategic_with_borough = gpd.GeoDataFrame(
+                strategic_with_borough, geometry='geometry')
+
+            # Ensure CRS matches
+            self.quads = self.quads.to_crs(strategic_with_borough.crs)
+
+            # Remove problematic index columns if they exist
+            for col in ['index_left', 'index_right']:
+                if col in strategic_with_borough.columns:
+                    strategic_with_borough = strategic_with_borough.drop(
+                        columns=[col])
+                if col in self.quads.columns:
+                    self.quads = self.quads.drop(columns=[col])
+
+            # Spatial join
+            strategic_join = gpd.sjoin(
+                self.quads, strategic_with_borough,
+                how="inner", op='intersects')
+
+            # Drop geometry and clean up
+            strategic_lookup = strategic_join.drop(columns=['geometry'])
+            if 'index_right' in strategic_lookup.columns:
+                strategic_lookup = strategic_lookup.drop(
+                    columns=['index_right'])
+
+            strategic_lookup['strategic_id'] = strategic_lookup[
+                'strategic_id'].astype(int)
+            strategic_lookup = strategic_lookup.sort_values('strategic_id')
+
+            # Save to file
+            output_path = (
+                f"{self.base_dir}mastercard/lookups/"
+                f"strategic_quad_lookup.csv"
+            )
+            strategic_lookup.to_csv(output_path, index=False)
+            self.logger.info(
+                f"Saved strategic areas lookup to {output_path}")
+
+            # Write to PostgreSQL
+            self.data_writer.write_quad_lookup_to_postgres(
+                strategic_lookup, "strategic")
+            self.logger.info(
+                "Wrote strategic areas lookup to PostgreSQL")
+
+            return strategic_lookup
+
+        except Exception as e:
+            self.logger.error(
+                f"Error generating strategic areas lookup: {str(e)}")
+            raise
+
     def generate_town_centres_in_caz(self):
         """
         Generate lookup of Town Centres in the CAZ.
@@ -709,6 +817,9 @@ class LookupManager:
             # Generate bespoke areas lookup
             self.generate_bespoke_lookup()
 
+            # Generate strategic areas lookup
+            self.generate_strategic_lookup()
+
             # Add borough information to Highstreets and TownCentres
             highstreet_borough = self.add_borough_lookup("Highstreets", layer_ids)
             self.data_writer.write_quad_lookup_to_postgres(
@@ -727,7 +838,7 @@ class LookupManager:
     def generate_quad_to_all_lookup(self):
         """Generate a unified quad-to-all lookup joining all quad lookup tables.
 
-        Performs LEFT JOINs on quad_id across all 8 area lookup tables so every
+        Performs LEFT JOINs on quad_id across all 9 area lookup tables so every
         quad appears even if it only belongs to one layer. Writes result to PG,
         S3, and returns the DataFrame.
         """
@@ -747,6 +858,8 @@ class LookupManager:
                       ["msoa11cd", "msoa11nm"]),
             "bespoke": ("econ_busyness_mcard_bespoke_quad_lookup",
                         ["bespoke_area_id"]),
+            "strategic": ("econ_busyness_mcard_strategic_quad_lookup",
+                          ["strategic_id", "strategic_name"]),
             "inner_outer": ("econ_busyness_mcard_inner_outer_quad_lookup",
                             ["inner_outer"]),
         }
@@ -798,7 +911,7 @@ class LookupManager:
     def generate_hex_to_all_lookup(self):
         """Generate a unified hex-to-all lookup joining all hex lookup tables.
 
-        Performs LEFT JOINs on hex_id across all 4 hex lookup tables.
+        Performs LEFT JOINs on hex_id across all 5 hex lookup tables.
         Writes result to PG, S3, and returns the DataFrame.
         """
         self.logger.info("Generating hex-to-all master lookup...")
@@ -811,6 +924,8 @@ class LookupManager:
                     ["bid_id", "bid_name"]),
             "bespoke": ("econ_busyness_hex_bespoke_lookup",
                         ["bespoke_area_id", "name"]),
+            "strategic": ("econ_busyness_hex_strategic_lookup",
+                          ["strategic_id", "strategic_name"]),
         }
 
         ambiguous_cols = {"name", "borough", "x", "y"}
@@ -856,3 +971,117 @@ class LookupManager:
                 f"hex-to-all lookup: {len(base_df)} rows -> PG + S3"
             )
         return base_df
+
+    # =========================================================================
+    # LDC VALIDATED ADDRESS LOOKUP
+    # =========================================================================
+
+    def fetch_validated_addresses(self) -> pd.DataFrame:
+        """Fetch validated premises addresses from the external hsds_dev DB.
+
+        Connects to a separate PostgreSQL instance (HSDS_PG_* credentials),
+        reads validated records from
+        hsds_dev.core_premises_geometry_points, deduplicates on
+        premises_id (keeping latest validation_date), and returns a
+        clean DataFrame ready for merging onto the LDC clean output.
+
+        Returns an empty DataFrame (with expected columns) if:
+        - External DB credentials are not configured
+        - The external DB is unreachable
+        - The table is empty or does not exist
+
+        Returns:
+            pd.DataFrame with columns:
+                premises_id, uprn, latitude, longitude, validation_date
+        """
+        empty = pd.DataFrame(
+            columns=["premises_id", "uprn", "latitude",
+                     "longitude", "validation_date"]
+        )
+
+        # --- Check credentials ---
+        if not all([
+            config.HSDS_PG_DATABASE,
+            config.HSDS_PG_USER,
+            config.HSDS_PG_PASSWORD,
+            config.HSDS_PG_HOST,
+        ]):
+            self.logger.warning(
+                "External DB credentials not configured — "
+                "validated address lookup skipped"
+            )
+            return empty
+
+        # --- Create engine with connection timeout ---
+        ext_engine = create_engine(
+            f"postgresql+psycopg2://{config.HSDS_PG_USER}:"
+            f"{config.HSDS_PG_PASSWORD}@{config.HSDS_PG_HOST}:"
+            f"{config.HSDS_PG_PORT}/{config.HSDS_PG_DATABASE}",
+            connect_args={"connect_timeout": 10},
+        )
+
+        qualified_table = (
+            f"{config.HSDS_VALIDATED_SCHEMA}."
+            f"{config.HSDS_VALIDATED_TABLE}"
+        )
+
+        try:
+            query = text(
+                f"SELECT premises_id, uprn, latitude, longitude, "
+                f"       validation_date "
+                f"FROM {qualified_table} "
+                f"WHERE validation_status = 'validated'"
+            )
+            with ext_engine.connect() as conn:
+                validated_df = pd.read_sql(query, conn)
+
+        except Exception as exc:
+            self.logger.warning(
+                f"Could not read validated addresses from "
+                f"{qualified_table} — returning empty. Error: {exc}"
+            )
+            return empty
+        finally:
+            ext_engine.dispose()
+
+        if validated_df.empty:
+            self.logger.info(
+                "No validated address records found in "
+                f"{qualified_table}"
+            )
+            return empty
+
+        self.logger.info(
+            f"Loaded {len(validated_df):,} validated address records "
+            f"from {qualified_table}"
+        )
+
+        # --- Dedup: keep latest validation per premises_id ---
+        if validated_df["premises_id"].duplicated().any():
+            dup_count = validated_df["premises_id"].duplicated().sum()
+            self.logger.info(
+                f"Deduplicating {dup_count:,} duplicate premises_id "
+                f"entries — keeping latest validation_date"
+            )
+            validated_df = (
+                validated_df
+                .sort_values("validation_date", ascending=False)
+                .drop_duplicates(subset="premises_id", keep="first")
+            )
+            self.logger.info(
+                f"After dedup: {len(validated_df):,} unique premises"
+            )
+
+        # --- Log validation date range for audit ---
+        vd = validated_df["validation_date"].dropna()
+        if len(vd) > 0:
+            self.logger.info(
+                f"Validation date range: {vd.min()} to {vd.max()}"
+            )
+
+        # --- Type alignment ---
+        validated_df["premises_id"] = pd.to_numeric(
+            validated_df["premises_id"], errors="coerce"
+        )
+
+        return validated_df

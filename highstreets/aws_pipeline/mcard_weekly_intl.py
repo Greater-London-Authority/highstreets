@@ -100,6 +100,14 @@ def main():
     bespoke_weekly.to_csv(f"{base_dir}mastercard/weekly/processed/international/"
                           f"mcard_weekly_bespoke_international_txn.csv", index=False)
 
+    # Load the strategic query and save to csv
+    query = sql_manager.get_query('strategic_intl_query.sql')
+    strategic_weekly = pd.read_sql_query(query, conn)
+    strategic_weekly['week_start'] = pd.to_datetime(strategic_weekly['week_start'],
+                                                    errors='coerce')
+    strategic_weekly.to_csv(f"{base_dir}mastercard/weekly/processed/international/"
+                            f"mcard_weekly_strategic_international_txn.csv", index=False)
+
     # Load the caz query and save to csv
     query = sql_manager.get_query('caz_intl_query.sql')
     caz_weekly = pd.read_sql_query(query, conn)
@@ -114,7 +122,7 @@ def main():
     cpi_table = cpi_table[cpi_table['Aggregate'] == 'Overall Index']
     cpi_table.rename(columns={'Aggregate': 'aggregate'}, inplace=True)
 
-    for area in ['bespoke', 'bid', 'caz', 'highstreet', 'msoa', 'towncentre']:
+    for area in ['bespoke', 'bid', 'caz', 'highstreet', 'msoa', 'strategic', 'towncentre']:
         df = pd.read_csv(f"{folder}mcard_weekly_{area}_international_txn.csv")
         df['week_start'] = pd.to_datetime(df['week_start'])
         df_adj = adjust(df, cpi_table)
@@ -161,6 +169,16 @@ def main():
         file_path=(
             f"{base_dir}mastercard/weekly/processed/international/"
             "mcard_weekly_bespoke_international_txn_adj.csv"
+        ),
+    )
+
+    data_writer.upload_data_to_lds(
+        slug="mastercard-retail-location-insights-international-spend",
+        custom_date_column="week_start",
+        resource_title="mcard_weekly_strategic_international_txn_adj.csv",
+        file_path=(
+            f"{base_dir}mastercard/weekly/processed/international/"
+            "mcard_weekly_strategic_international_txn_adj.csv"
         ),
     )
 
