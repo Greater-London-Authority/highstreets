@@ -29,7 +29,7 @@ S3_BASE = f"{config.BASE_DIR}bt/raw/catchment"
 
 POI_TYPES = [
     "towncentres", "bids", "highstreets", "major parks",
-    "borough", "custom", "gla boundary",
+    "borough", "strategic", "gla boundary",
 ]
 
 DATASETS = ["visitor", "worker"]
