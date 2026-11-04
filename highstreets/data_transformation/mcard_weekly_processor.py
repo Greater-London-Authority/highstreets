@@ -416,6 +416,18 @@ class FileProcessor:
             most_recent_file = f"s3://{most_recent_file}"
 
         new_sp = pd.read_csv(most_recent_file)
+
+        # Validate currency — reject non-GBP files (e.g. EUR sent by mistake)
+        if "Currency" in new_sp.columns:
+            bad_currencies = new_sp["Currency"].unique()
+            bad_currencies = [c for c in bad_currencies if "GBP" not in str(c)]
+            if bad_currencies:
+                raise ValueError(
+                    f"SpendingPulse file {most_recent_file} contains "
+                    f"non-GBP currency: {bad_currencies}. "
+                    f"Expected GBP. Aborting to prevent bad data ingestion."
+                )
+
         new_sp["startDate"] = pd.to_datetime(new_sp["startDate"], dayfirst=True)
         # new_sp['startDate'] = pd.to_datetime(new_sp['startDate'],format='%m/%d/%Y')
         # sometimes this column is in a different format
