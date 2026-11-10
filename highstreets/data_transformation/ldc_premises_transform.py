@@ -283,15 +283,20 @@ class LdcPremisesTransform:
         self, biz_main: pd.DataFrame
     ) -> pd.DataFrame:
         """
-        Merges neighbouring duplicate tenants by tenant_id.
+        Merges neighbouring duplicate tenants.
 
-        If the same tenant_id appears in consecutive time slots at a
+        If the same tenant appears in consecutive time slots at a
         premises (e.g., contract renewals), merge into one record with
         earliest date_create and latest date_close (including NaT).
 
-        Uses tenant_id rather than tenant name to avoid merging
-        genuinely different businesses that happen to share a name
-        (e.g., a pub and hotel both called "The Whitmore Tap").
+        Uses a composite merge key:
+        - Non-vacant records: matched by tenant_id to avoid merging
+          genuinely different businesses that share a name
+          (e.g., a pub and hotel both called "The Whitmore Tap").
+        - Vacant records: matched by tenant name so that real LDC
+          vacancies (with proper tenant_ids) and gap-fill vacancies
+          (tenant_id=0) consolidate correctly, without destroying
+          the original LDC tenant_ids.
         """
         biz_main = biz_main.sort_values(
             by=[
@@ -303,16 +308,24 @@ class LdcPremisesTransform:
             na_position='first'
         ).reset_index(drop=True)
 
-        biz_main['prev_tid'] = biz_main.groupby(
-            ['premises_id']
-        )['tenant_id'].shift(-1)
+        # Build merge key: use tenant name for vacancies, tenant_id
+        # for everything else
+        biz_main['_merge_key'] = np.where(
+            biz_main['tenant'] == 'Vacant Property',
+            biz_main['tenant'],
+            biz_main['tenant_id'].astype(str),
+        )
 
-        biz_main['next_tid'] = biz_main.groupby(
+        biz_main['_prev_mk'] = biz_main.groupby(
             ['premises_id']
-        )['tenant_id'].shift(1)
+        )['_merge_key'].shift(-1)
+
+        biz_main['_next_mk'] = biz_main.groupby(
+            ['premises_id']
+        )['_merge_key'].shift(1)
 
         biz_main['date_create'] = np.where(
-            biz_main['tenant_id'] == biz_main['prev_tid'],
+            biz_main['_merge_key'] == biz_main['_prev_mk'],
             biz_main[
                 ['prev_date_create', 'date_create']
             ].min(axis=1),
@@ -320,7 +333,7 @@ class LdcPremisesTransform:
         )
 
         biz_main['date_close'] = np.where(
-            biz_main['tenant_id'] == biz_main['prev_tid'],
+            biz_main['_merge_key'] == biz_main['_prev_mk'],
             biz_main[
                 ['prev_date_close', 'date_close']
             ].max(axis=1, skipna=False),
@@ -328,8 +341,12 @@ class LdcPremisesTransform:
         )
 
         biz_main = biz_main[
-            biz_main['next_tid'] != biz_main['tenant_id']
+            biz_main['_next_mk'] != biz_main['_merge_key']
         ]
+
+        biz_main = biz_main.drop(
+            columns=['_merge_key', '_prev_mk', '_next_mk']
+        )
 
         return biz_main
 
@@ -479,13 +496,6 @@ class LdcPremisesTransform:
             biz_main['next_date_create'],
             biz_main['date_close']
         )
-
-        # Normalise Vacant Property tenant_ids so that real LDC Vacant
-        # records (with proper tenant_ids) and gap-fill Vacant records
-        # (tenant_id=0) consolidate during the merge below.
-        biz_main.loc[
-            biz_main['tenant'] == 'Vacant Property', 'tenant_id'
-        ] = 0
 
         # Merge duplicates again to catch duplicates after new gaps are added
         biz_main = self.merge_neighbouring_duplicate_tenants(biz_main)

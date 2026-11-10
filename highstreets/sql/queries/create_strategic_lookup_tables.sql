@@ -1,6 +1,5 @@
 -- ============================================================================
 -- Strategic Boundaries Lookup Tables
--- Run this once to create the empty tables before the pipeline populates them.
 -- ============================================================================
 
 -- Hex → Strategic lookup (BT pipeline)

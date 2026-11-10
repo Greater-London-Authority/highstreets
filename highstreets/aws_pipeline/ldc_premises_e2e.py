@@ -2,16 +2,19 @@
 LDC Premises ETL End-to-End Pipeline.
 
 This script orchestrates the complete monthly LDC premises data pipeline:
-1.  Fetch data from Snowflake
-2.  Validate source schema (Suite 1 - STOP on fail)
-3.  Archive full raw snapshot to S3 Parquet
-4.  Select working columns, compute row hashes, upsert to PostgreSQL raw
-5.  Validate raw data quality (Suite 2 - WARN on fail)
-6.  Read accumulated raw from PostgreSQL, transform
-7.  Validate business logic (Suite 3 - WARN on fail)
-8.  Validate clean output (Suite 4 - STOP on fail)
-9.  Load to PostgreSQL clean table (truncate + reload)
-10. Archive clean data to S3 Parquet
+1.   Fetch data from Snowflake
+2.   Validate source schema (Suite 1 - STOP on fail)
+3.   Archive full raw snapshot to S3 Parquet
+4.   Select working columns, compute row hashes, upsert to PostgreSQL raw
+5.   Upsert to PostgreSQL raw table
+6.   Validate raw data quality (Suite 2 - WARN on fail)
+7.   Load accumulated raw from PostgreSQL
+8.   Transform data
+8.5. Apply validated addresses from external DB (hsds_dev)
+9.   Validate business logic (Suite 3 - WARN on fail)
+10.  Validate clean output (Suite 4 - STOP on fail)
+11.  Load to PostgreSQL clean table (truncate + reload)
+12.  Archive clean data to S3 Parquet
 
 Usage:
     python -m highstreets.aws_pipeline.ldc_premises_e2e
@@ -21,6 +24,7 @@ Usage:
 from highstreets import config
 from highstreets.data_source_sink.snowflake_loader import SnowflakeLoader
 from highstreets.data_source_sink.datawriter import DataWriter
+from highstreets.data_source_sink.lookup_manager import LookupManager
 from highstreets.data_transformation.ldc_premises_transform import LdcPremisesTransform
 from highstreets.great_expectations.ldc_premises_validation import LdcPremisesValidator
 
@@ -69,6 +73,7 @@ class LdcPremisesETL:
 
         self.snowflake_loader = None
         self.data_writer = DataWriter()
+        self.lookup_manager = LookupManager()
         self.transformer = LdcPremisesTransform()
         self.validator = LdcPremisesValidator(log_to_cloudwatch=True)
 
@@ -95,6 +100,155 @@ class LdcPremisesETL:
             f"postgresql+psycopg2://{username}:{password}@"
             f"{host}:{port}/{database}"
         )
+
+    def apply_validated_addresses(
+        self,
+        df: pd.DataFrame,
+        validated_df: pd.DataFrame,
+    ) -> dict:
+        """Merge validated address data onto the clean DataFrame.
+
+        Overwrites uprn_id, latitude, and longitude for premises that
+        have a matching validated record.  The heavy lifting (external
+        DB connection, dedup, type coercion) is done upstream by
+        LookupManager.fetch_validated_addresses().
+
+        Args:
+            df: Clean premises DataFrame (output of Step 8 transform).
+            validated_df: Validated addresses from LookupManager.
+
+        Returns:
+            dict with 'df' (DataFrame) and 'overlay_stats' (dict).
+        """
+        no_change = {
+            'df': df,
+            'overlay_stats': {
+                'status': 'skipped',
+                'validated_loaded': 0,
+                'rows_updated': 0,
+                'rows_original': len(df),
+                'unique_premises_updated': 0,
+            },
+        }
+
+        if validated_df.empty:
+            return no_change
+
+        raw_count = len(validated_df)
+        merge_key = "premises_id"
+        pre_merge_count = len(df)
+
+        # --- Pre-merge quality check on lookup data ---
+        qc_issues = []
+        if validated_df["latitude"].isna().any():
+            qc_issues.append(
+                f"{validated_df['latitude'].isna().sum()} null latitudes"
+            )
+        if validated_df["longitude"].isna().any():
+            qc_issues.append(
+                f"{validated_df['longitude'].isna().sum()} null longitudes"
+            )
+        lat_oob = validated_df["latitude"].dropna().between(49.9, 60.9)
+        if (~lat_oob).any():
+            qc_issues.append(
+                f"{(~lat_oob).sum()} latitudes outside UK bounds"
+            )
+        lon_oob = validated_df["longitude"].dropna().between(-8.2, 1.8)
+        if (~lon_oob).any():
+            qc_issues.append(
+                f"{(~lon_oob).sum()} longitudes outside UK bounds"
+            )
+        if qc_issues:
+            logger.warning(
+                f"Validated address quality issues: "
+                f"{'; '.join(qc_issues)}"
+            )
+
+        # Ensure merge key types align
+        df[merge_key] = pd.to_numeric(df[merge_key], errors="coerce")
+
+        # Tag validated rows and rename to avoid column collisions
+        validated_df = validated_df.copy()
+        validated_df["_is_validated"] = True
+        validated_df = validated_df.rename(columns={
+            "uprn": "val_uprn",
+            "latitude": "val_latitude",
+            "longitude": "val_longitude",
+        })
+
+        merged = df.merge(
+            validated_df[
+                [merge_key, "val_uprn", "val_latitude",
+                 "val_longitude", "_is_validated"]
+            ],
+            on=merge_key,
+            how="left",
+        )
+
+        if len(merged) != pre_merge_count:
+            logger.error(
+                f"Row count changed after validated-address merge: "
+                f"{pre_merge_count:,} → {len(merged):,}. "
+                f"Falling back to original data."
+            )
+            no_change['overlay_stats']['status'] = 'merge_error'
+            return no_change
+
+        has_validated = merged["_is_validated"].fillna(False).astype(bool)
+        updated_count = int(has_validated.sum())
+        unique_premises_updated = (
+            merged.loc[has_validated, merge_key].nunique()
+        )
+
+        # Match-rate sanity check
+        unique_in_df = df[merge_key].nunique()
+        if unique_in_df > 0 and raw_count > 0:
+            match_rate = unique_premises_updated / raw_count * 100
+            logger.info(
+                f"Validated address match rate: "
+                f"{unique_premises_updated:,}/{raw_count:,} "
+                f"({match_rate:.1f}%)"
+            )
+            if match_rate < 5:
+                logger.warning(
+                    f"Low match rate ({match_rate:.1f}%) — "
+                    f"check premises_id alignment between "
+                    f"clean data and lookup table"
+                )
+
+        if updated_count > 0:
+            for src, dst in [
+                ("val_uprn", "uprn_id"),
+                ("val_latitude", "latitude"),
+                ("val_longitude", "longitude"),
+            ]:
+                merged.loc[has_validated, dst] = (
+                    merged.loc[has_validated, src]
+                )
+
+        merged = merged.drop(
+            columns=["val_uprn", "val_latitude", "val_longitude",
+                     "_is_validated"]
+        )
+
+        original_count = pre_merge_count - updated_count
+        logger.info(
+            f"Validated address overlay: "
+            f"{unique_premises_updated:,} unique premises "
+            f"({updated_count:,} tenancy rows) updated, "
+            f"{original_count:,} rows kept original LDC values"
+        )
+
+        return {
+            'df': merged,
+            'overlay_stats': {
+                'status': 'applied',
+                'validated_loaded': raw_count,
+                'unique_premises_updated': unique_premises_updated,
+                'rows_updated': updated_count,
+                'rows_original': original_count,
+            },
+        }
 
     HASH_EXCLUDE_COLS = [
         'row_hash', 'ingested_at',
@@ -402,6 +556,65 @@ class LdcPremisesETL:
                 f"Transformed: {len(accumulated_raw):,} -> "
                 f"{len(clean_df):,} rows"
             )
+
+            # ==============================================================
+            # STEP 8.5: Apply validated addresses from external DB
+            # ==============================================================
+            logger.info("=" * 60)
+            logger.info(
+                "STEP 8.5: Applying validated addresses from external DB"
+            )
+            logger.info("=" * 60)
+
+            if not self.dry_run:
+                validated_df = (
+                    self.lookup_manager.fetch_validated_addresses()
+                )
+            else:
+                logger.info("Dry run: skipping external DB fetch")
+                validated_df = pd.DataFrame()
+
+            result = self.apply_validated_addresses(clean_df, validated_df)
+            clean_df = result['df']
+
+            stats['steps']['validated_addresses'] = result['overlay_stats']
+
+            # Include overlay summary in validations for the HTML report
+            ov = result['overlay_stats']
+            ov_passed = ov['status'] != 'merge_error'
+
+            stats['validations']['validated_addresses'] = {
+                'passed': ov_passed,
+                'failure_mode': 'WARN',
+                'row_count': ov.get('validated_loaded', 0),
+                'expectations_passed': 1 if ov_passed else 0,
+                'expectations_total': 1,
+                'expectation_results': [{
+                    'expectation_type': 'validated_address_overlay',
+                    'success': ov_passed,
+                    'kwargs': {},
+                    'result': {
+                        'observed_value': (
+                            f"status={ov['status']}, "
+                            f"{ov.get('unique_premises_updated', 0):,} "
+                            f"premises updated, "
+                            f"{ov.get('rows_original', 0):,} kept original"
+                        ),
+                    },
+                }],
+                'failures': (
+                    [f"Validated address merge failed: "
+                     f"{ov.get('status')}"]
+                    if not ov_passed else []
+                ),
+                'warnings': (
+                    ["Lookup quality issues detected: "
+                     "check pipeline logs"]
+                    if ov.get('status') == 'applied'
+                    and ov.get('unique_premises_updated', 0) == 0
+                    else []
+                ),
+            }
 
             # ==============================================================
             # STEP 9: Validate business logic (WARN on fail)
